@@ -48,6 +48,22 @@
   - `PATCH /api/me` 允许用户改自己的邮箱（03 §6 只列了显示名与密码）。本地邮箱不经验证，所以 M5 的"按已验证邮箱自动关联 OAuth"只能信 IdP 侧的 `email_verified`，且仍默认关闭；M5 派发时要明确这一点。
   - M2 / M3a 分工：内置验证码提取与 `category` 分类在 `mail-parse`（M2，符合 01 §1）；规则组级的 `code_regex` 与 `login_link` 提取在 `rules`（M3a）。两边以 01 §4.1 的 `MailFacts` 对接，具体 TS 结构由主 agent 在两份派发说明里写成同一份，M3b 合并时去重。
 
+## 邮件 HTML 展示的硬性要求（M3a 安全评审给出，M3b 与前端派发时必须照抄）
+
+1. iframe 必须正好是 `sandbox="allow-popups allow-popups-to-escape-sandbox"`，绝不加 `allow-scripts`、`allow-same-origin`、`allow-forms`、`allow-top-navigation*`、`allow-downloads`；`html` 原样放进 `srcDoc`，前后不加任何内容。
+2. 清洗失败（如 lol-html ParserError）时绝不回退到原始 HTML：只返回纯文本或明确错误码并记日志。管理员预览同样走清洗加包装，不输出原始 HTML。
+3. srcdoc 继承父页面的 CSP 与 Referrer-Policy：父页面保持 `Referrer-Policy: no-referrer`；父页面 CSP 需允许 `style-src 'unsafe-inline'`；`remote_images=allow` 时父页面还需 `img-src data: https:`。
+4. 主题、预览、正文、发件人、`public_note` 一律按纯文本显示：不自动链接化，不用 `dangerouslySetInnerHTML`（纯文本里的裸域名与 IPv4 不会被替换，靠这一条保证不可点）。
+5. `login_link` 与 `code` 只有在匹配 `^https?://` 时才渲染成链接，并加 `rel="noopener noreferrer"`。
+
+## 后端待补（前端发现的缺口，排进对应里程碑）
+
+- 用户列表响应缺总数，`DESIGN.md` 要求页头显示"共 N 个"（M7 或 UI 收尾时补）。
+- 缺"注销我的其他会话"批量接口，账号页目前逐个调用 `DELETE /api/me/sessions/:id`（M5 账号安全页时补）。
+- `/api/public/config` 缺 logo 与公告（M6）。
+- 深色用户首屏闪浅色：M6 接外观接口时加 `<meta name="color-scheme">` 与内联预设脚本。
+- 主 chunk 518 kB：页面增多后对 `/admin/*` 做路由懒加载。
+
 ## 需要用户提供（不阻塞开发）
 
 - 一封脱敏后的真实 iCloud HME 转发邮件（`.eml`）：用于确认 Apple 是否改写 `From`、`X-ICLOUD-HME` 的 `s=` 是信封发件人还是头部发件人、展示用哪个。目前实现：展示用 `From`，规则判定时 `From` 与 `s=`（仅 `p=` 等于收件地址时）都算候选。
@@ -63,12 +79,12 @@
 | UI-0 | `DESIGN.md`、设计变量、三个代表页的静态原型（与 M0 并发） | sonnet-5-5#high | 通过 | 见记录 2026-11-20 UI-0 |
 | M1 | 初始化、账号密码登录、会话、用户与角色（后端）；含 M0 遗留修复 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M1 |
 | M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M2 |
-| M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 待验收（拆为规则正确性 opus-5-5#high `ses_e0a547e98ffeaxrCy5OUELggxV` 与清洗/呈现安全 opus-5-5#xhigh `ses_e0a541dd7ffeZxtt2EqBpE0O7F`；worktree `m3a-rule-engine`，分支 `m3a`） | 执行会话 `ses_e0b01926bffe5IzBcKngFJcl0C`；主 agent 复跑 15 文件 581 用例通过 |
+| M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M3a |
 | M3b | 收件地址、规则组、取件链接 API 与公开接口 | sonnet-5-5#high | 待办 | |
 | M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办 | |
 | M5 | TOTP、Passkey、OAuth2/OIDC | opus-5-5#xhigh | 待办 | |
 | M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
-| UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 进行中（worktree `ui1-web-foundation`，分支 `ui1`，基于 `596b947`，端口 8794/5174） | |
+| UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 退回修复（验收"有条件通过"：URL 预览参数非法时整页白屏、出错页重试不重跑守卫、390 宽账号页横向溢出；评审会话 `ses_e0a322769ffejjX5D7r8c35RDF`；worktree `ui1-web-foundation`，分支 `ui1`，基于 `596b947`） | 执行会话 `ses_e0ae70100ffeING7eG5lOYmxZi`；主 agent 连跑 3 次 web 51 + worker 195 全过 |
 | UI-2+ | 其余页面（随后端里程碑推进） | sonnet-5-5#high | 待办 | |
 | M7 | 审计、cron、限流、加固 | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
@@ -108,3 +124,12 @@
 - 运行时证据（端口 8795，临时 D1）：未登录 401、普通用户 403；冷索引 `partial` true→false；gzip 详情与 `?raw=1`；HME `p=` 不一致时 `s=` 不进候选；解析失败与原文丢失有标记；附件 `attachment`/`nosniff`/`octet-stream`/`no-store`；scope 3+16=19 无遗漏；MAIL_DB 缺 `raw` 列时邮件接口与 health 均 503。
 - 对接 M3b：`IndexedItem` 为 `ok | failed | pending` 联合；`rowToFacts` 对非 ok 行抛错；`partial=true` 时调用方不得推进 `after_id`；展示正文用 `display_body`，不要用索引里的单行 `body_text`；`mail_index.sender_address`/`sender_domain`/`link_domains` 为 JSON 数组。
 - 遗留：HME 发件人展示待真实样本；分类与提取词表是启发式，需真实平台邮件迭代；`normalizeText` 不处理 U+034F 等少见不可见字符与西里尔仿冒（二期）；"非预期异常不写索引"缺专门用例；cron 预热留 M7。
+
+### 2026-11-20 M3a 通过
+
+- 执行：opus-5-5#xhigh（`ses_e0b01926bffe5IzBcKngFJcl0C`）。验收拆为规则正确性 opus-5-5#high（`ses_e0a547e98ffeaxrCy5OUELggxV`）与清洗/呈现安全 opus-5-5#xhigh（`ses_e0a541dd7ffeZxtt2EqBpE0O7F`），两者首轮均"有条件通过"；修复后复验 opus-5-5#high（`ses_e0a2cf49effevpXV11wLCtHfzV`）"通过"。
+- 首轮必修：正则静态检查漏"带量词组内重叠分支""固定次数套可变重复"（线上计时不可用时只给警告即可保存，失败开放）；包装层在清洗结果后追加 `</body></html>`，使末尾未写完的 `<img … onerror=…` 变成活标签。另修：重复属性整体删除、属性改白名单、CSS `src()`、片段链接不加 target、strip 处理带端口主机与裸 IPv4、清洗失败抛 `HtmlSanitizeError`、`code_regex` 主题无效时继续试正文。
+- 主 agent 复跑：typecheck/lint 三包 Done；`pnpm test` 15 文件 619 用例通过。
+- 复验证据：13 个危险正则全部被拒、5 个常用验证码正则与 6 个模板通过；HTML 清洗 97 向量 × 4 配置经 parse5 判定真实不安全数 0，另 16 个末尾截断变体全部安全；`select+style` 类输入抛 `HtmlSanitizeError`（失败关闭）。
+- 留给后续（并入 M3b 第一步）：静态检查拒绝同一序列中相邻、字符集重叠的多个无上限量词（`x\w*\w*\w*!` 在 2 KB 上约 1.2 s，立方级）；`title/xmp/noembed/noframes/plaintext` 加入整段删除元素（`stripUnfinishedTail` 不认 RCDATA 上下文，当前包装方式下安全，属纵深防御）。
+- 已知行为变化：`(?:\d{3}-?){2}` 被拒（常见写法 `\d{3}-?\d{3}` 可通过，报错文案有改写提示）。
