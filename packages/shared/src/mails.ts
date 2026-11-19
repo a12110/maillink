@@ -1,18 +1,9 @@
 import { z } from "zod";
 import { LIST_PAGE_SIZE_MAX } from "./limits";
+import { mailCategorySchema } from "./rule-group";
 
 // 管理员"全部邮件"的请求与响应，见 docs/design/04-api.md。
-
-/** 邮件分类，见 02 §3.6 */
-export const MAIL_CATEGORIES = [
-  "email_change",
-  "password_reset",
-  "security_change",
-  "billing",
-  "verification",
-  "other",
-] as const;
-export const mailCategorySchema = z.enum(MAIL_CATEGORIES);
+// 邮件分类枚举 MAIL_CATEGORIES / mailCategorySchema 只在 rule-group.ts 定义一处。
 
 /** 验证码来源：temp_email 的 metadata.ai_extract，或本地内置提取 */
 export const codeSourceSchema = z.enum(["ai_extract", "builtin"]);
