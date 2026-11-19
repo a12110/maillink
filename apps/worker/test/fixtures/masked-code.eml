@@ -1,0 +1,14 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <noreply@login.example.org>
+From: Example <noreply@login.example.org>
+To: plain.user@example.com
+Subject: Your sign-in code
+Date: Fri, 20 Nov 2026 08:45:00 +0000
+Message-ID: <synthetic-masked-0021@login.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Code sent to ****1234. Enter the code: 908172
+
+Synthetic sample: the card-like tail 1234 must not be taken as the code.

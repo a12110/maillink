@@ -103,3 +103,44 @@ export const PASSWORD_SALT_BYTES = 16;
 
 /** 存储格式里的算法标识 */
 export const PASSWORD_HASH_ALGORITHM = "pbkdf2-sha256";
+
+// ---- 邮件解析与索引（M2） ----
+
+/**
+ * 解析器版本。解析逻辑、词表（验证码关键词、分类关键词）任何改动都要递增：
+ * mail_index 里版本不符的行会在下次访问时重建（01 §4.2）。
+ */
+export const PARSER_VERSION = 2;
+
+/** 每封邮件最多保留的链接数，超出的丢弃（正文里的原文仍在 body 中，body 类规则照常命中） */
+export const MAIL_LINKS_MAX_COUNT = 50;
+
+/** 单个链接的字符上限，超出的丢弃 */
+export const MAIL_LINK_MAX_LENGTH = 2048;
+
+/** 验证码长度范围（去掉分隔符之后） */
+export const CODE_MIN_LENGTH = 4;
+export const CODE_MAX_LENGTH = 8;
+
+/** 验证码候选与关键词之间允许的最大间隔（字符数）。更远的数字不算"紧邻" */
+export const CODE_KEYWORD_GAP_MAX = 24;
+
+/** temp_email 的 ai_extract 结果长度上限；超出视为无效，回退到内置提取 */
+export const AI_CODE_MAX_LENGTH = 32;
+
+/** mail_index.parse_error 的长度上限 */
+export const PARSE_ERROR_MAX_LENGTH = 500;
+
+/** postal-mime 的解析保护：MIME 嵌套深度与分块数量（库默认值过大） */
+export const MAIL_PARSE_MAX_NESTING_DEPTH = 32;
+export const MAIL_PARSE_MAX_PART_COUNT = 500;
+
+/** 管理员详情接口返回正文的字节上限（索引里的 32 KB 副本只用于规则判定） */
+export const ADMIN_DETAIL_BODY_CAP_BYTES = 262_144;
+
+/**
+ * "已导入地址 / 未知地址"范围一次最多传给 MAIL_DB 的地址数。
+ * 地址以 JSON 数组（每个地址两种大小写形式）作为单个绑定参数传入，受 D1 单个字符串 2 MB 上限约束；
+ * 1 万个地址约 0.8 MB，留足余量。超出时明确报错，不静默截断。
+ */
+export const IMPORTED_SCOPE_MAX_ADDRESSES = 10_000;

@@ -1,0 +1,18 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <orders@store.example.org>
+From: Example Store <orders@store.example.org>
+To: plain.user@example.com
+Subject: Delivery notice
+Date: Fri, 20 Nov 2026 08:30:00 +0000
+Message-ID: <synthetic-distract-0013@store.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Hello,
+
+Order 20261120 shipped on 2026-11-20. Total: $1,234.56 (promo code SAVE2026 applied).
+Call us at 555-123-4567 or +1 555 123 4567.
+For verification of your delivery in 2026, track parcel 48291037 online.
+
+(c) 2026 Example Store
