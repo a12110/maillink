@@ -1,0 +1,86 @@
+/*
+ * 把 tokens.css 的语义变量映射成 Tailwind 工具类。
+ * inline：工具类直接展开成 var(--语义变量)，因此运行时改 data-theme / 强调色立即生效。
+ * reference：只生成工具类，不再往 :root 写 `--color-bg: var(--color-bg)` 这种自引用声明（那会让变量失效）。
+ * 同名映射的约定是「工具类名 = 令牌名去掉命名空间前缀」，如 bg-surface、text-text-muted、border-border-control。
+ */
+@theme inline reference {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-sunken: var(--color-surface-sunken);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-sidebar: var(--color-sidebar);
+  --color-row-alt: var(--color-row-alt);
+  --color-row-hover: var(--color-row-hover);
+  --color-row-selected: var(--color-row-selected);
+  --color-overlay: var(--color-overlay);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-subtle: var(--color-text-subtle);
+  --color-border: var(--color-border);
+  --color-border-control: var(--color-border-control);
+  --color-focus: var(--color-focus);
+  --color-accent: var(--color-accent);
+  --color-accent-fg: var(--color-accent-fg);
+  --color-accent-text: var(--color-accent-text);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-active: var(--color-accent-active);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-selected: var(--color-selected);
+  --color-selected-fg: var(--color-selected-fg);
+  --color-danger: var(--color-danger);
+  --color-danger-fg: var(--color-danger-fg);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-success: var(--color-success);
+  --color-success-text: var(--color-success-text);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-soft);
+  --color-neutral-dot: var(--color-neutral-dot);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-weight-regular: var(--weight-regular);
+  --font-weight-strong: var(--weight-strong);
+
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-base: var(--text-base);
+  --text-md: var(--text-md);
+  --text-lg: var(--text-lg);
+  --text-xl: var(--text-xl);
+  --text-2xl: var(--text-2xl);
+  --text-code-sm: var(--text-code-sm);
+  --text-code: var(--text-code);
+
+  --leading-tight: var(--leading-tight);
+  --leading-snug: var(--leading-snug);
+  --leading-normal: var(--leading-normal);
+  --leading-relaxed: var(--leading-relaxed);
+  --tracking-code: var(--tracking-code);
+
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-8: var(--space-8);
+  --spacing-10: var(--space-10);
+  --spacing-12: var(--space-12);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+
+  --shadow-popover: var(--shadow-popover);
+  --shadow-dialog: var(--shadow-dialog);
+  --ease-standard: var(--ease-standard);
+}
+
+/* 断点：只有「窄屏 / 桌面」一道线，与 DESIGN.md 的侧栏折叠规则一致（JS 镜像：DESKTOP_MIN_WIDTH_PX） */
+@theme {
+  --breakpoint-sm: 640px;
+  --breakpoint-lg: 1024px;
+}

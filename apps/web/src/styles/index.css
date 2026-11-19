@@ -1,0 +1,15 @@
+/*
+ * 样式入口。层级：theme → base → components → utilities。
+ * 不引入 Tailwind 默认主题（没有 red-500 这类原始色盘），工具类只能取自 theme.css 映射的语义令牌。
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@import "./tokens.css";
+@import "./layout.css";
+@import "./theme.css";
+@import "./base.css";
+@import "./components.css";
+@import "./overlays.css";
+@import "./shell.css";

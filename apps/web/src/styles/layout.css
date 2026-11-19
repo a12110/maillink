@@ -1,0 +1,28 @@
+/*
+ * tokens.css 之外的尺寸变量（令牌文件只读，这里补 UI-1 需要的尺寸）。
+ * 取值是 DESIGN.md「密度」「组件语法」里写明的数；响应式断点的 JS 侧镜像在 src/constants.ts。
+ */
+:root {
+  --control-height-sm: 28px;         /* 小号按钮、表内操作 */
+  --tag-height: 20px;
+  --icon-size: 16px;
+  --icon-size-lg: 20px;
+  --icon-circle: 40px;               /* 空状态图标圈 */
+  --status-dot-size: 8px;
+  --nav-item-height: 32px;
+  --nav-marker-width: 3px;
+  --avatar-size: 28px;
+  --brand-mark-size: 24px;
+  --sidepanel-width: 400px;
+  --dialog-max-width: 520px;
+  --auth-max-width: 400px;
+  --content-max-width: 960px;        /* 账号页等表单 + 表格混排页面的宽度上限；表单本身再限到 400px */
+  --table-foot-height: 44px;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --viewport-gutter: 32px;           /* 对话框与视口边缘的最小间隔 */
+  --toast-bottom: var(--space-6);
+  --skeleton-height: 12px;
+  --segmented-height: 26px;
+  --page-pad-x-narrow: var(--space-4);
+}

@@ -1,10 +1,11 @@
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  globalIgnores(["**/node_modules/**", "**/dist/**", "**/.wrangler/**", "**/coverage/**", "**/worker-configuration.d.ts"]),
+  globalIgnores(["design/**", "**/node_modules/**", "**/dist/**", "**/.wrangler/**", "**/coverage/**", "**/worker-configuration.d.ts"]),
   js.configs.recommended,
   tseslint.configs.recommended,
   {
@@ -29,6 +30,11 @@ export default defineConfig([
   {
     files: ["apps/web/**/*.{ts,tsx}"],
     languageOptions: { globals: globals.browser },
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+    },
   },
   {
     // 测试里的 describe 回调天然很长，不套函数行数上限
