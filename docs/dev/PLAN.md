@@ -80,11 +80,12 @@
 | M1 | 初始化、账号密码登录、会话、用户与角色（后端）；含 M0 遗留修复 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M1 |
 | M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M2 |
 | M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M3a |
-| M3b | 收件地址、规则组、取件链接 API 与公开接口 | sonnet-5-5#high | 待办 | |
-| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办 | |
-| M5 | TOTP、Passkey、OAuth2/OIDC | opus-5-5#xhigh | 待办 | |
+| M3b-1 | 取件流水线（access）、收件地址 API、规则组 API（含测试器与草稿）、setup 写模板、管理员邮件 HTML、M3a 遗留加固 | opus-5-5#high（集成核心，按复杂任务升级） | 进行中（worktree `m3b1-pipeline-mailboxes`，分支 `m3b1`，基于 `5b33f97`，端口 8797，迁移号 0004） | 执行会话 `ses_e0a269005ffeXXMzyWYgGFPNQw` |
+| M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 待办（等 M3b-1 合并；迁移号 0006） | |
+| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办（等 M3b-1 合并，可与 M3b-2 并发；迁移号 0007） | |
+| M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 进行中（worktree `m5-mfa-passkey-oauth`，分支 `m5`，基于 `5b33f97`，端口 8798，迁移号 0005；与 M3 无关，并发） | 执行会话 `ses_e0a26007fffe162XUPKIsWf9PB` |
 | M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
-| UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 退回修复（验收"有条件通过"：URL 预览参数非法时整页白屏、出错页重试不重跑守卫、390 宽账号页横向溢出；评审会话 `ses_e0a322769ffejjX5D7r8c35RDF`；worktree `ui1-web-foundation`，分支 `ui1`，基于 `596b947`） | 执行会话 `ses_e0ae70100ffeING7eG5lOYmxZi`；主 agent 连跑 3 次 web 51 + worker 195 全过 |
+| UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2+ | 其余页面（随后端里程碑推进） | sonnet-5-5#high | 待办 | |
 | M7 | 审计、cron、限流、加固 | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
@@ -133,3 +134,12 @@
 - 复验证据：13 个危险正则全部被拒、5 个常用验证码正则与 6 个模板通过；HTML 清洗 97 向量 × 4 配置经 parse5 判定真实不安全数 0，另 16 个末尾截断变体全部安全；`select+style` 类输入抛 `HtmlSanitizeError`（失败关闭）。
 - 留给后续（并入 M3b 第一步）：静态检查拒绝同一序列中相邻、字符集重叠的多个无上限量词（`x\w*\w*\w*!` 在 2 KB 上约 1.2 s，立方级）；`title/xmp/noembed/noframes/plaintext` 加入整段删除元素（`stripUnfinishedTail` 不认 RCDATA 上下文，当前包装方式下安全，属纵深防御）。
 - 已知行为变化：`(?:\d{3}-?){2}` 被拒（常见写法 `\d{3}-?\d{3}` 可通过，报错文案有改写提示）。
+
+### 2026-11-20 UI-1 通过
+
+- 执行：sonnet-5-5#high（`ses_e0ae70100ffeING7eG5lOYmxZi`，中途一次上游超时后续跑）；验收：opus-5-5#high（`ses_e0a322769ffejjX5D7r8c35RDF`），首轮"有条件通过"，修复后复验"通过"。
+- 首轮必修：URL 主题预览参数非法时 `startTheme()` 在挂载前抛错致整页白屏；出错页"重试"只 `reset()` 不重跑 `beforeLoad`；390 宽 `/account` 文档宽 674px。另修：ESLint 插件移到根 devDependencies 去掉 `createRequire`；批量注销会话 `onSettled` 刷新；窄屏侧板焦点管理；用户名截断加 `title`；补 401 跳转与重试恢复两条路由测试。
+- 主 agent 复跑：typecheck/lint 三包 Done；`pnpm test` web 9 文件 59 用例 + worker 16 文件 195 用例通过（执行者干净安装后连跑 3 次全过）；web build 成功。截图确认 `?theme=sepia` 顶部提示且页面照常渲染、390 宽账号页无溢出。
+- 复验实测（headless Chrome + CDP）：`theme`/`accent`/`radius` 非法值均显示提示不白屏；首次 `/api/setup/status` 失败后点重试会再发请求并恢复；390×844 `/account` 文档宽 390；窄屏侧板焦点进入、Esc 关闭并回到原行。
+- 保留 happy-dom：vitest 下无 `document` 时 TanStack Router 判定为服务端模式，导航行为不同；强制客户端又会访问 `window`。
+- 遗留：深色首屏闪浅色（M6）；主 chunk 518 kB（路由懒加载）；用户列表无总数（后端待补）。
