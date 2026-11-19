@@ -40,6 +40,12 @@
   - 不引入 drizzle。APP_DB 用手写的参数化 SQL，集中在 `apps/worker/src/db/`，行类型用 TS 类型或 zod 定义（01 §1 原写 drizzle）。理由：迁移 SQL 必须与 01 §5 逐字一致，drizzle 生成迁移反而要两边对齐；查询量不大。
   - 测试包用 `@cloudflare/vitest-plugin`（`@cloudflare/vitest-pool-workers` 已改名）。
   - 健康检查在 MAIL_DB 不健康时返回 503。
+  - 取件页状态（02 §6 与 05 §3 冲突，主 agent 裁定）：总次数用尽、撤销、暂停、过期统一显示"已失效"；每日上限用尽单独提示大约何时恢复（窗口内最早一次取码 + 24 小时）；设备数已满单独提示并展示链接的 `public_note`。
+  - Turnstile 是取件页"不加载第三方资源"的唯一例外：只在链接开启人机验证时、只在"开始取码"这一步按需加载。
+  - 设计令牌唯一来源为 `apps/web/src/styles/tokens.css`；原型与校验脚本放 `design/`，随仓库提交。
+  - 初始化时不把默认设置写入 `settings` 表，读取时库里没有的键取代码里集中定义的默认值（03 §2 原写"写入默认设置"；效果相同，避免默认值存两处）。
+  - `PATCH /api/me` 允许用户改自己的邮箱（03 §6 只列了显示名与密码）。本地邮箱不经验证，所以 M5 的"按已验证邮箱自动关联 OAuth"只能信 IdP 侧的 `email_verified`，且仍默认关闭；M5 派发时要明确这一点。
+  - M2 / M3a 分工：内置验证码提取与 `category` 分类在 `mail-parse`（M2，符合 01 §1）；规则组级的 `code_regex` 与 `login_link` 提取在 `rules`（M3a）。两边以 01 §4.1 的 `MailFacts` 对接，具体 TS 结构由主 agent 在两份派发说明里写成同一份，M3b 合并时去重。
 
 ## 里程碑
 
@@ -48,10 +54,10 @@
 | 阶段 | 内容 | 执行模型 | 状态 | 证据 |
 | --- | --- | --- | --- | --- |
 | M0 | 脚手架、两个 D1、迁移、健康检查、本地种子 | sonnet-5-5 | 通过 | 见记录 2026-11-20 M0 |
-| UI-0 | `DESIGN.md`、设计变量、三个代表页的静态原型（与 M0 并发） | sonnet-5-5#high | 进行中 | |
-| M1 | 初始化、账号密码登录、会话、用户与角色 | sonnet-5-5#high | 待办 | |
-| M2 | mail-source / 解析 / mail_index、管理员全部邮件 | sonnet-5-5#high | 待办 | |
-| M3a | 规则引擎（schema、求值、trace、分类、提取、呈现） | opus-5-5#xhigh | 待办 | |
+| UI-0 | `DESIGN.md`、设计变量、三个代表页的静态原型（与 M0 并发） | sonnet-5-5#high | 退回修复（验收"有条件通过"，5 项必修） | 验收会话 `ses_e0b06d389ffeMo1DY6jpMZol9L` |
+| M1 | 初始化、账号密码登录、会话、用户与角色（后端）；含 M0 遗留修复 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M1 |
+| M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 待办（等 M1 合并后从 main 开） | |
+| M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 进行中（worktree `m3a-rule-engine`，分支 `m3a`，与 M1/M2 并发） | |
 | M3b | 收件地址、规则组、取件链接 API 与公开接口 | sonnet-5-5#high | 待办 | |
 | M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办 | |
 | M5 | TOTP、Passkey、OAuth2/OIDC | opus-5-5#xhigh | 待办 | |
@@ -67,4 +73,13 @@
 - 执行：sonnet-5-5（`ses_e0b2538f6ffe1AWRyxiru91xM9`）；验收：opus-5-5#high（`ses_e0b1b91f3ffeB5rXHACg7v7bHS`），结论"通过"，无阻塞项。
 - 主 agent 复跑：`pnpm install` up to date；typecheck、lint 三个包 Done；`pnpm test` 5 文件 49 用例通过；web build 成功。
 - 验收方复跑：8790 端口 `wrangler dev`，健康检查 200、`healthy:true`、`db_version v0.0.11`；未灌种子时 503 且列出 `missing_required`；`0001_init.sql` 与 01 §5 逐字一致。
-- 遗留改进（并入 M1 处理）：只读守卫漏掉 `REPLACE INTO` / `PRAGMA x=` / `VACUUM` 且误报 `cache.delete`，去注释函数未单测；探测抛异常时未清缓存；`ZodError` 全局映射为 400；健康检查异常未打日志；`.gitignore` 补 `.env*`；ESLint 缺 `complexity: 10`；`engines` 应为 `>=22.18`；种子缺带 `metadata.ai_extract` 的样本（M2 处理）。
+- 遗留改进（已在 M1 处理，种子样本留给 M2）：只读守卫漏掉 `REPLACE INTO` / `PRAGMA x=` / `VACUUM` 且误报 `cache.delete`，去注释函数未单测；探测抛异常时未清缓存；`ZodError` 全局映射为 400；健康检查异常未打日志；`.gitignore` 补 `.env*`；ESLint 缺 `complexity: 10`；`engines` 应为 `>=22.18`；种子缺带 `metadata.ai_extract` 的样本（M2 处理）。
+
+### 2026-11-20 M1 通过
+
+- 执行：sonnet-5-5#high（`ses_e0b143fc2ffeYi6yHElI5ybtb2`）；验收：opus-5-5#high（`ses_e0b03906cffepZy5Ut5ujiAE6p`），结论"通过"，无阻塞项。
+- 验收方 curl 复核（端口 8792，临时 D1）：setup 201 / 再次 404；错误密码与不存在用户都是 401 `invalid_credentials`，耗时都约 10ms；Cookie `HttpOnly; Secure; SameSite=Lax`；未登录 health 401；普通用户访问 admin 403；最后管理员降级/禁用/删除均 409，并发互相降级后仍剩 1 个启用管理员；缺 CSRF 头、错误/缺失/尾斜杠/大写 Origin 均 403；改密码后其他会话 401；禁用后旧会话 401；带旧 sid 再登录换发新 sid。
+- 合并前小修（评审建议 1/2/4/5）：只读守卫 PRAGMA 改白名单（仅 `table_info`/`table_xinfo`）；密码哈希盐与哈希长度不符抛"数据损坏"；拒绝 `replace-with` 开头的占位 `APP_SECRET`；HTTP 状态码与若干常量去重。
+- 主 agent 在 worktree 复跑：typecheck/lint 三包 Done；`pnpm test` 16 文件 195 用例通过。
+- PBKDF2：迭代数取 100,000（社区与 workerd issue 记载的生产上限）；本地 workerd 不执行该上限，**部署后首次登录是这一点的冒烟检查**。
+- 遗留：登录与 setup 限流（M7）；审计写入非原子（可接受）；过期会话只在访问时惰性删除（M7 cron）；`Secure` Cookie 在 Safari 本地 http 下不保存。
