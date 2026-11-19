@@ -42,7 +42,25 @@ curl -s -c jar.txt "${H[@]}" -X POST $B/api/auth/login -d '{"username":"admin","
 curl -s -b jar.txt $B/api/admin/system/health
 ```
 
-前端热更新开发：先按上面启动 Worker，再另开终端 `pnpm --filter web dev`（Vite 会把 `/api` 代理到 `http://localhost:8787`）。
+### 前端联调
+
+写请求的 CSRF 校验要求浏览器的 `Origin` 等于 Worker 的 `PUBLIC_ORIGIN`，所以**浏览器访问哪个地址，`PUBLIC_ORIGIN` 就必须设成哪个地址**。两种方式任选：
+
+1. **同源（最简单）**：`pnpm --filter web build` 后启动 Worker，它会直接服务 `apps/web/dist`。默认就是 `http://localhost:8787`；换端口时用 `--var` 覆盖，例如
+   `pnpm --filter worker dev --port 8794 --var PUBLIC_ORIGIN:http://localhost:8794`，然后访问 `http://localhost:8794`。改了前端代码要重新 `build`。
+2. **Vite 热更新**：Vite 在 5173（`--port` 可改）并把 `/api` 代理给 Worker，此时 Worker 的 `PUBLIC_ORIGIN` 要设成 **Vite 的地址**，否则登录、新建用户等写操作会被 403 拒绝：
+   ```sh
+   # 终端 1：Worker 监听 8787，但声明自己的公开地址是 Vite 的
+   pnpm --filter worker dev --var PUBLIC_ORIGIN:http://localhost:5173
+   # 终端 2：Vite（默认代理到 http://localhost:8787；Worker 不在 8787 时用 WORKER_ORIGIN 指定）
+   pnpm --filter web dev
+   WORKER_ORIGIN=http://localhost:8794 pnpm --filter web dev --port 5174   # 例：Worker 在 8794、Vite 在 5174
+   ```
+   Vite 的代理保持浏览器发出的 `Origin` / `Host` 不变（`changeOrigin: false`）。
+
+首次访问会进入 `/setup`：填用户名、密码与 `.dev.vars` 里的 `SETUP_TOKEN` 创建管理员，随后到 `/login` 登录。
+
+预览主题（不持久化）：在任意页面地址后加 `?theme=light|dark|system`、`&radius=0|4|8`、`&accent=%232f5fa8`；非法值会直接报错。系统设置里的外观接口在 M6 接入。
 
 ### 校验
 

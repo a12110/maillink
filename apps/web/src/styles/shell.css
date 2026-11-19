@@ -1,0 +1,75 @@
+/* 三套外壳：工作区（侧栏 + 内容）、认证（居中单栏）、取件页（手机优先单栏）。 */
+@layer components {
+  /* ── 工作区 ── */
+  .app { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; min-height: 100dvh; }
+  .sidebar { display: none; }
+  .topbar {
+    position: sticky; top: 0; z-index: var(--z-sticky); display: flex; align-items: center; gap: var(--space-2);
+    height: var(--toolbar-height); padding: 0 var(--space-2) 0 var(--space-3);
+    background: var(--color-sidebar); border-bottom: 1px solid var(--color-border);
+  }
+  @media (min-width: 1024px) {
+    .app { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column;
+      padding: var(--space-4) var(--space-3); background: var(--color-sidebar); border-right: 1px solid var(--color-border);
+    }
+    .topbar { display: none; }
+  }
+
+  .brand { display: flex; align-items: center; gap: var(--space-2); height: var(--nav-item-height); padding: 0 var(--space-2); min-width: 0; border-radius: var(--radius-md); }
+  .brand-mark { display: grid; place-items: center; flex: none; width: var(--brand-mark-size); height: var(--brand-mark-size); background: var(--color-selected); color: var(--color-selected-fg); border-radius: var(--radius-md); }
+  .brand-name { font-weight: var(--weight-strong); font-size: var(--text-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .brand-skeleton { width: 6em; }
+  .nav-group { display: grid; gap: 2px; }
+  .nav-group + .nav-group { margin-top: var(--space-4); }
+  .nav-label { padding: 0 var(--space-2); margin-bottom: var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); letter-spacing: 0.04em; }
+  .nav { margin-top: var(--space-5); display: grid; }
+  .nav-item {
+    position: relative; display: flex; align-items: center; gap: 10px; height: var(--nav-item-height); padding: 0 var(--space-2);
+    border-radius: var(--radius-md); color: var(--color-text); font-size: var(--text-base);
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .nav-item svg { color: var(--color-text-muted); }
+  .nav-item:hover { background: var(--color-row-selected); }
+  .nav-item[aria-current="page"] { background: var(--color-accent-soft); font-weight: var(--weight-strong); }
+  .nav-item[aria-current="page"] svg { color: var(--color-text); }
+  .nav-item[aria-current="page"]::before {
+    content: ""; position: absolute; left: calc(var(--space-3) * -1); top: 6px; bottom: 6px; width: var(--nav-marker-width);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: var(--color-accent);
+  }
+  .sidebar-foot { margin-top: auto; display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+  .user-row { display: flex; align-items: center; gap: var(--space-1); }
+  .user-chip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: var(--space-2); border-radius: var(--radius-md); }
+  .user-chip:hover { background: var(--color-row-selected); }
+  .avatar { display: grid; place-items: center; flex: none; width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%; background: var(--color-surface); border: 1px solid var(--color-border-control); font-size: var(--text-sm); font-weight: var(--weight-strong); }
+  .user-chip-text { min-width: 0; display: grid; line-height: 1.2; }
+  .user-chip-name { font-size: var(--text-sm); font-weight: var(--weight-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-chip-sub { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+  .main { min-width: 0; padding: var(--space-5) var(--page-pad-x-narrow) var(--space-6); }
+  @media (min-width: 640px) { .main { padding-inline: var(--page-pad-x); } }
+  .page-head { display: flex; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .page-title { font-size: var(--text-xl); line-height: var(--leading-tight); }
+  .summary { display: flex; flex-wrap: wrap; gap: 0 var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
+  .summary > * + *::before { content: "·"; margin-right: var(--space-3); color: var(--color-text-subtle); }
+  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-height: var(--toolbar-height); }
+  .spacer { flex: 1; }
+  .page-narrow { max-width: var(--content-max-width); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); padding-top: var(--space-2); }
+  .split { display: grid; gap: var(--space-4); align-items: start; }
+  @media (min-width: 1024px) { .split[data-panel="open"] { grid-template-columns: minmax(0, 1fr) var(--sidepanel-width); } }
+
+  /* ── 认证 ── */
+  .auth-shell { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-6) var(--space-4); }
+  .auth-col { width: min(var(--auth-max-width), 100%); display: grid; gap: var(--space-5); }
+  .auth-brand { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-height); }
+  .auth-card { padding: var(--space-6); display: grid; gap: var(--space-4); }
+  .auth-card h1 { font-size: var(--text-xl); line-height: var(--leading-tight); }
+  .auth-lead { color: var(--color-text-muted); font-size: var(--text-sm); margin-top: calc(var(--space-2) * -1); }
+  .auth-form { display: grid; gap: var(--space-4); }
+
+  /* ── 取件页（本里程碑只有外壳） ── */
+  .pickup-shell { max-width: var(--pickup-max-width); margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; padding: 0 var(--space-5); }
+  .pickup-top { display: flex; align-items: center; justify-content: space-between; min-height: var(--toolbar-height); font-size: var(--text-xs); color: var(--color-text-muted); }
+  .pickup-main { flex: 1; display: flex; flex-direction: column; gap: var(--space-4); padding-bottom: var(--space-5); font-size: var(--text-md); }
+}
