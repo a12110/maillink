@@ -1,0 +1,14 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <alerts@security.example.org>
+From: Example Security <alerts@security.example.org>
+To: plain.user@example.com
+Subject: Security alert: two-factor authentication turned off
+Date: Fri, 20 Nov 2026 08:30:00 +0000
+Message-ID: <synthetic-security-0010@security.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Two-factor authentication was turned off for your Example account.
+
+If this was not you, secure your account now: https://security.example.org/review

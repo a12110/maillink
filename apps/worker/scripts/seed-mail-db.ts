@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
+import { buildLargeMail } from "../test/fixtures/build-large-mail.ts";
 import { formatD1Utc } from "../src/mail-source/time.ts";
 
 const workerDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -24,7 +25,12 @@ const MS_PER_MINUTE = 60_000;
 
 type SeedMail = {
   id: number;
-  file: string;
+  /** test/fixtures 下的文件名；null 表示原文由 `raw` 字段直接给出 */
+  file: string | null;
+  /** 不从文件读时的原文（"生成的样本"与"空原文"） */
+  raw?: string | null;
+  /** 文件里没有 Message-ID 头时显式给出 */
+  messageId?: string;
   /** SMTP 信封发件人（raw_mails.source） */
   source: string;
   /** SMTP 信封收件人（raw_mails.address），转发链的最后一跳 */
@@ -35,54 +41,63 @@ type SeedMail = {
   ageMinutes: number;
   /** true：gzip 后放 raw_blob，raw 为空（模拟 ENABLE_MAIL_GZIP） */
   gzip: boolean;
+  /** raw_mails.metadata：temp_email 的 ai_extract 结果 */
+  metadata?: string;
 };
 
+const PLAIN = "plain.user@example.com";
+
+function fileMail(
+  id: number,
+  file: string,
+  source: string,
+  ageMinutes: number,
+  overrides: Partial<SeedMail> = {},
+): SeedMail {
+  return { id, file, source, address: PLAIN, toAddress: PLAIN, ageMinutes, gzip: false, ...overrides };
+}
+
 const MAILS: SeedMail[] = [
-  {
-    id: 1,
-    file: "icloud-hme-forward.eml",
-    source: "bounce+hme@example.net",
+  fileMail(1, "icloud-hme-forward.eml", "bounce+hme@example.net", 50, {
     address: "mailbox@example.com",
     toAddress: "hme.alias.7k2@icloud.com",
-    ageMinutes: 50,
-    gzip: false,
-  },
-  {
-    id: 2,
-    file: "verification-code.eml",
-    source: "noreply@login.example.org",
-    address: "plain.user@example.com",
-    toAddress: "plain.user@example.com",
-    ageMinutes: 40,
-    gzip: false,
-  },
-  {
-    id: 3,
-    file: "password-reset.eml",
-    source: "support@service.example.com",
-    address: "plain.user@example.com",
-    toAddress: "plain.user@example.com",
-    ageMinutes: 30,
-    gzip: false,
-  },
-  {
-    id: 4,
-    file: "html-newsletter.eml",
-    source: "news@newsletter.example.com",
-    address: "plain.user@example.com",
-    toAddress: "plain.user@example.com",
-    ageMinutes: 20,
-    gzip: false,
-  },
-  {
-    id: 5,
-    file: "gzip-blob.eml",
-    source: "alerts@security.example.net",
-    address: "plain.user@example.com",
-    toAddress: "plain.user@example.com",
-    ageMinutes: 10,
-    gzip: true,
-  },
+  }),
+  fileMail(2, "verification-code.eml", "noreply@login.example.org", 40),
+  fileMail(3, "password-reset.eml", "support@service.example.com", 30),
+  fileMail(4, "html-newsletter.eml", "news@newsletter.example.com", 20),
+  fileMail(5, "gzip-blob.eml", "alerts@security.example.net", 10, { gzip: true }),
+  fileMail(6, "verification-code-zh.eml", "noreply@account.example.cn", 9, {
+    address: "zh.user@example.com",
+    toAddress: "zh.user@example.com",
+  }),
+  fileMail(7, "verification-code-ja.eml", "noreply@account.example.jp", 8, {
+    address: "ja.user@example.com",
+    toAddress: "ja.user@example.com",
+  }),
+  fileMail(8, "password-reset-code.eml", "noreply@account.example.cn", 7),
+  fileMail(9, "email-change.eml", "no-reply@accounts.example.org", 6),
+  fileMail(10, "security-notice.eml", "alerts@security.example.org", 5),
+  fileMail(11, "billing-receipt.eml", "billing@pay.example.org", 4),
+  fileMail(12, "verification-code-spaced.eml", "noreply@login.example.org", 3),
+  fileMail(13, "no-code-distractors.eml", "orders@store.example.org", 3),
+  { id: 14, file: null, raw: buildLargeMail(), source: "bulk@mailer.example.org", address: PLAIN, toAddress: PLAIN, ageMinutes: 2, gzip: true },
+  fileMail(15, "icloud-hme-mismatch.eml", "bounce+hme@example.net", 2, {
+    address: "mailbox@example.com",
+    toAddress: "hme.alias.7k2@icloud.com",
+  }),
+  fileMail(16, "ai-extract-priority.eml", "noreply@login.example.org", 1, {
+    metadata: JSON.stringify({
+      ai_extract: { type: "auth_code", result: "445566", result_text: "synthetic ai_extract result" },
+      extracted_at: "2026-11-20T08:50:00.000Z",
+    }),
+  }),
+  fileMail(17, "attachment.eml", "docs@files.example.org", 1),
+  fileMail(18, "malformed.eml", "unknown@nowhere.example.org", 1, { messageId: "synthetic-malformed-0018" }),
+  fileMail(20, "multiline-text.eml", "notes@docs.example.org", 1),
+  fileMail(21, "masked-code.eml", "noreply@login.example.org", 1),
+  fileMail(22, "attachment-emoji.eml", "docs@files.example.org", 1),
+  // 合成的"原文丢失"：raw 与 raw_blob 都为空
+  { id: 19, file: null, raw: null, messageId: "synthetic-empty-0019", source: "gone@nowhere.example.org", address: PLAIN, toAddress: PLAIN, ageMinutes: 1, gzip: false },
 ];
 
 const sqlText = (value: string): string => `'${value.replaceAll("'", "''")}'`;
@@ -90,23 +105,36 @@ const sqlText = (value: string): string => `'${value.replaceAll("'", "''")}'`;
 /** 真实邮件的行尾是 CRLF，fixture 文件用 LF 便于编辑，入库前统一转换 */
 const toCrlf = (text: string): string => text.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n");
 
+function readRaw(mail: SeedMail): string | null {
+  if (mail.file !== null) return toCrlf(readFileSync(join(fixturesDir, mail.file), "utf8"));
+  return mail.raw === undefined || mail.raw === null ? null : toCrlf(mail.raw);
+}
+
+function findMessageId(mail: SeedMail, raw: string | null): string {
+  const fromHeader = raw === null ? undefined : /^Message-ID:\s*(.+)$/im.exec(raw)?.[1]?.trim();
+  const messageId = mail.messageId ?? fromHeader;
+  if (!messageId) throw new Error(`${mail.file ?? `id ${mail.id}`} 缺少 Message-ID`);
+  return messageId;
+}
+
 function buildInsert(mail: SeedMail, nowMs: number): string {
-  const raw = toCrlf(readFileSync(join(fixturesDir, mail.file), "utf8"));
+  const raw = readRaw(mail);
   const createdAt = formatD1Utc(nowMs - mail.ageMinutes * MS_PER_MINUTE);
-  const rawValue = mail.gzip ? "NULL" : sqlText(raw);
-  const blobValue = mail.gzip ? `X'${gzipSync(Buffer.from(raw, "utf8")).toString("hex")}'` : "NULL";
-  const messageId = /^Message-ID:\s*(.+)$/im.exec(raw)?.[1]?.trim();
-  if (!messageId) throw new Error(`${mail.file} 缺少 Message-ID 头`);
+  const gzipped = raw !== null && mail.gzip;
+  const rawValue = raw === null || gzipped ? "NULL" : sqlText(raw);
+  const blobValue = gzipped ? `X'${gzipSync(Buffer.from(raw, "utf8")).toString("hex")}'` : "NULL";
+  const metadataValue = mail.metadata === undefined ? "NULL" : sqlText(mail.metadata);
   return (
-    "INSERT INTO raw_mails (id, message_id, source, address, to_address, raw, raw_blob, is_unread, created_at) VALUES (" +
+    "INSERT INTO raw_mails (id, message_id, source, address, to_address, raw, raw_blob, metadata, is_unread, created_at) VALUES (" +
     [
       mail.id,
-      sqlText(messageId),
+      sqlText(findMessageId(mail, raw)),
       sqlText(mail.source),
       sqlText(mail.address),
       sqlText(mail.toAddress),
       rawValue,
       blobValue,
+      metadataValue,
       1,
       sqlText(createdAt),
     ].join(", ") +

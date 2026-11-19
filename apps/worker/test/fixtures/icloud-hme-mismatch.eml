@@ -1,0 +1,15 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <no-reply@accounts.example.net>
+From: Example Accounts <no-reply@accounts.example.net>
+To: hme.alias.7k2@icloud.com
+Subject: Your Example verification code is 318274
+Date: Fri, 20 Nov 2026 08:30:00 +0000
+Message-ID: <synthetic-hme-mismatch-0015@accounts.example.net>
+MIME-Version: 1.0
+X-ICLOUD-HME: p=other.alias.9x1@icloud.com; d=example.net; f=mailbox@example.com; r=to; s=spoofed@evil.example.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Your Example verification code is 318274.
+
+Synthetic sample: X-ICLOUD-HME p= names a different alias than the recipient, so s= must not be used.

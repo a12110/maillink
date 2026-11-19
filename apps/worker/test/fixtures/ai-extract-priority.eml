@@ -1,0 +1,14 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <noreply@login.example.org>
+From: Example <noreply@login.example.org>
+To: plain.user@example.com
+Subject: Sign in to Example
+Date: Fri, 20 Nov 2026 08:30:00 +0000
+Message-ID: <synthetic-ai-0016@login.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Use code 112233 to sign in.
+
+Synthetic sample: the seed row carries metadata.ai_extract with a different code (445566) to exercise the ai_extract-first priority.

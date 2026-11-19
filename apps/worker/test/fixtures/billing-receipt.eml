@@ -1,0 +1,17 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <billing@pay.example.org>
+From: Example Billing <billing@pay.example.org>
+To: plain.user@example.com
+Subject: Your Example receipt for November 2026
+Date: Fri, 20 Nov 2026 08:30:00 +0000
+Message-ID: <synthetic-billing-0011@pay.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+Thanks for your payment.
+
+Subscription: Example Plus (monthly)
+Amount: $12.00 charged on 2026-11-20
+
+View your invoice: https://pay.example.org/invoices/synthetic-1

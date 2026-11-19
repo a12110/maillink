@@ -1,0 +1,16 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <no-reply@accounts.example.org>
+From: Example Accounts <no-reply@accounts.example.org>
+To: plain.user@example.com
+Subject: Confirm your new email address
+Date: Fri, 20 Nov 2026 08:30:00 +0000
+Message-ID: <synthetic-emailchange-0009@accounts.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+We received a request to change the email address on your Example account.
+
+To confirm your new email address, open: https://accounts.example.org/confirm-email?token=synthetic-not-real
+
+If you did not make this request, contact support.

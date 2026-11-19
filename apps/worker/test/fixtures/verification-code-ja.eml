@@ -1,0 +1,16 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <noreply@account.example.jp>
+From: =?UTF-8?B?RXhhbXBsZSDjgqLjgqvjgqbjg7Pjg4g=?= <noreply@account.example.jp>
+To: ja.user@example.com
+Subject: =?UTF-8?B?44CQRXhhbXBsZeOAkeiqjeiovOOCs+ODvOODieOBruOBiuefpeOCieOBmw==?=
+Date: Fri, 20 Nov 2026 08:30:00 +0000
+Message-ID: <synthetic-ja-0007@account.example.jp>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+こんにちは。
+
+ログイン用の認証コード：538204
+
+このコードの有効期限は10分です。心当たりがない場合は、このメールを破棄してください。

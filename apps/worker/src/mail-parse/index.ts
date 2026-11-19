@@ -1,0 +1,11 @@
+export { classifyMail } from "./category";
+export { extractAiCode, extractBuiltinCode, resolveCode } from "./code-extract";
+export { rowToFacts } from "./facts";
+export type { CodeSource, MailCategory, MailFacts, MailIndexRow } from "./facts";
+export { hmeSender, parseHmeFields } from "./hme";
+export { decodeHtmlEntities, extractHtml } from "./html-text";
+export { extractLinks } from "./links";
+export type { LinkExtract } from "./links";
+export { normalizeDisplayText, normalizeText, truncateUtf8 } from "./normalize";
+export { MailParseError, attachmentSize, parseMail, parseMime, visibleAttachments } from "./parse";
+export type { ParseInput, ParsedMail } from "./parse";

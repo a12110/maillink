@@ -1,0 +1,21 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <notes@docs.example.org>
+From: Example <notes@docs.example.org>
+To: plain.user@example.com
+Subject: Meeting notes
+Date: Fri, 20 Nov 2026 08:45:00 +0000
+Message-ID: <synthetic-multiline-0020@docs.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Hi team,
+
+Notes from today:
+  - item one
+  - item two
+
+
+
+Thanks,
+Example

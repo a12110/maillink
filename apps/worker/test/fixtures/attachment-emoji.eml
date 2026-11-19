@@ -1,0 +1,22 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <docs@files.example.org>
+From: Example <docs@files.example.org>
+To: plain.user@example.com
+Subject: Emoji attachment
+Date: Fri, 20 Nov 2026 08:45:00 +0000
+Message-ID: <synthetic-emoji-0022@files.example.org>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="synthetic-boundary-0022"
+
+--synthetic-boundary-0022
+Content-Type: text/plain; charset=utf-8
+
+See attached.
+
+--synthetic-boundary-0022
+Content-Type: text/plain; name*=UTF-8''%F0%9F%93%8Ereport%F0%9F%98%80.txt
+Content-Disposition: attachment; filename*=UTF-8''%F0%9F%93%8Ereport%F0%9F%98%80.txt
+Content-Transfer-Encoding: base64
+
+ZW1vamkgYXR0YWNobWVudAo=
+--synthetic-boundary-0022--

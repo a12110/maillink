@@ -1,0 +1,23 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <docs@files.example.org>
+From: Example Docs <docs@files.example.org>
+To: plain.user@example.com
+Subject: Your report is attached
+Date: Fri, 20 Nov 2026 08:40:00 +0000
+Message-ID: <synthetic-attachment-0017@files.example.org>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="synthetic-boundary-0017"
+
+--synthetic-boundary-0017
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+The report is attached. Reference file: synthetic.
+
+--synthetic-boundary-0017
+Content-Type: text/plain; charset=utf-8; name*=UTF-8''%E6%8A%A5%E5%91%8A.txt
+Content-Disposition: attachment; filename*=UTF-8''%E6%8A%A5%E5%91%8A.txt
+Content-Transfer-Encoding: base64
+
+c3ludGhldGljIGF0dGFjaG1lbnQgY29udGVudArlkIjmiJDpmYTku7blhoXlrrkK
+--synthetic-boundary-0017--
