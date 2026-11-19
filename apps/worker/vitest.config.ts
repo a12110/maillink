@@ -11,8 +11,13 @@ export default defineConfig({
       return {
         wrangler: { configPath: "./wrangler.jsonc" },
         miniflare: {
-          // 仅测试用：迁移内容交给测试里的 applyD1Migrations 执行
-          bindings: { TEST_MIGRATIONS: migrations },
+          // 仅测试用：迁移内容交给测试里的 applyD1Migrations 执行；
+          // APP_SECRET / SETUP_TOKEN 是测试专用的假值，不对应任何真实环境
+          bindings: {
+            TEST_MIGRATIONS: migrations,
+            APP_SECRET: "test-app-secret-0123456789abcdef0123456789abcdef",
+            SETUP_TOKEN: "test-setup-token",
+          },
         },
       };
     }),

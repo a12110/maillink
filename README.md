@@ -4,7 +4,7 @@
 
 ## 本地开发
 
-需要 Node ≥ 22、pnpm 10。全程只用本地模式（本地 D1 存放在 `apps/worker/.wrangler/state`），不会连接 Cloudflare。
+需要 Node ≥ 22.18、pnpm 10。全程只用本地模式（本地 D1 存放在 `apps/worker/.wrangler/state`），不会连接 Cloudflare。
 
 ```sh
 # 1. 安装依赖
@@ -26,7 +26,20 @@ pnpm --filter web build
 
 # 6. 启动 Worker（含静态资源），默认 http://localhost:8787
 pnpm --filter worker dev
-curl -s http://localhost:8787/api/admin/system/health
+# 需要先 POST /api/setup 初始化管理员并登录，见下方"本地登录"
+```
+
+### 本地登录
+
+`apps/worker/.dev.vars` 里需要 `APP_SECRET`（至少 32 字符）与 `SETUP_TOKEN`；`PUBLIC_ORIGIN` 要和访问地址一致（默认 `http://localhost:8787`，换端口时在 `.dev.vars` 里覆盖）。
+
+```sh
+B=http://localhost:8787
+H=(-H "Origin: $B" -H "X-MailLink-Csrf: 1" -H "Content-Type: application/json")
+curl -s $B/api/setup/status
+curl -s "${H[@]}" -X POST $B/api/setup -d '{"username":"admin","password":"至少10个字符","setup_token":"<SETUP_TOKEN>"}'
+curl -s -c jar.txt "${H[@]}" -X POST $B/api/auth/login -d '{"username":"admin","password":"至少10个字符"}'
+curl -s -b jar.txt $B/api/admin/system/health
 ```
 
 前端热更新开发：先按上面启动 Worker，再另开终端 `pnpm --filter web dev`（Vite 会把 `/api` 代理到 `http://localhost:8787`）。
@@ -43,4 +56,4 @@ pnpm test        # 单元测试（vitest + @cloudflare/vitest-plugin，本地 D1
 
 - `MAIL_DB` 在代码里只读：`apps/worker/src/mail-source/` 是唯一接触它的目录，有单测扫描该目录禁止写入类 SQL。迁移只针对 `APP_DB`。
 - 合成邮件样本在 `apps/worker/test/fixtures/`，见其中的 README。
-- `/api/admin/system/health` 目前没有鉴权（M1 加上），不要在未完成 M1 前部署。
+- `/api/admin/*` 全部要求管理员会话；写操作还需 `Origin` 等于 `PUBLIC_ORIGIN` 且带请求头 `X-MailLink-Csrf: 1`。

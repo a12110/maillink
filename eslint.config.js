@@ -1,13 +1,12 @@
 import js from "@eslint/js";
+import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
-  {
-    ignores: ["**/node_modules/**", "**/dist/**", "**/.wrangler/**", "**/coverage/**", "**/worker-configuration.d.ts"],
-  },
+export default defineConfig([
+  globalIgnores(["**/node_modules/**", "**/dist/**", "**/.wrangler/**", "**/coverage/**", "**/worker-configuration.d.ts"]),
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  tseslint.configs.recommended,
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
@@ -16,6 +15,7 @@ export default tseslint.config(
       "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
       "max-lines-per-function": ["error", { max: 70, skipBlankLines: true, skipComments: true }],
       "max-depth": ["error", 5],
+      complexity: ["error", 10],
     },
   },
   {
@@ -35,4 +35,4 @@ export default tseslint.config(
     files: ["**/test/**/*.ts", "**/*.test.ts"],
     rules: { "max-lines-per-function": "off" },
   },
-);
+]);
