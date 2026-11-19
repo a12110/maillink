@@ -75,6 +75,8 @@ export async function getMailSchema(
   options: { refresh?: boolean } = {},
 ): Promise<MailSchemaProbe> {
   if (cachedProbe && !options.refresh) return cachedProbe;
+  // 强制重探时先作废旧缓存：重探抛异常后不能留着可能已过期的"健康"结果
+  if (options.refresh) cachedProbe = null;
   const probe = await probeMailSchema(db);
   cachedProbe = probe.healthy ? probe : null;
   return probe;

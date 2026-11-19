@@ -4,11 +4,11 @@
   "type": "module",
   "packageManager": "pnpm@10.30.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
+    "lint": "pnpm -r lint && eslint eslint.config.js",
     "test": "pnpm -r test"
   },
   "devDependencies": {

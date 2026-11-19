@@ -112,3 +112,27 @@ describe("getMailSchema 缓存", () => {
     expect(fixed.healthy).toBe(true);
   });
 });
+
+describe("getMailSchema 缓存与 refresh", () => {
+  beforeEach(() => {
+    resetMailSchemaCache();
+  });
+
+  it("refresh: true 时探测抛异常：先清空缓存再抛，之后不会继续返回旧的健康结果", async () => {
+    await setupMailDb();
+    const cached = await getMailSchema(env.MAIL_DB);
+    expect(cached.healthy).toBe(true);
+    // 缓存生效：不带 refresh 时坏的 db 根本不会被碰到
+    const broken = {
+      prepare: () => {
+        throw new Error("D1 unreachable (synthetic)");
+      },
+    } as unknown as D1Database;
+    expect(await getMailSchema(broken)).toBe(cached);
+
+    await expect(getMailSchema(broken, { refresh: true })).rejects.toThrow("D1 unreachable");
+
+    // 缓存已被清空：再不带 refresh 调用，必须重新探测（并因此再次抛错），而不是返回旧缓存
+    await expect(getMailSchema(broken)).rejects.toThrow("D1 unreachable");
+  });
+});

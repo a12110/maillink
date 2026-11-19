@@ -1,3 +1,5 @@
+import type { AuthContext } from "./auth/context";
+
 /** Worker 的绑定与环境变量，字段说明见 docs/design/01-architecture-and-data.md §2 */
 export type Bindings = {
   /** 自有库，唯一允许迁移与写入的库 */
@@ -16,4 +18,7 @@ export type Bindings = {
   SETUP_TOKEN?: string;
 };
 
-export type AppEnv = { Bindings: Bindings };
+/** requireUser / requireAdmin 通过后才会设置 `auth` */
+export type Variables = { auth: AuthContext };
+
+export type AppEnv = { Bindings: Bindings; Variables: Variables };
