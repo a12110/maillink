@@ -4,6 +4,9 @@ import type { QueryClient } from "@tanstack/react-query";
 import { AccountPage } from "../features/account/AccountPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { SetupPage } from "../features/auth/SetupPage";
+import { parseMailsSearch } from "../features/mails/search";
+import { MailsPage } from "../features/mails/MailsPage";
+import { MailsRouteError } from "../features/mails/MailsRouteError";
 import { UsersPage } from "../features/users/UsersPage";
 import { AuthShell } from "../shell/AuthShell";
 import { PickupShell } from "../shell/PickupShell";
@@ -88,6 +91,13 @@ const adminIndexRoute = createRoute({
   },
 });
 const usersRoute = createRoute({ getParentRoute: () => adminLayout, path: "/users", component: UsersPage });
+const mailsRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/mails",
+  validateSearch: parseMailsSearch,
+  component: MailsPage,
+  errorComponent: MailsRouteError,
+});
 
 function placeholder<const P extends string>(path: P, title: string, description: string) {
   return createRoute({
@@ -110,7 +120,6 @@ const adminPlaceholders = [
   placeholder("/links", "取件链接", "取件链接的创建与管理将在后续里程碑实现，本页暂不显示任何数据。"),
   placeholder("/rule-groups", "规则组", "规则组列表与编辑器将随规则引擎（M3a）提供，本页暂不显示任何数据。"),
   placeholder("/rule-groups/$id", "规则组编辑", "规则组编辑与测试器将在后续里程碑实现，本页暂不显示任何数据。"),
-  placeholder("/mails", "全部邮件", "邮件队列与详情将随邮件后端（M2）提供，本页暂不显示任何数据。"),
   placeholder("/settings/$group", "系统设置", "系统设置接口将在 M6 提供，本页暂不显示任何数据。"),
   placeholder("/audit", "审计日志", "审计日志列表将在后续里程碑实现，本页暂不显示任何数据。"),
 ];
@@ -122,7 +131,7 @@ const routeTree = rootRoute.addChildren([
   workspaceLayout.addChildren([
     inboxRoute,
     accountRoute,
-    adminLayout.addChildren([adminIndexRoute, usersRoute, settingsIndexRoute, ...adminPlaceholders]),
+    adminLayout.addChildren([adminIndexRoute, usersRoute, mailsRoute, settingsIndexRoute, ...adminPlaceholders]),
   ]),
 ]);
 

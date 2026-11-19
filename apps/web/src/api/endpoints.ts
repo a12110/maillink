@@ -1,4 +1,6 @@
 import {
+  adminMailDetailSchema,
+  adminMailListResponseSchema,
   adminSessionsRevokedSchema,
   adminUserListSchema,
   adminUserSchema,
@@ -11,6 +13,7 @@ import {
   setupStatusSchema,
 } from "@maillink/shared";
 import type {
+  AdminMailListQuery,
   AdminPasswordReset,
   AdminUserCreate,
   AdminUserListQuery,
@@ -27,6 +30,14 @@ import { ApiError } from "./errors";
 
 function userPath(id: number, suffix = ""): string {
   return `/api/admin/users/${id}${suffix}`;
+}
+
+export function adminMailPath(id: number): string {
+  return `/api/admin/mails/${id}`;
+}
+
+export function adminMailAttachmentPath(id: number, index: number): string {
+  return `${adminMailPath(id)}/attachments/${index}`;
 }
 
 export function createEndpoints(client: ApiClient) {
@@ -70,6 +81,12 @@ export function createEndpoints(client: ApiClient) {
       request({ method: "POST", path: userPath(id, "/password"), body, schema: okResponseSchema }),
     revokeUserSessions: (id: number) =>
       request({ method: "DELETE", path: userPath(id, "/sessions"), schema: adminSessionsRevokedSchema }),
+
+    listAdminMails: (query: AdminMailListQuery) =>
+      request({ path: "/api/admin/mails", query, schema: adminMailListResponseSchema }),
+    /** raw=true 时响应多一个 raw 字段（邮件原文） */
+    getAdminMail: (id: number, raw: boolean) =>
+      request({ path: adminMailPath(id), query: { raw: raw ? 1 : undefined }, schema: adminMailDetailSchema }),
   };
 }
 
