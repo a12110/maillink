@@ -23,6 +23,7 @@
 - **隔离**：改代码或依赖的并发线各用独立的 git worktree 和分支；只写文档或过程文件、且路径与其他线完全不重叠的，可以留在主目录。主 agent 在派发时写明每条线可以改哪些目录。
 - **共享文件**：根 `package.json`、`pnpm-lock.yaml`、`packages/shared/`、`apps/worker/src/constants.ts`、`apps/worker/migrations/` 同一时间只交给一条线改；其他线需要改时在汇报里提出，由主 agent 合并时处理。迁移文件按线预先分配编号，避免撞号。
 - **数量**：同时运行的实现子 agent 默认不超过 3 个（txapi 通道并发过高时出现过 `ECONNRESET`）；只读的评审子 agent 不计入。
+- **上游超时**：子 agent 因 `Timed out waiting for response …` 中断时，先用原会话续跑一次；同一会话再次超时，就把剩余工作拆成范围更小的新会话，并要求精简报告。
 - **合并**：主 agent 逐条线合并回 `main`，每次合并后在合并结果上重跑 `pnpm install`、`typecheck`、`lint`、`test`、前端构建，全部通过才提交。
 
 ## 采用的默认决策
@@ -47,6 +48,11 @@
   - `PATCH /api/me` 允许用户改自己的邮箱（03 §6 只列了显示名与密码）。本地邮箱不经验证，所以 M5 的"按已验证邮箱自动关联 OAuth"只能信 IdP 侧的 `email_verified`，且仍默认关闭；M5 派发时要明确这一点。
   - M2 / M3a 分工：内置验证码提取与 `category` 分类在 `mail-parse`（M2，符合 01 §1）；规则组级的 `code_regex` 与 `login_link` 提取在 `rules`（M3a）。两边以 01 §4.1 的 `MailFacts` 对接，具体 TS 结构由主 agent 在两份派发说明里写成同一份，M3b 合并时去重。
 
+## 需要用户提供（不阻塞开发）
+
+- 一封脱敏后的真实 iCloud HME 转发邮件（`.eml`）：用于确认 Apple 是否改写 `From`、`X-ICLOUD-HME` 的 `s=` 是信封发件人还是头部发件人、展示用哪个。目前实现：展示用 `From`，规则判定时 `From` 与 `s=`（仅 `p=` 等于收件地址时）都算候选。
+- 视觉方向确认（当前为 Agent 推断，见 `DESIGN.md`）。
+
 ## 里程碑
 
 状态：待办 / 进行中 / 待验收 / 通过 / 退回
@@ -56,13 +62,14 @@
 | M0 | 脚手架、两个 D1、迁移、健康检查、本地种子 | sonnet-5-5 | 通过 | 见记录 2026-11-20 M0 |
 | UI-0 | `DESIGN.md`、设计变量、三个代表页的静态原型（与 M0 并发） | sonnet-5-5#high | 通过 | 见记录 2026-11-20 UI-0 |
 | M1 | 初始化、账号密码登录、会话、用户与角色（后端）；含 M0 遗留修复 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M1 |
-| M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 进行中（worktree `m2-mail-source`，分支 `m2`，基于 `1bb834b`，端口 8793，迁移号 0003） | |
-| M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 进行中（worktree `m3a-rule-engine`，分支 `m3a`，与 M1/M2 并发） | |
+| M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M2 |
+| M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 待验收（拆为规则正确性 opus-5-5#high `ses_e0a547e98ffeaxrCy5OUELggxV` 与清洗/呈现安全 opus-5-5#xhigh `ses_e0a541dd7ffeZxtt2EqBpE0O7F`；worktree `m3a-rule-engine`，分支 `m3a`） | 执行会话 `ses_e0b01926bffe5IzBcKngFJcl0C`；主 agent 复跑 15 文件 581 用例通过 |
 | M3b | 收件地址、规则组、取件链接 API 与公开接口 | sonnet-5-5#high | 待办 | |
 | M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办 | |
 | M5 | TOTP、Passkey、OAuth2/OIDC | opus-5-5#xhigh | 待办 | |
 | M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
-| UI | 前端各页面（随后端里程碑推进） | sonnet-5-5#high | 待办 | |
+| UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 进行中（worktree `ui1-web-foundation`，分支 `ui1`，基于 `596b947`，端口 8794/5174） | |
+| UI-2+ | 其余页面（随后端里程碑推进） | sonnet-5-5#high | 待办 | |
 | M7 | 审计、cron、限流、加固 | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
@@ -92,3 +99,12 @@
 - 交付：`DESIGN.md`（240 行，Agent 推断项已标注）、`apps/web/src/styles/tokens.css`（令牌唯一来源）、`design/prototypes/`（6 个原型页）、`design/scripts/`（对比度、强调色、命中区校验）。
 - 遗留给 UI-1：`DESIGN.md` 末尾"UI-1 待办"8 条；"自动刷新已暂停""重取失败"两帧的弱化阈值与规范（10 分钟）不一致；外观设置页要把 `ensure()` 抛错显示为表单校验信息；根 ESLint 应忽略 `design/`。
 - 视觉方向仍为 Agent 推断，用户尚未最终确认。
+
+### 2026-11-20 M2 通过
+
+- 执行：sonnet-5-5#high（`ses_e0af95654ffe8gLCLpGfD25CeW`）。验收：首个 opus 会话两次上游超时，拆为代码审查（`ses_e0a5b12a9ffesVi8kZqF0wQqw5`）与运行时/对抗样本（`ses_e0a5ae7e5ffetN34kn3OMvFEb0`）两个 opus-5-5#high 评审。首轮"有条件通过"，修复后复验"通过"。
+- 首轮必修：链接超上限被丢弃致 `link.domains` 黑名单可绕过；HTML 转文本漏顶层文字、省略 `</head>` 时吞正文；解析失败行变"空 facts"会在黑名单模式失败开放；候选 SQL 外层 `COALESCE` 使热路径无法走索引；附件名截断切坏代理对致 500；展示正文丢失换行；对抗样本 4 个误判（`****1234`、页脚 `subscription` 判 billing、order/reference/折扣码、改密码短语）。
+- 修复后主 agent 复跑：typecheck/lint 三包 Done；`pnpm test` 27 文件 429 用例通过；`mail-query-plan.test.ts`（2 万行 + ANALYZE，断言走 `idx_raw_mails_to_address`、无全表扫描）3/3；`PARSER_VERSION=2`。
+- 运行时证据（端口 8795，临时 D1）：未登录 401、普通用户 403；冷索引 `partial` true→false；gzip 详情与 `?raw=1`；HME `p=` 不一致时 `s=` 不进候选；解析失败与原文丢失有标记；附件 `attachment`/`nosniff`/`octet-stream`/`no-store`；scope 3+16=19 无遗漏；MAIL_DB 缺 `raw` 列时邮件接口与 health 均 503。
+- 对接 M3b：`IndexedItem` 为 `ok | failed | pending` 联合；`rowToFacts` 对非 ok 行抛错；`partial=true` 时调用方不得推进 `after_id`；展示正文用 `display_body`，不要用索引里的单行 `body_text`；`mail_index.sender_address`/`sender_domain`/`link_domains` 为 JSON 数组。
+- 遗留：HME 发件人展示待真实样本；分类与提取词表是启发式，需真实平台邮件迭代；`normalizeText` 不处理 U+034F 等少见不可见字符与西里尔仿冒（二期）；"非预期异常不写索引"缺专门用例；cron 预热留 M7。
