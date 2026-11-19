@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-radius="4">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>取件页 · 状态一览</title>
+  <link rel="stylesheet" href="../../apps/web/src/styles/tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+<!--@sprite-->
+<div class="pk-gallery">
+
+  <section class="pk-cell" aria-label="未激活 / 新设备">
+    <h2>01 未激活 · 新设备（口令）</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>首次使用</span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">Google 共享号</h1>
+          <p class="pk-lead">购买后第一次取码，请点下面的按钮。有效期从点击后开始计算，建议在需要登录时再点。</p>
+        </div>
+        <div>
+          <div class="pk-addr-label">登录邮箱</div>
+          <div class="pk-addr">northern_crisp_walnut_a8e4m1v7<wbr>@icloud.com</div>
+        </div>
+        <form class="pk-form" onsubmit="return false">
+          <div class="field">
+            <label for="pw">访问口令</label>
+            <input class="input input-lg" id="pw" type="password" autocomplete="off" placeholder="向卖家索取口令">
+            <p class="hint">口令由卖家单独发给你，和链接不在同一条消息里。</p>
+          </div>
+        </form>
+        <p class="pk-note">点击后，这台设备会占用 1 个名额（本链接最多 2 台）。</p>
+      </main>
+      <div class="pk-bar"><button class="btn btn-primary btn-lg btn-block" type="button">开始取码</button></div>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="未激活 / 新设备，需人机验证">
+    <h2>02 未激活 · 需人机验证</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>首次使用</span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">ChatGPT 共享号</h1>
+          <p class="pk-lead">购买后第一次取码，请完成验证后点下面的按钮。</p>
+        </div>
+        <div>
+          <div class="pk-addr-label">登录邮箱</div>
+          <div class="pk-addr">sw***@icloud.com</div>
+        </div>
+        <form class="pk-form" onsubmit="return false">
+          <div class="field">
+            <label for="pw2">访问口令</label>
+            <input class="input input-lg" id="pw2" type="password" autocomplete="off" placeholder="向卖家索取口令">
+          </div>
+          <div class="field">
+            <span class="label" id="ts-l">人机验证</span>
+            <div class="pk-turnstile" role="group" aria-labelledby="ts-l"><b>Cloudflare Turnstile 小部件占位（300×65）</b><span>进入这一步才加载脚本，其他状态不加载</span></div>
+            <p class="hint">完成验证前，“开始取码”不可用。验证失败会在这里显示原因和“重试”。</p>
+          </div>
+        </form>
+      </main>
+      <div class="pk-bar"><button class="btn btn-primary btn-lg btn-block" type="button" disabled>开始取码</button></div>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="等待邮件">
+    <h2>03 等待邮件</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>剩余有效 <b class="num">2 天 3 小时</b></span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">ChatGPT 共享号</h1>
+          <div class="pk-addr-label" style="margin-top: var(--space-2)">登录邮箱</div>
+          <div class="pk-addr">sw***@icloud.com</div>
+        </div>
+        <section class="pk-state" role="status" style="padding-top: var(--space-6)">
+          <span class="icon-wrap"><!--@icon:mail:icon-lg--></span>
+          <h2 style="font-size: var(--text-xl)">正在等待新邮件</h2>
+          <p>去登录页点“发送验证码”，一般 10–60 秒内到达。</p>
+          <div class="pk-live" style="padding: 0"><span class="pulse" aria-hidden="true"></span><span>10 秒后自动刷新</span></div>
+          <button class="btn btn-secondary btn-lg" type="button"><!--@icon:refresh-->立即刷新</button>
+        </section>
+        <details class="pk-note">
+          <summary><b>一直收不到？</b><!--@icon:chevron-down:icon-sm--></summary>
+          <p style="margin-top: var(--space-2)">确认登录用的是上面这个邮箱；等一分钟后再点一次“发送验证码”；仍然没有，请联系卖家。</p>
+        </details>
+      </main>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="点击取码">
+    <h2>04 点击取码 · 有新邮件</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>剩余有效 <b class="num">9 天</b></span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">ChatGPT 共享号</h1>
+          <div class="pk-addr-label" style="margin-top: var(--space-2)">登录邮箱</div>
+          <div class="pk-addr">sw***@icloud.com</div>
+        </div>
+        <section class="pk-code-card" role="status">
+          <div class="pk-platform"><span class="dot dot-success"></span>有 1 封新邮件</div>
+          <p style="font-size: var(--text-xl); font-weight: var(--weight-strong); margin: var(--space-3) 0 var(--space-1)">OpenAI 发来的邮件</p>
+          <p class="pk-meta"><b>32 秒前</b> · 点开才会显示验证码</p>
+        </section>
+        <p class="pk-note">今日还可取 <b class="num">8</b> 次（共 10 次）。同一封邮件重复查看不重复计次。</p>
+      </main>
+      <div class="pk-bar"><button class="btn btn-primary btn-lg btn-block" type="button">查看验证码</button></div>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="自动刷新已暂停">
+    <h2>05 自动刷新已暂停</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>剩余有效 <b class="num">2 天 3 小时</b></span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">ChatGPT 共享号</h1>
+          <div class="pk-addr-label" style="margin-top: var(--space-2)">登录邮箱</div>
+          <div class="pk-addr">sw***@icloud.com</div>
+        </div>
+        <div class="callout callout-warning" role="status">
+          <!--@icon:pause-->
+          <div><p><b>自动刷新已暂停</b></p><p>有一会儿没有操作，为省流量先停了。点下面的按钮继续。</p></div>
+        </div>
+        <h3 class="pk-section-label">最后收到的</h3>
+        <div class="pk-old stale">
+          <div class="info"><span class="code" aria-label="验证码 4 8 2 9 1 0">482910</span><span>5 分钟前 · 来自 OpenAI</span></div>
+          <button class="btn btn-secondary btn-sm" type="button"><!--@icon:copy:icon-sm-->复制</button>
+        </div>
+      </main>
+      <div class="pk-bar"><button class="btn btn-primary btn-lg btn-block" type="button"><!--@icon:refresh-->继续刷新</button></div>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="登录链接">
+    <h2>06 code_only · 登录链接</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>剩余有效 <b class="num">2 天 3 小时</b></span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">ChatGPT 共享号</h1>
+          <p class="pk-lead">这个平台不发验证码，发的是登录链接。</p>
+        </div>
+        <div>
+          <div class="pk-addr-label">登录邮箱</div>
+          <div class="pk-addr">sw***@icloud.com</div>
+        </div>
+        <section class="pk-code-card" aria-labelledby="ll-l">
+          <div class="pk-platform" id="ll-l"><span class="dot dot-success"></span>OpenAI 登录链接</div>
+          <p class="pk-link-domain"><!--@icon:lock-->auth.openai.com</p>
+          <p class="pk-meta"><b>32 秒前</b> · 来自 OpenAI</p>
+        </section>
+        <p class="pk-note"><b>这个链接等于一次登录。</b>只在你自己的设备上打开，不要转发给别人。页面只显示它会打开的网站，不显示完整地址。</p>
+      </main>
+      <div class="pk-bar"><div class="pk-bar-row">
+        <a class="btn btn-primary btn-lg" href="#" target="_blank" rel="noopener noreferrer"><!--@icon:external-->打开登录链接</a>
+        <button class="btn btn-secondary btn-lg" type="button"><!--@icon:copy-->复制链接</button>
+      </div></div>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="加载不全，自动重取">
+    <h2>07 加载不全 · 自动重取中</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>剩余有效 <b class="num">2 天 3 小时</b></span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">ChatGPT 共享号</h1>
+          <div class="pk-addr-label" style="margin-top: var(--space-2)">登录邮箱</div>
+          <div class="pk-addr">sw***@icloud.com</div>
+        </div>
+        <div class="pk-retry" aria-busy="true">
+          <div class="pk-live" role="status" style="padding: 0"><span class="pulse" aria-hidden="true"></span><span>正在补全邮件（第 2 次，共 3 次），不需要你操作</span></div>
+          <section class="pk-code-card" aria-hidden="true">
+            <span class="skeleton" style="width:40%;margin:0 auto var(--space-4)"></span>
+            <span class="skeleton" style="width:80%;height:44px;margin:0 auto var(--space-3)"></span>
+            <span class="skeleton" style="width:50%;margin:0 auto"></span>
+          </section>
+        </div>
+      </main>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="自动重取失败">
+    <h2>08 加载不全 · 重取 3 次仍失败</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>剩余有效 <b class="num">2 天 3 小时</b></span></header>
+      <main class="pk-main">
+        <div>
+          <h1 class="pk-title">ChatGPT 共享号</h1>
+          <div class="pk-addr-label" style="margin-top: var(--space-2)">登录邮箱</div>
+          <div class="pk-addr">sw***@icloud.com</div>
+        </div>
+        <div class="callout callout-danger" role="alert">
+          <!--@icon:alert-->
+          <div>
+            <p><b>邮件没有加载完整</b></p>
+            <p>已自动重试 3 次仍未成功（PARTIAL）。页面会继续按正常间隔刷新，你也可以现在重试。</p>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-lg" type="button"><!--@icon:refresh-->重试</button>
+        <h3 class="pk-section-label">上次加载到的</h3>
+        <div class="pk-old stale">
+          <div class="info"><span class="code" aria-label="验证码 4 8 2 9 1 0">482910</span><span>5 分钟前 · 来自 OpenAI</span></div>
+          <button class="btn btn-secondary btn-sm" type="button"><!--@icon:copy:icon-sm-->复制</button>
+        </div>
+      </main>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="每日取码上限">
+    <h2>09 每日取码上限（滚动 24 小时）</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span>剩余有效 <b class="num">2 天 3 小时</b></span></header>
+      <main class="pk-main">
+        <section class="pk-state">
+          <span class="icon-wrap warning"><!--@icon:clock:icon-lg--></span>
+          <h1>今天的取码次数用完了</h1>
+          <p>这个链接每 24 小时最多取 10 次。最早的一次取码会在 <span class="mono">11-21 02:14</span> 满 24 小时，到时恢复 1 次（约 5 小时 40 分钟后）。</p>
+        </section>
+        <p class="pk-note" style="text-align:center">这是每日上限，不是链接失效，到时间后回来就行。</p>
+        <div class="pk-contact">
+          <span class="muted">卖家留言</span>
+          <span class="note">需要更多次数请联系我：微信 mail_seller_01（10:00–23:00）</span>
+        </div>
+      </main>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="设备数已满">
+    <h2>10 设备数已满</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span></span></header>
+      <main class="pk-main">
+        <section class="pk-state">
+          <span class="icon-wrap warning"><!--@icon:smartphone:icon-lg--></span>
+          <h1>这个链接已在其他设备上使用</h1>
+          <p>最多可在 2 台设备上使用，名额已满。换了手机或浏览器的话，需要卖家重置设备。</p>
+        </section>
+        <div class="pk-contact">
+          <span class="muted">卖家留言</span>
+          <span class="note">换了手机或清了缓存，请联系我重置设备：微信 mail_seller_01（10:00–23:00）</span>
+        </div>
+      </main>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="未到生效时间">
+    <h2>11 未到生效时间</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span></span></header>
+      <main class="pk-main">
+        <section class="pk-state">
+          <span class="icon-wrap"><!--@icon:calendar:icon-lg--></span>
+          <h1>还没到生效时间</h1>
+          <p>这个链接将在 <span class="mono">2026-11-21 09:00</span> 生效，到时再打开即可。</p>
+        </section>
+      </main>
+    </div></div>
+  </section>
+
+  <section class="pk-cell" aria-label="已失效">
+    <h2>12 已失效 · 不存在（统一说明）</h2>
+    <div class="pk-frame"><div class="pk-page">
+      <header class="pk-top"><span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span><span></span></header>
+      <main class="pk-main">
+        <section class="pk-state">
+          <span class="icon-wrap"><!--@icon:ban:icon-lg--></span>
+          <h1>链接已失效</h1>
+          <p>这个链接无法继续使用。如有疑问，请联系把链接发给你的人。</p>
+        </section>
+      </main>
+    </div></div>
+  </section>
+
+</div>
+<!--@devbar-float-->
+</body>
+</html>

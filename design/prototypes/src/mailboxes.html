@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-radius="4">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>收件地址 · MailLink</title>
+  <link rel="stylesheet" href="../../apps/web/src/styles/tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+<!--@sprite-->
+<div class="app">
+  <!--@sidebar:mailboxes-->
+  <main class="main" id="main" data-selecting="true">
+    <header class="page-head">
+      <h1 class="page-title">收件地址</h1>
+      <p class="summary">
+        <span>共 <b>1,284</b> 个地址</span>
+        <a href="#"><span>启用 <b>1,201</b></span></a>
+        <a href="#"><span>已停用 <b>83</b></span></a>
+        <a href="#"><span>有链接 <b>860</b></span></a>
+      </p>
+    </header>
+
+    <div class="toolbar toolbar-default">
+      <div class="search">
+        <!--@icon:search-->
+        <input class="input" type="search" placeholder="搜索地址或备注" aria-label="搜索地址或备注">
+      </div>
+      <div class="select-wrap">
+        <select class="select" aria-label="标签筛选"><option>全部标签</option><option>OpenAI</option><option>Anthropic</option><option>共享</option><option>买断</option><option>备货</option></select>
+        <!--@icon:chevron-down-->
+      </div>
+      <div class="select-wrap">
+        <select class="select" aria-label="状态筛选"><option>全部状态</option><option>启用</option><option>已停用</option><option>有链接</option><option>无链接</option></select>
+        <!--@icon:chevron-down-->
+      </div>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" type="button"><!--@icon:upload-->导入</button>
+    </div>
+
+    <div class="batch-bar" role="toolbar" aria-label="批量操作">
+      <span class="count">已选 <b id="sel-count">3</b> 项</span>
+      <button class="link" type="button">选择全部 1,284 项</button>
+      <span class="sep"></span>
+      <button class="btn btn-primary btn-sm" type="button"><!--@icon:link-->生成取件链接</button>
+      <button class="btn btn-secondary btn-sm" type="button"><!--@icon:user-check-->授权给用户</button>
+      <button class="btn btn-secondary btn-sm" type="button"><!--@icon:tag-->打标签</button>
+      <button class="btn btn-secondary btn-sm" type="button" aria-haspopup="menu"><!--@icon:power-->启停<!--@icon:chevron-down:icon-sm--></button>
+      <span class="spacer"></span>
+      <button class="btn btn-danger-ghost btn-sm" type="button"><!--@icon:trash-->删除</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="clear-sel"><!--@icon:x-->取消选择</button>
+    </div>
+
+    <div class="panel" style="margin-top: var(--space-3)">
+      <table class="table">
+        <colgroup>
+          <col style="width:40px"><col style="width:296px"><col><col style="width:190px"><col style="width:80px"><col style="width:64px"><col style="width:88px"><col style="width:112px"><col style="width:124px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="col-check"><input type="checkbox" class="cb" id="all-cb" aria-label="选择当前页全部"></th>
+            <th>地址</th><th>备注</th><th>标签</th><th>状态</th>
+            <th class="col-num">链接数</th><th class="col-num">授权用户数</th><th>最近来信</th><th class="col-actions"><span class="sr-only">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+<!--@mailbox-rows-->
+        </tbody>
+      </table>
+      <div class="table-foot">
+        <span>第 1–16 行，共 <span class="num">1,284</span> 行</span>
+        <div class="pager">
+          <button class="btn btn-secondary btn-sm btn-icon" type="button" aria-label="上一页" disabled><!--@icon:chevron-left--></button>
+          <span class="num">1 / 81</span>
+          <button class="btn btn-secondary btn-sm btn-icon" type="button" aria-label="下一页"><!--@icon:chevron-right--></button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  (function () {
+    var main = document.getElementById('main');
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.row-cb'));
+    var all = document.getElementById('all-cb');
+    function sync() {
+      var n = rows.filter(function (c) { return c.checked; }).length;
+      main.setAttribute('data-selecting', String(n > 0));
+      document.getElementById('sel-count').textContent = n;
+      all.checked = n === rows.length;
+      all.indeterminate = n > 0 && n < rows.length;
+      rows.forEach(function (c) { c.closest('tr').setAttribute('aria-selected', String(c.checked)); });
+    }
+    rows.forEach(function (c) { c.addEventListener('change', sync); });
+    all.addEventListener('change', function () { rows.forEach(function (c) { c.checked = all.checked; }); sync(); });
+    document.getElementById('clear-sel').addEventListener('click', function () { rows.forEach(function (c) { c.checked = false; }); sync(); });
+    sync();
+  })();
+</script>
+</body>
+</html>

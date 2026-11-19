@@ -1,0 +1,181 @@
+/*
+ * MailLink 设计令牌（UI-0）
+ * 组件只引用语义变量，不写死色值。
+ * :root = 浅色；[data-theme="dark"] = 深色；[data-radius="0|4|8"] = 圆角档位。
+ * “跟随系统”由前端脚本解析成 light / dark 后写 data-theme，这里不重复一份 media query。
+ * 强调色可被管理员替换：由代码一次写入 --color-accent / -fg / -text / -mix（见 DESIGN.md「主题覆盖与强调色」）。
+ * 本文件是令牌的唯一来源；原型与校验脚本在 design/ 下。
+ * 不加载任何外链字体或资源；等宽字体先用系统栈，以后可自托管 JetBrains Mono。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── 表面 ── */
+  --color-bg: #f5f2ea;               /* 页面底：暖纸色 */
+  --color-surface: #fffdf8;          /* 内容面：表格、卡片、表单 */
+  --color-surface-sunken: #efebe0;   /* 凹陷面：分段控件轨道、标签底、批量条 */
+  --color-surface-raised: #fffefb;   /* 浮层：菜单、对话框、侧板 */
+  --color-sidebar: #efebe0;          /* 管理端侧栏 */
+  --color-row-alt: #faf7ef;          /* 表格斑马底，极浅 */
+  --color-row-hover: #f6f1e4;
+  --color-row-selected: #f0eadb;
+  --color-overlay: rgb(31 29 26 / 0.42);
+
+  /* ── 文字 ── */
+  --color-text: #1f1d1a;             /* 墨色 */
+  --color-text-muted: #5f594f;       /* 次要文字 */
+  --color-text-subtle: #6f695e;      /* 时间戳、占位符、禁用；在 bg / surface / 斑马 / 选中 / 凹陷面上都 ≥ 4.5:1 */
+
+  /* ── 边界与焦点 ── */
+  --color-border: #e2dccd;           /* 分隔：卡片外沿、区块分隔，非控件 */
+  --color-border-control: #8a8374;   /* 控件边界：输入框、选择、分段，对 surface ≥ 3:1 */
+  --color-focus: #35618f;            /* 键盘焦点环，与强调色无关 */
+
+  /* ── 强调：邮戳红 ── */
+  --color-accent: #c8432b;           /* 主按钮、当前导航项标记 */
+  --color-accent-fg: #ffffff;        /* 强调色上的文字：代码在 #fff 与 #000 中取对比度更高者（最差 4.58:1）；hover/active 同样保证 ≥ 4.5:1 */
+  --color-accent-text: #b53a24;      /* 强调色作文字/链接用在 surface 上，保证 ≥ 4.5:1 */
+  --color-accent-mix: #000000;       /* hover/active 的混入色：前景白 → 黑（加深），前景黑 → 白（提亮），使前景对比度只增不减 */
+  --color-accent-hover: color-mix(in srgb, var(--color-accent) 88%, var(--color-accent-mix));
+  --color-accent-active: color-mix(in srgb, var(--color-accent) 78%, var(--color-accent-mix));
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 11%, var(--color-surface));
+
+  /* ── 选中态（不用红）：复选框、开关、分段选中 ── */
+  --color-selected: #1f1d1a;
+  --color-selected-fg: #fffdf8;
+
+  /* ── 状态：红只给需要处置的；绿给正常；赭给需留意；蓝灰给说明 ── */
+  --color-danger: #b3341f;
+  --color-danger-fg: #fffdf8;        /* 危险按钮上的文字 */
+  --color-danger-soft: #fbeae5;
+  --color-success: #2f7d4b;          /* 状态点 */
+  --color-success-text: #2a6a41;
+  --color-warning: #8f5a00;
+  --color-warning-soft: #f6ebd3;
+  --color-info: #35618f;
+  --color-info-soft: #e6edf4;
+  --color-neutral-dot: #8a8374;      /* 停用/暂停：中性灰 */
+
+  /* ── 字体 ── */
+  --font-sans: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "Noto Sans Mono CJK SC", monospace;
+  --weight-regular: 400;
+  --weight-strong: 600;
+
+  --text-xs: 12px;
+  --text-sm: 13px;                   /* 表格、次要信息 */
+  --text-base: 14px;                 /* 管理端正文、按钮、输入 */
+  --text-md: 16px;                   /* 取件页正文；手机输入框不小于 16px */
+  --text-lg: 18px;
+  --text-xl: 20px;                   /* 页面标题 */
+  --text-2xl: 24px;
+  --text-code-sm: 28px;              /* 取件页：较旧验证码 */
+  --text-code: 48px;                 /* 取件页：最新验证码 */
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;            /* 纯文本正文阅读 */
+  --tracking-code: 0.12em;
+
+  /* ── 间距（4px 基准） ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── 圆角（默认档 4px；见下方 [data-radius]） ── */
+  --radius-sm: 2px;                  /* 标签、复选框 */
+  --radius-md: 4px;                  /* 按钮、输入、分段 */
+  --radius-lg: 6px;                  /* 卡片、面板、对话框 */
+
+  /* ── 阴影：只给浮起的东西 ── */
+  --shadow-popover: 0 6px 20px rgb(31 29 26 / 0.12), 0 1px 3px rgb(31 29 26 / 0.08);
+  --shadow-dialog: 0 16px 48px rgb(31 29 26 / 0.2), 0 2px 6px rgb(31 29 26 / 0.1);
+
+  /* ── 动效 ── */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── 密度与尺寸 ── */
+  --row-height: 36px;                /* 管理端表格行高 */
+  --row-height-head: 32px;
+  --control-height: 32px;            /* 管理端按钮、输入、选择 */
+  --control-height-lg: 44px;         /* 取件页与触屏的主操作，最小点击区 */
+  --toolbar-height: 48px;
+  --sidebar-width: 224px;
+  --page-pad-x: 24px;
+  --pickup-max-width: 480px;
+
+  /* ── 层级 ── */
+  --z-sticky: 10;
+  --z-bar: 20;
+  --z-popover: 40;
+  --z-dialog: 50;
+  --z-toast: 60;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: #171512;
+  --color-surface: #1f1d19;
+  --color-surface-sunken: #121110;
+  --color-surface-raised: #27241f;
+  --color-sidebar: #131210;
+  --color-row-alt: #1c1a16;
+  --color-row-hover: #25221d;
+  --color-row-selected: #2b2822;
+  --color-overlay: rgb(0 0 0 / 0.6);
+
+  --color-text: #ede8dd;
+  --color-text-muted: #b4ad9f;
+  --color-text-subtle: #9a9386;
+
+  --color-border: #2e2b25;
+  --color-border-control: #7d776a;
+  --color-focus: #7fa9db;
+
+  --color-accent: #c8432b;
+  --color-accent-fg: #ffffff;
+  --color-accent-text: #f27f66;
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+
+  --color-selected: #ede8dd;
+  --color-selected-fg: #1f1d19;
+
+  --color-danger: #f0705a;
+  --color-danger-fg: #1a0f0c;
+  --color-danger-soft: #3a1f19;
+  --color-success: #5db27a;
+  --color-success-text: #6cc088;
+  --color-warning: #e0a94a;
+  --color-warning-soft: #33291a;
+  --color-info: #7fa9db;
+  --color-info-soft: #1e2a36;
+  --color-neutral-dot: #7d776a;
+
+  --shadow-popover: 0 6px 20px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-dialog: 0 16px 48px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.05);
+}
+
+/* 圆角档位：整套比例一起换，组件不自己算 */
+[data-radius="0"] { --radius-sm: 0; --radius-md: 0; --radius-lg: 0; }
+[data-radius="4"] { --radius-sm: 2px; --radius-md: 4px; --radius-lg: 6px; }
+[data-radius="8"] { --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0.01ms;
+    --duration-base: 0.01ms;
+    --duration-slow: 0.01ms;
+  }
+}

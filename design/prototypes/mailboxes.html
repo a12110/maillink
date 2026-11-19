@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-radius="4">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>收件地址 · MailLink</title>
+  <link rel="stylesheet" href="../../apps/web/src/styles/tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol><symbol id="i-funnel" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54z"/></symbol><symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.71a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/></symbol><symbol id="i-user-check" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol><symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="m15 3 6 0 0 6"/><path d="M10 14 21 3"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol><symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></symbol><symbol id="i-file-x" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6M9.5 12.5l5 5M14.5 12.5l-5 5"/></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol><symbol id="i-smartphone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol></svg>
+<div class="app">
+  <aside class="sidebar">
+  <div class="brand"><span class="brand-mark"><svg class="icon " aria-hidden="true"><use href="#i-mail"/></svg></span><span class="brand-name">MailLink</span></div>
+  <nav aria-label="主导航">
+    <div class="nav-label">邮件</div>
+    <a class="nav-item" href="mailboxes.html" aria-current="page"><svg class="icon " aria-hidden="true"><use href="#i-mail"/></svg>收件地址</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg>取件链接</a>
+    <a class="nav-item" href="rule-group-edit.html"><svg class="icon " aria-hidden="true"><use href="#i-funnel"/></svg>规则组</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg>全部邮件</a>
+    <div class="nav-label">管理</div>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-users"/></svg>用户</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-sliders"/></svg>系统设置</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-file-text"/></svg>审计日志</a>
+  </nav>
+  <div class="sidebar-foot">
+    <div class="devbar" aria-label="原型主题控件（非产品）">
+  <div class="row"><span>明暗</span><div class="segmented segmented-sm"><label><input type="radio" name="it" data-set="theme:light"><span>浅</span></label><label><input type="radio" name="it" data-set="theme:dark"><span>深</span></label></div></div>
+  <div class="row"><span>圆角</span><div class="segmented segmented-sm"><label><input type="radio" name="ir" data-set="radius:0"><span>0</span></label><label><input type="radio" name="ir" data-set="radius:4"><span>4</span></label><label><input type="radio" name="ir" data-set="radius:8"><span>8</span></label></div></div>
+  <div class="row"><span>强调色</span><div class="swatches"><button type="button" class="swatch" style="background:#c8432b" data-set="accent:#c8432b" aria-label="强调色 邮戳红" title="邮戳红"></button><button type="button" class="swatch" style="background:#2f5fa8" data-set="accent:#2f5fa8" aria-label="强调色 靛蓝" title="靛蓝"></button><button type="button" class="swatch" style="background:#1f7a5a" data-set="accent:#1f7a5a" aria-label="强调色 松绿" title="松绿"></button><button type="button" class="swatch" style="background:#d9a21b" data-set="accent:#d9a21b" aria-label="强调色 琥珀" title="琥珀"></button><button type="button" class="swatch" style="background:#3a3632" data-set="accent:#3a3632" aria-label="强调色 墨" title="墨"></button></div></div></div>
+    <div class="user-chip"><span class="avatar">A</span><span><b>admin</b><small>管理员 · 账号安全</small></span></div>
+  </div>
+</aside>
+  <main class="main" id="main" data-selecting="true">
+    <header class="page-head">
+      <h1 class="page-title">收件地址</h1>
+      <p class="summary">
+        <span>共 <b>1,284</b> 个地址</span>
+        <a href="#"><span>启用 <b>1,201</b></span></a>
+        <a href="#"><span>已停用 <b>83</b></span></a>
+        <a href="#"><span>有链接 <b>860</b></span></a>
+      </p>
+    </header>
+
+    <div class="toolbar toolbar-default">
+      <div class="search">
+        <svg class="icon " aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="input" type="search" placeholder="搜索地址或备注" aria-label="搜索地址或备注">
+      </div>
+      <div class="select-wrap">
+        <select class="select" aria-label="标签筛选"><option>全部标签</option><option>OpenAI</option><option>Anthropic</option><option>共享</option><option>买断</option><option>备货</option></select>
+        <svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </div>
+      <div class="select-wrap">
+        <select class="select" aria-label="状态筛选"><option>全部状态</option><option>启用</option><option>已停用</option><option>有链接</option><option>无链接</option></select>
+        <svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" type="button"><svg class="icon " aria-hidden="true"><use href="#i-upload"/></svg>导入</button>
+    </div>
+
+    <div class="batch-bar" role="toolbar" aria-label="批量操作">
+      <span class="count">已选 <b id="sel-count">3</b> 项</span>
+      <button class="link" type="button">选择全部 1,284 项</button>
+      <span class="sep"></span>
+      <button class="btn btn-primary btn-sm" type="button"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg>生成取件链接</button>
+      <button class="btn btn-secondary btn-sm" type="button"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg>授权给用户</button>
+      <button class="btn btn-secondary btn-sm" type="button"><svg class="icon " aria-hidden="true"><use href="#i-tag"/></svg>打标签</button>
+      <button class="btn btn-secondary btn-sm" type="button" aria-haspopup="menu"><svg class="icon " aria-hidden="true"><use href="#i-power"/></svg>启停<svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+      <span class="spacer"></span>
+      <button class="btn btn-danger-ghost btn-sm" type="button"><svg class="icon " aria-hidden="true"><use href="#i-trash"/></svg>删除</button>
+      <button class="btn btn-ghost btn-sm" type="button" id="clear-sel"><svg class="icon " aria-hidden="true"><use href="#i-x"/></svg>取消选择</button>
+    </div>
+
+    <div class="panel" style="margin-top: var(--space-3)">
+      <table class="table">
+        <colgroup>
+          <col style="width:40px"><col style="width:296px"><col><col style="width:190px"><col style="width:80px"><col style="width:64px"><col style="width:88px"><col style="width:112px"><col style="width:124px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="col-check"><input type="checkbox" class="cb" id="all-cb" aria-label="选择当前页全部"></th>
+            <th>地址</th><th>备注</th><th>标签</th><th>状态</th>
+            <th class="col-num">链接数</th><th class="col-num">授权用户数</th><th>最近来信</th><th class="col-actions"><span class="sr-only">操作</span></th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <tr aria-selected="true">
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 swift_lantern_7k2q9x@icloud.com" checked></td>
+            <td class="addr" title="swift_lantern_7k2q9x@icloud.com">swift_lantern_7k2q9x@icloud.com</td>
+            <td title="OpenAI 共享号 #12">OpenAI 共享号 #12</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">OpenAI</span><span class="tag">共享</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=swift_lantern_7k2q9x@icloud.com" title="查看 2 个取件链接" aria-label="swift_lantern_7k2q9x@icloud.com 有 2 个取件链接，查看">2</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-20 14:32</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="swift_lantern_7k2q9x@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=swift_lantern_7k2q9x@icloud.com" title="该地址的邮件" aria-label="查看 swift_lantern_7k2q9x@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=swift_lantern_7k2q9x@icloud.com" title="已有链接" aria-label="查看 swift_lantern_7k2q9x@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=swift_lantern_7k2q9x@icloud.com" title="已有授权" aria-label="查看 swift_lantern_7k2q9x@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="swift_lantern_7k2q9x@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 quiet_maple_3m8d1c@icloud.com"></td>
+            <td class="addr" title="quiet_maple_3m8d1c@icloud.com">quiet_maple_3m8d1c@icloud.com</td>
+            <td title="OpenAI 买断 · 订单 A20311">OpenAI 买断 · 订单 A20311</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">OpenAI</span><span class="tag">买断</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=quiet_maple_3m8d1c@icloud.com" title="查看 1 个取件链接" aria-label="quiet_maple_3m8d1c@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num"><a class="num-link" href="users.html?mailbox=quiet_maple_3m8d1c@icloud.com" title="查看 1 位授权用户" aria-label="quiet_maple_3m8d1c@icloud.com 授权给 1 位用户，查看">1</a></td>
+            <td class="time">11-20 14:05</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="quiet_maple_3m8d1c@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=quiet_maple_3m8d1c@icloud.com" title="该地址的邮件" aria-label="查看 quiet_maple_3m8d1c@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=quiet_maple_3m8d1c@icloud.com" title="已有链接" aria-label="查看 quiet_maple_3m8d1c@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=quiet_maple_3m8d1c@icloud.com" title="已有授权" aria-label="查看 quiet_maple_3m8d1c@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="quiet_maple_3m8d1c@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr aria-selected="true">
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 amber_otter_x92kfd@icloud.com" checked></td>
+            <td class="addr" title="amber_otter_x92kfd@icloud.com">amber_otter_x92kfd@icloud.com</td>
+            <td title="Anthropic 共享号 #04">Anthropic 共享号 #04</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Anthropic</span><span class="tag">共享</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=amber_otter_x92kfd@icloud.com" title="查看 3 个取件链接" aria-label="amber_otter_x92kfd@icloud.com 有 3 个取件链接，查看">3</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-20 13:48</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="amber_otter_x92kfd@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=amber_otter_x92kfd@icloud.com" title="该地址的邮件" aria-label="查看 amber_otter_x92kfd@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=amber_otter_x92kfd@icloud.com" title="已有链接" aria-label="查看 amber_otter_x92kfd@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=amber_otter_x92kfd@icloud.com" title="已有授权" aria-label="查看 amber_otter_x92kfd@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="amber_otter_x92kfd@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 brisk_falcon_41zq0e@icloud.com"></td>
+            <td class="addr" title="brisk_falcon_41zq0e@icloud.com">brisk_falcon_41zq0e@icloud.com</td>
+            <td class="dim" title="">—</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Netflix</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num dim">0</td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-19 21:07</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="brisk_falcon_41zq0e@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=brisk_falcon_41zq0e@icloud.com" title="该地址的邮件" aria-label="查看 brisk_falcon_41zq0e@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=brisk_falcon_41zq0e@icloud.com" title="已有链接" aria-label="查看 brisk_falcon_41zq0e@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=brisk_falcon_41zq0e@icloud.com" title="已有授权" aria-label="查看 brisk_falcon_41zq0e@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="brisk_falcon_41zq0e@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 velvet_harbor_t5n7w2@icloud.com"></td>
+            <td class="addr" title="velvet_harbor_t5n7w2@icloud.com">velvet_harbor_t5n7w2@icloud.com</td>
+            <td title="Steam 买断 · 质保至 12-30">Steam 买断 · 质保至 12-30</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Steam</span><span class="tag">买断</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=velvet_harbor_t5n7w2@icloud.com" title="查看 1 个取件链接" aria-label="velvet_harbor_t5n7w2@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-19 18:22</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="velvet_harbor_t5n7w2@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=velvet_harbor_t5n7w2@icloud.com" title="该地址的邮件" aria-label="查看 velvet_harbor_t5n7w2@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=velvet_harbor_t5n7w2@icloud.com" title="已有链接" aria-label="查看 velvet_harbor_t5n7w2@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=velvet_harbor_t5n7w2@icloud.com" title="已有授权" aria-label="查看 velvet_harbor_t5n7w2@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="velvet_harbor_t5n7w2@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 pale_comet_9d3rh6@icloud.com"></td>
+            <td class="addr" title="pale_comet_9d3rh6@icloud.com">pale_comet_9d3rh6@icloud.com</td>
+            <td title="已退款，待回收">已退款，待回收</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">OpenAI</span></div></td>
+            <td><span class="status status-muted"><span class="dot "></span>已停用</span></td>
+            <td class="col-num dim">0</td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-18 09:41</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="pale_comet_9d3rh6@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=pale_comet_9d3rh6@icloud.com" title="该地址的邮件" aria-label="查看 pale_comet_9d3rh6@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=pale_comet_9d3rh6@icloud.com" title="已有链接" aria-label="查看 pale_comet_9d3rh6@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=pale_comet_9d3rh6@icloud.com" title="已有授权" aria-label="查看 pale_comet_9d3rh6@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="pale_comet_9d3rh6@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 northern_crisp_walnut_a8e4m1v7@icloud.com"></td>
+            <td class="addr" title="northern_crisp_walnut_a8e4m1v7@icloud.com">northern_crisp_walnut_a8e4m1v7@icloud.com</td>
+            <td title="Google 共享号 · 超长别名，列内省略号截断">Google 共享号 · 超长别名，列内省略号截断</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Google</span><span class="tag">共享</span><span class="tag">备货</span><span class="tag">+1</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=northern_crisp_walnut_a8e4m1v7@icloud.com" title="查看 1 个取件链接" aria-label="northern_crisp_walnut_a8e4m1v7@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-18 23:56</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="northern_crisp_walnut_a8e4m1v7@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=northern_crisp_walnut_a8e4m1v7@icloud.com" title="该地址的邮件" aria-label="查看 northern_crisp_walnut_a8e4m1v7@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=northern_crisp_walnut_a8e4m1v7@icloud.com" title="已有链接" aria-label="查看 northern_crisp_walnut_a8e4m1v7@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=northern_crisp_walnut_a8e4m1v7@icloud.com" title="已有授权" aria-label="查看 northern_crisp_walnut_a8e4m1v7@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="northern_crisp_walnut_a8e4m1v7@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 lunar_pine_0w6xjc@icloud.com"></td>
+            <td class="addr" title="lunar_pine_0w6xjc@icloud.com">lunar_pine_0w6xjc@icloud.com</td>
+            <td title="Discord">Discord</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Discord</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=lunar_pine_0w6xjc@icloud.com" title="查看 1 个取件链接" aria-label="lunar_pine_0w6xjc@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-18 22:10</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="lunar_pine_0w6xjc@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=lunar_pine_0w6xjc@icloud.com" title="该地址的邮件" aria-label="查看 lunar_pine_0w6xjc@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=lunar_pine_0w6xjc@icloud.com" title="已有链接" aria-label="查看 lunar_pine_0w6xjc@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=lunar_pine_0w6xjc@icloud.com" title="已有授权" aria-label="查看 lunar_pine_0w6xjc@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="lunar_pine_0w6xjc@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 mellow_cedar_5b1p8y@icloud.com"></td>
+            <td class="addr" title="mellow_cedar_5b1p8y@icloud.com">mellow_cedar_5b1p8y@icloud.com</td>
+            <td title="Spotify 家庭组">Spotify 家庭组</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Spotify</span><span class="tag">共享</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=mellow_cedar_5b1p8y@icloud.com" title="查看 1 个取件链接" aria-label="mellow_cedar_5b1p8y@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num"><a class="num-link" href="users.html?mailbox=mellow_cedar_5b1p8y@icloud.com" title="查看 2 位授权用户" aria-label="mellow_cedar_5b1p8y@icloud.com 授权给 2 位用户，查看">2</a></td>
+            <td class="time">11-17 16:55</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="mellow_cedar_5b1p8y@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=mellow_cedar_5b1p8y@icloud.com" title="该地址的邮件" aria-label="查看 mellow_cedar_5b1p8y@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=mellow_cedar_5b1p8y@icloud.com" title="已有链接" aria-label="查看 mellow_cedar_5b1p8y@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=mellow_cedar_5b1p8y@icloud.com" title="已有授权" aria-label="查看 mellow_cedar_5b1p8y@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="mellow_cedar_5b1p8y@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 ivory_ember_k27vq4@icloud.com"></td>
+            <td class="addr" title="ivory_ember_k27vq4@icloud.com">ivory_ember_k27vq4@icloud.com</td>
+            <td class="dim" title="">—</td>
+            <td class="cell-tags"><div class="tags"><span class="dim">—</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num dim">0</td>
+            <td class="col-num dim">0</td>
+            <td class="time dim">从未来信</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="ivory_ember_k27vq4@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=ivory_ember_k27vq4@icloud.com" title="该地址的邮件" aria-label="查看 ivory_ember_k27vq4@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=ivory_ember_k27vq4@icloud.com" title="已有链接" aria-label="查看 ivory_ember_k27vq4@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=ivory_ember_k27vq4@icloud.com" title="已有授权" aria-label="查看 ivory_ember_k27vq4@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="ivory_ember_k27vq4@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 hazel_river_6f9s2t@icloud.com"></td>
+            <td class="addr" title="hazel_river_6f9s2t@icloud.com">hazel_river_6f9s2t@icloud.com</td>
+            <td title="Microsoft 共享号 #03">Microsoft 共享号 #03</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Microsoft</span><span class="tag">共享</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=hazel_river_6f9s2t@icloud.com" title="查看 2 个取件链接" aria-label="hazel_river_6f9s2t@icloud.com 有 2 个取件链接，查看">2</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-17 08:30</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="hazel_river_6f9s2t@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=hazel_river_6f9s2t@icloud.com" title="该地址的邮件" aria-label="查看 hazel_river_6f9s2t@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=hazel_river_6f9s2t@icloud.com" title="已有链接" aria-label="查看 hazel_river_6f9s2t@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=hazel_river_6f9s2t@icloud.com" title="已有授权" aria-label="查看 hazel_river_6f9s2t@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="hazel_river_6f9s2t@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 crimson_wren_d4h7n0@icloud.com"></td>
+            <td class="addr" title="crimson_wren_d4h7n0@icloud.com">crimson_wren_d4h7n0@icloud.com</td>
+            <td title="Apple ID 买断">Apple ID 买断</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Apple</span><span class="tag">买断</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=crimson_wren_d4h7n0@icloud.com" title="查看 1 个取件链接" aria-label="crimson_wren_d4h7n0@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-16 20:18</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="crimson_wren_d4h7n0@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=crimson_wren_d4h7n0@icloud.com" title="该地址的邮件" aria-label="查看 crimson_wren_d4h7n0@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=crimson_wren_d4h7n0@icloud.com" title="已有链接" aria-label="查看 crimson_wren_d4h7n0@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=crimson_wren_d4h7n0@icloud.com" title="已有授权" aria-label="查看 crimson_wren_d4h7n0@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="crimson_wren_d4h7n0@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr aria-selected="true">
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 tidy_birch_m3x8c5@icloud.com" checked></td>
+            <td class="addr" title="tidy_birch_m3x8c5@icloud.com">tidy_birch_m3x8c5@icloud.com</td>
+            <td title="OpenAI 共享号 #13">OpenAI 共享号 #13</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">OpenAI</span><span class="tag">共享</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=tidy_birch_m3x8c5@icloud.com" title="查看 2 个取件链接" aria-label="tidy_birch_m3x8c5@icloud.com 有 2 个取件链接，查看">2</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-16 12:02</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="tidy_birch_m3x8c5@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=tidy_birch_m3x8c5@icloud.com" title="该地址的邮件" aria-label="查看 tidy_birch_m3x8c5@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=tidy_birch_m3x8c5@icloud.com" title="已有链接" aria-label="查看 tidy_birch_m3x8c5@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=tidy_birch_m3x8c5@icloud.com" title="已有授权" aria-label="查看 tidy_birch_m3x8c5@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="tidy_birch_m3x8c5@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 gentle_aspen_2r5k9u@icloud.com"></td>
+            <td class="addr" title="gentle_aspen_2r5k9u@icloud.com">gentle_aspen_2r5k9u@icloud.com</td>
+            <td title="停用：平台封号">停用：平台封号</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Netflix</span></div></td>
+            <td><span class="status status-muted"><span class="dot "></span>已停用</span></td>
+            <td class="col-num dim">0</td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-12 19:44</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="gentle_aspen_2r5k9u@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=gentle_aspen_2r5k9u@icloud.com" title="该地址的邮件" aria-label="查看 gentle_aspen_2r5k9u@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=gentle_aspen_2r5k9u@icloud.com" title="已有链接" aria-label="查看 gentle_aspen_2r5k9u@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=gentle_aspen_2r5k9u@icloud.com" title="已有授权" aria-label="查看 gentle_aspen_2r5k9u@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="gentle_aspen_2r5k9u@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 solar_juniper_8c0v3z@icloud.com"></td>
+            <td class="addr" title="solar_juniper_8c0v3z@icloud.com">solar_juniper_8c0v3z@icloud.com</td>
+            <td title="Anthropic 买断 · 订单 A20377">Anthropic 买断 · 订单 A20377</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">Anthropic</span><span class="tag">买断</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=solar_juniper_8c0v3z@icloud.com" title="查看 1 个取件链接" aria-label="solar_juniper_8c0v3z@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num"><a class="num-link" href="users.html?mailbox=solar_juniper_8c0v3z@icloud.com" title="查看 1 位授权用户" aria-label="solar_juniper_8c0v3z@icloud.com 授权给 1 位用户，查看">1</a></td>
+            <td class="time">11-15 10:27</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="solar_juniper_8c0v3z@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=solar_juniper_8c0v3z@icloud.com" title="该地址的邮件" aria-label="查看 solar_juniper_8c0v3z@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=solar_juniper_8c0v3z@icloud.com" title="已有链接" aria-label="查看 solar_juniper_8c0v3z@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=solar_juniper_8c0v3z@icloud.com" title="已有授权" aria-label="查看 solar_juniper_8c0v3z@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="solar_juniper_8c0v3z@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+          <tr>
+            <td class="col-check"><input type="checkbox" class="cb row-cb" aria-label="选择 misty_quartz_7j4t1b@icloud.com"></td>
+            <td class="addr" title="misty_quartz_7j4t1b@icloud.com">misty_quartz_7j4t1b@icloud.com</td>
+            <td title="备货，未售出">备货，未售出</td>
+            <td class="cell-tags"><div class="tags"><span class="tag">OpenAI</span><span class="tag">备货</span></div></td>
+            <td><span class="status"><span class="dot dot-success"></span>启用</span></td>
+            <td class="col-num"><a class="num-link" href="links.html?mailbox=misty_quartz_7j4t1b@icloud.com" title="查看 1 个取件链接" aria-label="misty_quartz_7j4t1b@icloud.com 有 1 个取件链接，查看">1</a></td>
+            <td class="col-num dim">0</td>
+            <td class="time">11-14 15:03</td>
+            <td class="col-actions"><div class="row-actions" role="group" aria-label="misty_quartz_7j4t1b@icloud.com 的操作">
+              <a class="btn btn-ghost btn-sm btn-icon" href="mails.html?address=misty_quartz_7j4t1b@icloud.com" title="该地址的邮件" aria-label="查看 misty_quartz_7j4t1b@icloud.com 的邮件"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="links.html?mailbox=misty_quartz_7j4t1b@icloud.com" title="已有链接" aria-label="查看 misty_quartz_7j4t1b@icloud.com 已有的链接"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg></a>
+              <a class="btn btn-ghost btn-sm btn-icon" href="users.html?mailbox=misty_quartz_7j4t1b@icloud.com" title="已有授权" aria-label="查看 misty_quartz_7j4t1b@icloud.com 已有的授权"><svg class="icon " aria-hidden="true"><use href="#i-user-check"/></svg></a>
+              <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-haspopup="menu" title="更多" aria-label="misty_quartz_7j4t1b@icloud.com 的更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+            </div></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="table-foot">
+        <span>第 1–16 行，共 <span class="num">1,284</span> 行</span>
+        <div class="pager">
+          <button class="btn btn-secondary btn-sm btn-icon" type="button" aria-label="上一页" disabled><svg class="icon " aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+          <span class="num">1 / 81</span>
+          <button class="btn btn-secondary btn-sm btn-icon" type="button" aria-label="下一页"><svg class="icon " aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+  (function () {
+    var main = document.getElementById('main');
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.row-cb'));
+    var all = document.getElementById('all-cb');
+    function sync() {
+      var n = rows.filter(function (c) { return c.checked; }).length;
+      main.setAttribute('data-selecting', String(n > 0));
+      document.getElementById('sel-count').textContent = n;
+      all.checked = n === rows.length;
+      all.indeterminate = n > 0 && n < rows.length;
+      rows.forEach(function (c) { c.closest('tr').setAttribute('aria-selected', String(c.checked)); });
+    }
+    rows.forEach(function (c) { c.addEventListener('change', sync); });
+    all.addEventListener('change', function () { rows.forEach(function (c) { c.checked = all.checked; }); sync(); });
+    document.getElementById('clear-sel').addEventListener('click', function () { rows.forEach(function (c) { c.checked = false; }); sync(); });
+    sync();
+  })();
+</script>
+</body>
+</html>

@@ -54,9 +54,9 @@
 | 阶段 | 内容 | 执行模型 | 状态 | 证据 |
 | --- | --- | --- | --- | --- |
 | M0 | 脚手架、两个 D1、迁移、健康检查、本地种子 | sonnet-5-5 | 通过 | 见记录 2026-11-20 M0 |
-| UI-0 | `DESIGN.md`、设计变量、三个代表页的静态原型（与 M0 并发） | sonnet-5-5#high | 退回修复（验收"有条件通过"，5 项必修） | 验收会话 `ses_e0b06d389ffeMo1DY6jpMZol9L` |
+| UI-0 | `DESIGN.md`、设计变量、三个代表页的静态原型（与 M0 并发） | sonnet-5-5#high | 通过 | 见记录 2026-11-20 UI-0 |
 | M1 | 初始化、账号密码登录、会话、用户与角色（后端）；含 M0 遗留修复 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M1 |
-| M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 待办（等 M1 合并后从 main 开） | |
+| M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 进行中（worktree `m2-mail-source`，分支 `m2`，基于 `1bb834b`，端口 8793，迁移号 0003） | |
 | M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 进行中（worktree `m3a-rule-engine`，分支 `m3a`，与 M1/M2 并发） | |
 | M3b | 收件地址、规则组、取件链接 API 与公开接口 | sonnet-5-5#high | 待办 | |
 | M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办 | |
@@ -83,3 +83,12 @@
 - 主 agent 在 worktree 复跑：typecheck/lint 三包 Done；`pnpm test` 16 文件 195 用例通过。
 - PBKDF2：迭代数取 100,000（社区与 workerd issue 记载的生产上限）；本地 workerd 不执行该上限，**部署后首次登录是这一点的冒烟检查**。
 - 遗留：登录与 setup 限流（M7）；审计写入非原子（可接受）；过期会话只在访问时惰性删除（M7 cron）；`Secure` Cookie 在 Safari 本地 http 下不保存。
+
+### 2026-11-20 UI-0 通过
+
+- 执行：sonnet-5-5#high（`ses_e0b1c3838ffeaLtOMO7mb6Jy8M`）；验收：opus-5-5#high（`ses_e0b06d389ffeMo1DY6jpMZol9L`）。首轮"有条件通过"（5 项必修：强调色 hover/active 对比度、规范引用文件未入库、取件页状态缺项与两处文档冲突、取件页 44px 命中区、收件地址行内入口），修复后复验"通过"。
+- 主 agent 复跑：`contrast.mjs` 98 项全部达标；`accent-test.mjs` 8022 组最差值 fg/accent 4.58、fg/hover 5.03、fg/active 5.58、accent/surface 3.00、accent/bg 3.00、accent-text 4.50，不可达时抛错；`check_design_md.py DESIGN.md` exit 0。
+- 验收方独立复核：11664 组采样无抛错，默认深色 hover 6.00、active 7.17；无头 Chrome 390×844 触屏下取件页 27 个可点元素命中区全部 ≥44×44；取件页无外链资源；1440×900 悬停与 Tab 聚焦均可见行内操作。
+- 交付：`DESIGN.md`（240 行，Agent 推断项已标注）、`apps/web/src/styles/tokens.css`（令牌唯一来源）、`design/prototypes/`（6 个原型页）、`design/scripts/`（对比度、强调色、命中区校验）。
+- 遗留给 UI-1：`DESIGN.md` 末尾"UI-1 待办"8 条；"自动刷新已暂停""重取失败"两帧的弱化阈值与规范（10 分钟）不一致；外观设置页要把 `ensure()` 抛错显示为表单校验信息；根 ESLint 应忽略 `design/`。
+- 视觉方向仍为 Agent 推断，用户尚未最终确认。

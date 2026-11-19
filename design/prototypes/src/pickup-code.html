@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-radius="4">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>ChatGPT 共享号 · 取验证码</title>
+  <link rel="stylesheet" href="../../apps/web/src/styles/tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+<!--@sprite-->
+<div class="pk-page">
+  <header class="pk-top">
+    <span class="pk-brand"><span class="brand-mark"><!--@icon:mail--></span>MailLink</span>
+    <span>剩余有效 <b class="num">2 天 3 小时</b></span>
+  </header>
+
+  <main class="pk-main">
+    <div>
+      <h1 class="pk-title">ChatGPT 共享号</h1>
+      <p class="pk-lead">登录时选“邮箱验证码”，验证码会出现在这里。</p>
+    </div>
+
+    <div>
+      <div class="pk-addr-label">登录邮箱</div>
+      <div class="pk-addr">sw***@icloud.com</div>
+    </div>
+
+    <section class="pk-code-card" id="latest-card" aria-labelledby="latest-label">
+      <div class="pk-platform" id="latest-label"><span class="dot dot-success"></span>OpenAI 登录验证码</div>
+      <output class="pk-code" aria-label="验证码 4 8 2 9 1 0" id="latest-code">482910</output>
+      <p class="pk-meta" id="latest-meta"><b>32 秒前</b> · 来自 OpenAI</p>
+    </section>
+
+    <h2 class="pk-section-label">更早收到的</h2>
+    <div id="older" style="display:grid;gap:var(--space-4)">
+    <div class="pk-old">
+      <div class="info"><span class="code" aria-label="验证码 2 0 5 1 1 7">205117</span><span>8 分钟前 · 来自 OpenAI</span></div>
+      <button class="btn btn-secondary btn-sm" type="button" data-copy="205117"><!--@icon:copy:icon-sm-->复制</button>
+    </div>
+    <div class="pk-old stale">
+      <div class="info"><span class="code" aria-label="验证码 1 1 8 3 4 2">118342</span><span>27 分钟前 · 来自 OpenAI</span><span class="tag tag-warning">收到超过 10 分钟，可能已过期</span></div>
+      <button class="btn btn-secondary btn-sm" type="button" data-copy="118342"><!--@icon:copy:icon-sm-->复制</button>
+    </div>
+    </div>
+
+    <div class="pk-live">
+      <span class="pulse" aria-hidden="true"></span>
+      <span class="grow"><b>正在等待新邮件</b> · 10 秒后自动刷新</span>
+      <button class="btn btn-ghost btn-sm" type="button"><!--@icon:refresh:icon-sm-->立即刷新</button>
+    </div>
+
+    <div class="pk-note">
+      <p><b>没收到新的码？</b>确认登录用的是上面这个邮箱，等一分钟后再点一次“发送验证码”。</p>
+      <p>仍然没有，请联系卖家：微信 <span class="mono">mail_seller_01</span>（10:00–23:00）。</p>
+    </div>
+  </main>
+
+  <div class="pk-bar">
+    <button class="btn btn-primary btn-lg btn-block" type="button" id="copy-latest" data-copy="482910"><!--@icon:copy-->复制验证码</button>
+  </div>
+</div>
+
+<div class="pk-toast" role="status" aria-live="polite" hidden><span class="toast"><!--@icon:check-circle--><span id="toast-text"></span></span></div>
+<p class="sr-only" id="announce" role="status" aria-live="polite"></p>
+<!--@devbar-float:sim-->
+
+<script>
+  (function () {
+    var toast = document.querySelector('.pk-toast');
+    var text = document.getElementById('toast-text');
+    var timer;
+    var baseTitle = document.title;
+    function show(msg) {
+      text.textContent = msg; toast.hidden = false;
+      clearTimeout(timer); timer = setTimeout(function () { toast.hidden = true; }, 2200);
+    }
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-copy]');
+      if (!btn) return;
+      var code = btn.getAttribute('data-copy');
+      if (!navigator.clipboard) { show('无法复制，请长按验证码选择复制'); return; }
+      navigator.clipboard.writeText(code).then(
+        function () { show('已复制 ' + code); },
+        function () { show('复制失败，请长按验证码选择复制'); }
+      );
+    });
+
+    // 新邮件到达：新卡片进入 + 旧卡片降级 + 「刚收到」标签 + 朗读 + 后台标签页标题 + 可选震动
+    var cards = 0;
+    function newMail(code) {
+      var card = document.getElementById('latest-card');
+      var codeEl = document.getElementById('latest-code');
+      var older = document.getElementById('older');
+      var prev = codeEl.textContent;
+      var demoted = document.createElement('div');
+      demoted.className = 'pk-old';
+      demoted.innerHTML = '<div class="info"><span class="code"></span><span>1 分钟前 · 来自 OpenAI</span></div>' +
+        '<button class="btn btn-secondary btn-sm" type="button" data-copy="' + prev + '"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-copy"/></svg>复制</button>';
+      demoted.querySelector('.code').textContent = prev;
+      older.insertBefore(demoted, older.firstChild);
+      while (older.children.length > 2) older.removeChild(older.lastChild);
+      codeEl.textContent = code;
+      codeEl.setAttribute('aria-label', '验证码 ' + code.split('').join(' '));
+      document.getElementById('copy-latest').setAttribute('data-copy', code);
+      document.getElementById('latest-meta').innerHTML = '<b>刚刚</b> · 来自 OpenAI';
+      var label = document.getElementById('latest-label');
+      var tag = document.createElement('span');
+      tag.className = 'tag tag-success'; tag.textContent = '刚收到';
+      label.appendChild(tag);
+      setTimeout(function () { if (tag.parentNode) tag.parentNode.removeChild(tag); }, 4000);
+      card.classList.remove('is-new'); void card.offsetWidth; card.classList.add('is-new');
+      document.getElementById('announce').textContent = '收到新验证码 ' + code.split('').join(' ');
+      if (document.hidden) document.title = '(新) ' + code + ' · ' + baseTitle;
+      // 震动只在用户已经操作过页面时才被浏览器允许；不支持就跳过
+      if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) navigator.vibrate(30);
+      cards++;
+    }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) document.title = baseTitle; });
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('[data-sim="new"]')) newMail(String(731205 + cards * 37));
+    });
+    if (new URLSearchParams(location.search).get('sim') === 'new') setTimeout(function () { newMail('731205'); }, 500);
+  })();
+</script>
+</body>
+</html>

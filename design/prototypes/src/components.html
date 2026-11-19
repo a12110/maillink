@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-radius="4">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>组件一览 · MailLink 设计规范</title>
+  <link rel="stylesheet" href="../../apps/web/src/styles/tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script src="theme.js"></script>
+  <style>
+    .kit { max-width: 1120px; margin: 0 auto; padding: var(--space-6); display: grid; gap: var(--space-8); }
+    .kit h2 { font-size: var(--text-lg); margin-bottom: var(--space-3); }
+    .kit .row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+    .kit .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-6); align-items: start; }
+    .kit .stage { position: relative; min-height: 220px; background: var(--color-bg); border: 1px dashed var(--color-border-control); border-radius: var(--radius-lg); overflow: hidden; padding: var(--space-4); display: grid; place-items: center; }
+    .kit .stage .overlay, .kit .stage .toast-region { position: absolute; }
+    .kit .stage-side { display: flex; justify-content: flex-end; align-items: stretch; padding: 0; place-items: unset; }
+  </style>
+</head>
+<body>
+<!--@sprite-->
+<div class="kit">
+  <header><h1 style="font-size: var(--text-2xl)">MailLink 组件一览</h1><p class="muted">只引用 tokens.css 的语义变量。右下角可切换明暗、圆角、强调色。</p></header>
+
+  <section>
+    <h2>按钮</h2>
+    <div class="row">
+      <button class="btn btn-primary">主按钮</button>
+      <button class="btn btn-secondary">次按钮</button>
+      <button class="btn btn-ghost">幽灵按钮</button>
+      <button class="btn btn-danger">删除</button>
+      <button class="btn btn-danger-ghost"><!--@icon:trash-->删除</button>
+      <button class="btn btn-primary" disabled>不可用</button>
+      <button class="btn btn-secondary btn-icon" aria-label="更多"><!--@icon:more--></button>
+      <button class="btn btn-primary btn-sm">小号</button>
+      <button class="btn btn-primary btn-lg">大号（取件页）</button>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div>
+      <h2>输入与选择</h2>
+      <div class="form-grid">
+        <div class="field"><label for="k1">收件地址</label><input class="input input-mono" id="k1" value="swift_lantern_7k2q9x@icloud.com"></div>
+        <div class="field"><label for="k2">备注</label><input class="input" id="k2" placeholder="例如：OpenAI 共享号 #12"></div>
+        <div class="field"><label for="k3">访问口令</label><input class="input" id="k3" value="abc" aria-invalid="true" aria-describedby="k3e"><p class="field-error" id="k3e">口令至少 6 位。</p></div>
+        <div class="field"><label for="k4">状态</label><div class="select-wrap block"><select class="select" id="k4"><option>全部状态</option><option>启用</option></select><!--@icon:chevron-down--></div></div>
+        <div class="field"><label for="k5">已停用的输入</label><input class="input" id="k5" value="只读内容" disabled></div>
+      </div>
+    </div>
+    <div>
+      <h2>选择类控件</h2>
+      <div class="form-grid">
+        <div class="segmented" role="radiogroup" aria-label="视图"><label><input type="radio" name="k-v" checked><span>仅验证码</span></label><label><input type="radio" name="k-v"><span>纯文本</span></label><label><input type="radio" name="k-v" aria-disabled="true"><span><!--@icon:lock:icon-sm-->完整</span></label></div>
+        <div class="row"><label class="check"><input type="checkbox" class="cb" checked> 已选</label><label class="check"><input type="checkbox" class="cb"> 未选</label><label class="check"><input type="checkbox" class="cb" disabled> 不可选</label></div>
+        <div class="row"><input type="checkbox" class="switch" checked aria-label="开"> 开 <input type="checkbox" class="switch" aria-label="关"> 关</div>
+        <div class="row"><span class="tag">OpenAI</span><span class="tag">共享</span><span class="tag tag-info">说明</span><span class="tag tag-warning">可能已过期</span><span class="tag tag-danger">deny:改密</span></div>
+        <div class="row"><span class="status"><span class="dot dot-success"></span>启用</span><span class="status status-muted"><span class="dot"></span>已停用</span><span class="status"><span class="dot dot-warning"></span>解析失败</span><span class="status status-danger"><span class="dot dot-danger"></span>被屏蔽</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>表格：正常、加载中、空、出错</h2>
+    <div class="cols">
+      <div class="panel"><table class="table"><thead><tr><th>地址</th><th>状态</th></tr></thead><tbody>
+        <tr><td class="addr">quiet_maple_3m8d1c@icloud.com</td><td><span class="status"><span class="dot dot-success"></span>启用</span></td></tr>
+        <tr><td class="addr">pale_comet_9d3rh6@icloud.com</td><td><span class="status status-muted"><span class="dot"></span>已停用</span></td></tr>
+        <tr aria-selected="true"><td class="addr">amber_otter_x92kfd@icloud.com</td><td><span class="status"><span class="dot dot-success"></span>启用</span></td></tr>
+      </tbody></table></div>
+      <div class="panel"><table class="table"><thead><tr><th>地址</th><th>状态</th></tr></thead><tbody aria-busy="true">
+        <tr><td><span class="skeleton" style="width:80%"></span></td><td><span class="skeleton" style="width:50%"></span></td></tr>
+        <tr><td><span class="skeleton" style="width:65%"></span></td><td><span class="skeleton" style="width:40%"></span></td></tr>
+        <tr><td><span class="skeleton" style="width:72%"></span></td><td><span class="skeleton" style="width:55%"></span></td></tr>
+      </tbody></table></div>
+      <div class="panel"><div class="empty"><span class="icon-wrap"><!--@icon:inbox:icon-lg--></span><h3>还没有收件地址</h3><p>粘贴或上传地址列表，一行一个。</p><button class="btn btn-primary" type="button"><!--@icon:upload-->导入</button></div></div>
+      <div class="callout callout-danger" role="alert"><!--@icon:alert--><div><p><b>加载失败</b></p><p>读取收件地址时出错（D1_ERROR）。数据没有丢，重试即可。</p><div class="actions"><button type="button">重试</button></div></div></div>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div>
+      <h2>对话框（危险操作二次确认）</h2>
+      <div class="stage" style="min-height: 280px"><div class="overlay"><div class="dialog" role="dialog" aria-labelledby="dlg-t" style="width: 300px">
+        <div class="dialog-head"><h2 id="dlg-t">撤销 3 个取件链接？</h2></div>
+        <div class="dialog-body">买家会立即看到“链接已失效”。这个操作不能撤回，但可以重新创建链接。</div>
+        <div class="dialog-foot"><button class="btn btn-secondary" type="button">取消</button><button class="btn btn-danger" type="button">撤销链接</button></div>
+      </div></div></div>
+    </div>
+    <div>
+      <h2>侧板（链接详情）</h2>
+      <div class="stage stage-side" style="min-height: 280px"><aside class="sidepanel">
+        <div class="sidepanel-head"><b>访问约束</b><button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="关闭"><!--@icon:x--></button></div>
+        <div class="sidepanel-body">
+          <div class="field"><span class="label">设备数上限</span><span>2 台（已用 1 台）</span></div>
+          <div class="field"><span class="label">取码方式</span><span>点击取码 · 每日 10 次</span></div>
+          <div class="callout callout-warning"><!--@icon:alert--><div>近 24 小时来自 3 个国家，建议重置设备。</div></div>
+        </div>
+      </aside></div>
+    </div>
+    <div>
+      <h2>Toast</h2>
+      <div class="stage"><div class="toast-region" style="position:static; transform:none"><div class="toast" role="status"><!--@icon:check-circle-->已复制 3 条链接，可直接粘贴</div></div></div>
+    </div>
+  </section>
+</div>
+<!--@devbar-float-->
+</body>
+</html>

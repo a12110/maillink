@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-radius="4">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>编辑规则组 · MailLink</title>
+  <link rel="stylesheet" href="../../apps/web/src/styles/tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol><symbol id="i-funnel" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54z"/></symbol><symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.71a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/></symbol><symbol id="i-user-check" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol><symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="m15 3 6 0 0 6"/><path d="M10 14 21 3"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol><symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></symbol><symbol id="i-file-x" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6M9.5 12.5l5 5M14.5 12.5l-5 5"/></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol><symbol id="i-smartphone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol></svg>
+<div class="app">
+  <aside class="sidebar">
+  <div class="brand"><span class="brand-mark"><svg class="icon " aria-hidden="true"><use href="#i-mail"/></svg></span><span class="brand-name">MailLink</span></div>
+  <nav aria-label="主导航">
+    <div class="nav-label">邮件</div>
+    <a class="nav-item" href="mailboxes.html"><svg class="icon " aria-hidden="true"><use href="#i-mail"/></svg>收件地址</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-link"/></svg>取件链接</a>
+    <a class="nav-item" href="rule-group-edit.html" aria-current="page"><svg class="icon " aria-hidden="true"><use href="#i-funnel"/></svg>规则组</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-inbox"/></svg>全部邮件</a>
+    <div class="nav-label">管理</div>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-users"/></svg>用户</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-sliders"/></svg>系统设置</a>
+    <a class="nav-item" href="#"><svg class="icon " aria-hidden="true"><use href="#i-file-text"/></svg>审计日志</a>
+  </nav>
+  <div class="sidebar-foot">
+    <div class="devbar" aria-label="原型主题控件（非产品）">
+  <div class="row"><span>明暗</span><div class="segmented segmented-sm"><label><input type="radio" name="it" data-set="theme:light"><span>浅</span></label><label><input type="radio" name="it" data-set="theme:dark"><span>深</span></label></div></div>
+  <div class="row"><span>圆角</span><div class="segmented segmented-sm"><label><input type="radio" name="ir" data-set="radius:0"><span>0</span></label><label><input type="radio" name="ir" data-set="radius:4"><span>4</span></label><label><input type="radio" name="ir" data-set="radius:8"><span>8</span></label></div></div>
+  <div class="row"><span>强调色</span><div class="swatches"><button type="button" class="swatch" style="background:#c8432b" data-set="accent:#c8432b" aria-label="强调色 邮戳红" title="邮戳红"></button><button type="button" class="swatch" style="background:#2f5fa8" data-set="accent:#2f5fa8" aria-label="强调色 靛蓝" title="靛蓝"></button><button type="button" class="swatch" style="background:#1f7a5a" data-set="accent:#1f7a5a" aria-label="强调色 松绿" title="松绿"></button><button type="button" class="swatch" style="background:#d9a21b" data-set="accent:#d9a21b" aria-label="强调色 琥珀" title="琥珀"></button><button type="button" class="swatch" style="background:#3a3632" data-set="accent:#3a3632" aria-label="强调色 墨" title="墨"></button></div></div></div>
+    <div class="user-chip"><span class="avatar">A</span><span><b>admin</b><small>管理员 · 账号安全</small></span></div>
+  </div>
+</aside>
+  <main class="main">
+    <header class="editor-head">
+      <div class="titles">
+        <a class="crumb" href="#"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron-left"/></svg>规则组</a>
+        <h1>OpenAI 共享号 · 登录验证码</h1>
+      </div>
+      <div class="usage">
+        <span>被 <b>14</b> 个链接、<b>3</b> 个授权使用</span>
+        <small>保存后立即对它们生效</small>
+      </div>
+      <span class="unsaved"><span class="dot dot-warning"></span>2 处未保存</span>
+      <button class="btn btn-ghost" type="button">放弃更改</button>
+      <button class="btn btn-primary" type="button">保存</button>
+    </header>
+
+    <div class="editor">
+      <div class="sections">
+
+        <!-- 1 时间 -->
+        <section aria-labelledby="s-time">
+          <h2 class="section-title" id="s-time"><span class="idx">1</span>时间</h2>
+          <p class="section-lead">决定邮件“多新”才会被看到。时间以邮件入库时间为准。</p>
+          <div class="form-grid cols-3">
+            <div class="field">
+              <label for="f-window">滚动窗口</label>
+              <div class="input-suffix"><input class="input num" id="f-window" value="15" inputmode="numeric"><span>分钟</span></div>
+              <p class="hint">只显示最近 15 分钟内收到的邮件。</p>
+            </div>
+            <div class="field">
+              <label for="f-anchor">起始锚点</label>
+              <div class="select-wrap block"><select class="select" id="f-anchor"><option>无</option><option>链接创建时</option><option selected>买家首次取码时</option><option>固定时间</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+              <p class="hint">库存链接提前生成、卖出才打开，所以不按创建时间算。</p>
+            </div>
+            <div class="field">
+              <label for="f-look">往前多看</label>
+              <div class="input-suffix"><input class="input num" id="f-look" value="5" inputmode="numeric"><span>分钟</span></div>
+              <p class="hint">买家常先点“发送验证码”，再打开链接。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2 过滤 -->
+        <section aria-labelledby="s-filter">
+          <h2 class="section-title" id="s-filter"><span class="idx">2</span>过滤</h2>
+          <p class="section-lead">决定哪些邮件“能不能被看到”。任一屏蔽规则命中就不可见，与规则顺序无关。</p>
+          <div class="field" style="margin-bottom: var(--space-4)">
+            <span class="label" id="l-mode">模式</span>
+            <div class="inline">
+              <div class="segmented" role="radiogroup" aria-labelledby="l-mode">
+                <label><input type="radio" name="mode" checked><span>白名单</span></label>
+                <label><input type="radio" name="mode"><span>黑名单</span></label>
+              </div>
+              <span class="hint">白名单：只有命中某条“允许”规则的邮件可见。</span>
+            </div>
+          </div>
+
+          <div class="rule-list">
+            <article class="rule-card" data-effect="allow" data-enabled="true" aria-label="规则：本平台的验证码">
+              <div class="rule-head">
+                <input type="checkbox" class="switch" checked aria-label="启用此规则">
+                <input class="rule-name" value="本平台的验证码" aria-label="规则名称">
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="命中后">
+                  <label><input type="radio" name="e1" checked><span>允许</span></label>
+                  <label><input type="radio" name="e1"><span>屏蔽</span></label>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+              </div>
+              <div class="match-row">满足下面
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="满足方式">
+                  <label><input type="radio" name="m1" checked><span>全部</span></label>
+                  <label><input type="radio" name="m1"><span>任一</span></label>
+                </div>条件时命中</div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>发件人域名</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>是该域名或子域名</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="chips"><span class="chip">openai.com<button type="button" aria-label="移除 openai.com"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span></div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><svg class="icon " aria-hidden="true"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>邮件分类</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>等于</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="select-wrap block"><select class="select" aria-label="值"><option>登录验证码（verification）</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><svg class="icon " aria-hidden="true"><use href="#i-x"/></svg></button>
+              </div>
+              <p class="hint">按发件人后缀过滤请用“是该域名或子域名”；“结尾是”会把 fakeopenai.com 也放进来。</p>
+            </article>
+
+            <article class="rule-card" data-effect="deny" data-enabled="true" aria-label="规则：屏蔽改密与安全通知">
+              <div class="rule-head">
+                <input type="checkbox" class="switch" checked aria-label="启用此规则">
+                <input class="rule-name" value="屏蔽改密与安全通知" aria-label="规则名称">
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="命中后">
+                  <label><input type="radio" name="e2"><span>允许</span></label>
+                  <label><input type="radio" name="e2" checked><span>屏蔽</span></label>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+              </div>
+              <div class="match-row">满足下面
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="满足方式">
+                  <label><input type="radio" name="m2"><span>全部</span></label>
+                  <label><input type="radio" name="m2" checked><span>任一</span></label>
+                </div>条件时命中</div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>主题 + 正文</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>包含任一</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="chips">
+                  <span class="chip">重设密码<button type="button" aria-label="移除"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+                  <span class="chip">重置密码<button type="button" aria-label="移除"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+                  <span class="chip">reset your password<button type="button" aria-label="移除"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+                  <span class="chip">password reset<button type="button" aria-label="移除"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><svg class="icon " aria-hidden="true"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>邮件分类</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>等于任一</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+                <div class="chips">
+                  <span class="chip">password_reset<button type="button" aria-label="移除"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+                  <span class="chip">email_change<button type="button" aria-label="移除"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+                  <span class="chip">security_change<button type="button" aria-label="移除"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button></span>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><svg class="icon " aria-hidden="true"><use href="#i-x"/></svg></button>
+              </div>
+            </article>
+
+            <article class="rule-card" data-effect="deny" data-enabled="false" aria-label="规则：自定义屏蔽词（已停用）">
+              <div class="rule-head" style="margin-bottom:0">
+                <input type="checkbox" class="switch" aria-label="启用此规则">
+                <input class="rule-name" value="自定义屏蔽词" aria-label="规则名称">
+                <span class="tag">已停用</span>
+                <span class="hint">屏蔽 · 主题 + 正文包含 更换邮箱、change your email</span>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="更多操作"><svg class="icon " aria-hidden="true"><use href="#i-more"/></svg></button>
+              </div>
+            </article>
+          </div>
+          <div class="rule-add" style="margin-top: var(--space-3)">
+            <button class="btn btn-secondary btn-sm" type="button"><svg class="icon " aria-hidden="true"><use href="#i-plus"/></svg>添加规则</button>
+            <button class="btn btn-ghost btn-sm" type="button">用 JSON 编辑</button>
+            <span class="hint" style="align-self:center">3 / 30 条</span>
+          </div>
+        </section>
+
+        <!-- 3 呈现 -->
+        <section aria-labelledby="s-present">
+          <h2 class="section-title" id="s-present"><span class="idx">3</span>呈现</h2>
+          <p class="section-lead">决定能看到的邮件“显示多少”。</p>
+
+          <div class="setting-row">
+            <span class="label" id="l-view">视图模式</span>
+            <div class="stack">
+              <div class="segmented" role="radiogroup" aria-labelledby="l-view">
+                <label><input type="radio" name="view" aria-disabled="true" aria-describedby="why-full" id="view-full"><span><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>完整</span></label>
+                <label><input type="radio" name="view"><span>纯文本</span></label>
+                <label><input type="radio" name="view" checked><span>仅验证码</span></label>
+                <label><input type="radio" name="view"><span>仅元信息</span></label>
+              </div>
+              <div class="callout callout-warning constraint" id="why-full" role="note">
+                <svg class="icon " aria-hidden="true"><use href="#i-lock"/></svg>
+                <div>
+                  <p><b>“完整”暂时不能选：</b>这个规则组配了 1 条脱敏规则，链接也设成了“全部移除”。</p>
+                  <p>完整视图显示的是清洗后的 HTML，文字会被标签切开（如 <code>12&lt;b&gt;34&lt;/b&gt;</code>），在 HTML 上做替换不可靠，可能漏掉该脱敏的内容。所以脱敏和改写链接只能配合纯文本或更严格的视图。</p>
+                  <div class="actions"><button type="button">删除脱敏规则</button><button type="button">把链接改回“保留”</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <span class="label">验证码提取</span>
+            <div class="stack">
+              <div class="inline">
+                <label class="check"><input type="checkbox" class="cb" checked> 验证码</label>
+                <label class="check muted"><input type="checkbox" class="cb" disabled> 登录链接</label>
+              </div>
+              <p class="hint">登录链接等于一次完整登录。先把“链接”改成只允许指定域名，才能勾选。</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <span class="label">发件人显示</span>
+            <div class="select-wrap" style="width:220px"><select class="select" aria-label="发件人显示"><option>只显示名称</option><option>完整地址</option><option>只显示域名</option><option>隐藏</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+          </div>
+          <div class="setting-row">
+            <span class="label">收件地址显示</span>
+            <div class="stack">
+              <div class="select-wrap" style="width:220px"><select class="select" aria-label="收件地址显示"><option>完整显示</option><option>打码</option><option>隐藏</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+              <p class="hint">共享号的别名就是登录邮箱，买家需要核对，所以显示完整。</p>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="label">链接与图片</span>
+            <div class="inline">
+              <div class="select-wrap" style="width:220px"><select class="select" aria-label="链接"><option>链接：全部移除</option><option>链接：保留</option><option>链接：只保留指定域名</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+              <div class="select-wrap" style="width:180px"><select class="select" aria-label="远程图片"><option>远程图片：阻止</option><option>远程图片：允许</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="label">附件</span>
+            <div class="select-wrap" style="width:220px"><select class="select" aria-label="附件"><option>隐藏</option><option>只列文件名</option><option>可下载</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+          </div>
+          <div class="setting-row">
+            <span class="label">列表正文预览</span>
+            <div class="inline">
+              <input type="checkbox" class="switch" disabled aria-label="列表带正文预览" aria-describedby="why-snip">
+              <span class="hint" id="why-snip">“仅验证码”视图的列表只显示验证码，没有预览可开。</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="label">脱敏规则</span>
+            <div class="stack">
+              <div class="redact">
+                <div class="grow"><b>手机号打码</b><span class="muted">正则 <code>1[3-9]\d{9}</code></span><span class="muted">主题、正文 → <code>***</code></span></div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除脱敏规则"><svg class="icon " aria-hidden="true"><use href="#i-trash"/></svg></button>
+              </div>
+              <div><button class="btn btn-secondary btn-sm" type="button"><svg class="icon " aria-hidden="true"><use href="#i-plus"/></svg>添加脱敏规则</button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4 数量上限 -->
+        <section aria-labelledby="s-limit">
+          <h2 class="section-title" id="s-limit"><span class="idx">4</span>数量上限</h2>
+          <p class="section-lead">过滤之后只保留最新的几封，没有分页。</p>
+          <div class="field" style="max-width: 240px">
+            <label for="f-max">最多显示</label>
+            <div class="input-suffix"><input class="input num" id="f-max" value="3" inputmode="numeric"><span>封</span></div>
+            <p class="hint">连点几次“重新发送”时能看到最新几封，又不会变成历史记录。</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- 测试器 -->
+      <aside class="tester" aria-label="规则测试器">
+        <div class="tester-head">
+          <h2>测试器 <small><span class="dot dot-success"></span>用当前未保存的配置试跑</small></h2>
+          <div class="field">
+            <label for="t-addr">收件地址</label>
+            <div class="select-wrap block"><select class="select input-mono" id="t-addr"><option>swift_lantern_7k2q9x@icloud.com</option></select><svg class="icon " aria-hidden="true"><use href="#i-chevron-down"/></svg></div>
+          </div>
+          <div class="tester-sum">
+            <span>最近 <b>8</b> 封</span>
+            <span><span class="dot dot-success"></span> 可见 <b>3</b></span>
+            <span><span class="dot"></span> 不可见 <b>5</b></span>
+            <span style="margin-left:auto"><button class="btn btn-ghost btn-sm" type="button"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-refresh"/></svg>重新试跑</button></span>
+          </div>
+        </div>
+        <div class="tester-list">
+          <div class="t-item">
+            <div class="t-top"><span class="state ok"><span class="dot dot-success"></span>可见</span><span class="from">noreply@tm.openai.com</span><span class="when">32 秒前</span></div>
+            <div class="t-subject">你的 OpenAI 验证码是 482910</div>
+            <div class="t-reason"><span>命中允许</span><span class="tag">本平台的验证码</span><span>· 提取到 <code>482910</code></span></div>
+            <div class="t-preview" aria-label="访客看到的样子">
+              <small>访客看到的样子 · OpenAI · swift_lantern_7k2q9x@icloud.com</small>
+              <span class="pv-code">482910</span>
+            </div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot dot-danger"></span>不可见</span><span class="from">noreply@tm.openai.com</span><span class="when">4 分钟前</span></div>
+            <div class="t-subject">Reset your password for OpenAI</div>
+            <div class="t-reason"><span class="tag tag-danger">deny:屏蔽改密与安全通知</span><span>邮件分类 = password_reset</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot dot-warning"></span>不可见</span><span class="from">—</span><span class="when">6 分钟前</span></div>
+            <div class="t-subject muted">（无法解析主题）</div>
+            <div class="t-reason"><span class="tag tag-warning">parse_failed</span><span>原文解析失败。访客看不到，管理员可在“全部邮件”看原文。</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state ok"><span class="dot dot-success"></span>可见</span><span class="from">noreply@tm.openai.com</span><span class="when">9 分钟前</span></div>
+            <div class="t-subject" title="[OpenAI] Your verification code for signing in to ChatGPT from a new device in San Francisco, California, United States — enter this code within 10 minutes to continue">[OpenAI] Your verification code for signing in to ChatGPT from a new device in San Francisco, California, United States — enter this code within 10 minutes to continue</div>
+            <div class="t-reason"><span>命中允许</span><span class="tag">本平台的验证码</span><span>· 提取到 <code>731094</code></span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot"></span>不可见</span><span class="from">noreply@tm.openai.com</span><span class="when">11 分钟前</span></div>
+            <div class="t-subject">欢迎使用 ChatGPT：从这里开始</div>
+            <div class="t-reason"><span class="tag">no_allow_match</span><span>未命中任何允许规则：邮件分类 = other，不是 verification；没有提取到验证码</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot dot-warning"></span>不可见</span><span class="from">news@email.openai.com</span><span class="when">12 分钟前</span></div>
+            <div class="t-subject">OpenAI 产品更新 · 11 月</div>
+            <div class="t-reason"><span class="tag tag-warning">body_truncated</span><span>正文超长，无法完整判定（规则里有正文类屏蔽）</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state ok"><span class="dot dot-success"></span>可见</span><span class="from">noreply@tm.openai.com</span><span class="when">14 分钟前</span></div>
+            <div class="t-subject">你的 OpenAI 验证码是 205117</div>
+            <div class="t-reason"><span>命中允许</span><span class="tag">本平台的验证码</span><span>· 提取到 <code>205117</code></span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot"></span>不可见</span><span class="from">noreply@tm.openai.com</span><span class="when">22 分钟前</span></div>
+            <div class="t-subject">你的 OpenAI 验证码是 118342</div>
+            <div class="t-reason"><span class="tag">out_of_window</span><span>超出 15 分钟的滚动窗口</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+<script>
+  document.getElementById('view-full').addEventListener('click', function (e) {
+    e.preventDefault();
+    document.getElementById('why-full').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-radius="4">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>编辑规则组 · MailLink</title>
+  <link rel="stylesheet" href="../../apps/web/src/styles/tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+<!--@sprite-->
+<div class="app">
+  <!--@sidebar:rules-->
+  <main class="main">
+    <header class="editor-head">
+      <div class="titles">
+        <a class="crumb" href="#"><!--@icon:chevron-left:icon-sm-->规则组</a>
+        <h1>OpenAI 共享号 · 登录验证码</h1>
+      </div>
+      <div class="usage">
+        <span>被 <b>14</b> 个链接、<b>3</b> 个授权使用</span>
+        <small>保存后立即对它们生效</small>
+      </div>
+      <span class="unsaved"><span class="dot dot-warning"></span>2 处未保存</span>
+      <button class="btn btn-ghost" type="button">放弃更改</button>
+      <button class="btn btn-primary" type="button">保存</button>
+    </header>
+
+    <div class="editor">
+      <div class="sections">
+
+        <!-- 1 时间 -->
+        <section aria-labelledby="s-time">
+          <h2 class="section-title" id="s-time"><span class="idx">1</span>时间</h2>
+          <p class="section-lead">决定邮件“多新”才会被看到。时间以邮件入库时间为准。</p>
+          <div class="form-grid cols-3">
+            <div class="field">
+              <label for="f-window">滚动窗口</label>
+              <div class="input-suffix"><input class="input num" id="f-window" value="15" inputmode="numeric"><span>分钟</span></div>
+              <p class="hint">只显示最近 15 分钟内收到的邮件。</p>
+            </div>
+            <div class="field">
+              <label for="f-anchor">起始锚点</label>
+              <div class="select-wrap block"><select class="select" id="f-anchor"><option>无</option><option>链接创建时</option><option selected>买家首次取码时</option><option>固定时间</option></select><!--@icon:chevron-down--></div>
+              <p class="hint">库存链接提前生成、卖出才打开，所以不按创建时间算。</p>
+            </div>
+            <div class="field">
+              <label for="f-look">往前多看</label>
+              <div class="input-suffix"><input class="input num" id="f-look" value="5" inputmode="numeric"><span>分钟</span></div>
+              <p class="hint">买家常先点“发送验证码”，再打开链接。</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2 过滤 -->
+        <section aria-labelledby="s-filter">
+          <h2 class="section-title" id="s-filter"><span class="idx">2</span>过滤</h2>
+          <p class="section-lead">决定哪些邮件“能不能被看到”。任一屏蔽规则命中就不可见，与规则顺序无关。</p>
+          <div class="field" style="margin-bottom: var(--space-4)">
+            <span class="label" id="l-mode">模式</span>
+            <div class="inline">
+              <div class="segmented" role="radiogroup" aria-labelledby="l-mode">
+                <label><input type="radio" name="mode" checked><span>白名单</span></label>
+                <label><input type="radio" name="mode"><span>黑名单</span></label>
+              </div>
+              <span class="hint">白名单：只有命中某条“允许”规则的邮件可见。</span>
+            </div>
+          </div>
+
+          <div class="rule-list">
+            <article class="rule-card" data-effect="allow" data-enabled="true" aria-label="规则：本平台的验证码">
+              <div class="rule-head">
+                <input type="checkbox" class="switch" checked aria-label="启用此规则">
+                <input class="rule-name" value="本平台的验证码" aria-label="规则名称">
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="命中后">
+                  <label><input type="radio" name="e1" checked><span>允许</span></label>
+                  <label><input type="radio" name="e1"><span>屏蔽</span></label>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="更多操作"><!--@icon:more--></button>
+              </div>
+              <div class="match-row">满足下面
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="满足方式">
+                  <label><input type="radio" name="m1" checked><span>全部</span></label>
+                  <label><input type="radio" name="m1"><span>任一</span></label>
+                </div>条件时命中</div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>发件人域名</option></select><!--@icon:chevron-down--></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>是该域名或子域名</option></select><!--@icon:chevron-down--></div>
+                <div class="chips"><span class="chip">openai.com<button type="button" aria-label="移除 openai.com"><!--@icon:x:icon-sm--></button></span></div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><!--@icon:x--></button>
+              </div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>邮件分类</option></select><!--@icon:chevron-down--></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>等于</option></select><!--@icon:chevron-down--></div>
+                <div class="select-wrap block"><select class="select" aria-label="值"><option>登录验证码（verification）</option></select><!--@icon:chevron-down--></div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><!--@icon:x--></button>
+              </div>
+              <p class="hint">按发件人后缀过滤请用“是该域名或子域名”；“结尾是”会把 fakeopenai.com 也放进来。</p>
+            </article>
+
+            <article class="rule-card" data-effect="deny" data-enabled="true" aria-label="规则：屏蔽改密与安全通知">
+              <div class="rule-head">
+                <input type="checkbox" class="switch" checked aria-label="启用此规则">
+                <input class="rule-name" value="屏蔽改密与安全通知" aria-label="规则名称">
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="命中后">
+                  <label><input type="radio" name="e2"><span>允许</span></label>
+                  <label><input type="radio" name="e2" checked><span>屏蔽</span></label>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="更多操作"><!--@icon:more--></button>
+              </div>
+              <div class="match-row">满足下面
+                <div class="segmented segmented-sm" role="radiogroup" aria-label="满足方式">
+                  <label><input type="radio" name="m2"><span>全部</span></label>
+                  <label><input type="radio" name="m2" checked><span>任一</span></label>
+                </div>条件时命中</div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>主题 + 正文</option></select><!--@icon:chevron-down--></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>包含任一</option></select><!--@icon:chevron-down--></div>
+                <div class="chips">
+                  <span class="chip">重设密码<button type="button" aria-label="移除"><!--@icon:x:icon-sm--></button></span>
+                  <span class="chip">重置密码<button type="button" aria-label="移除"><!--@icon:x:icon-sm--></button></span>
+                  <span class="chip">reset your password<button type="button" aria-label="移除"><!--@icon:x:icon-sm--></button></span>
+                  <span class="chip">password reset<button type="button" aria-label="移除"><!--@icon:x:icon-sm--></button></span>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><!--@icon:x--></button>
+              </div>
+              <div class="cond">
+                <div class="select-wrap block"><select class="select" aria-label="字段"><option>邮件分类</option></select><!--@icon:chevron-down--></div>
+                <div class="select-wrap block"><select class="select" aria-label="操作符"><option>等于任一</option></select><!--@icon:chevron-down--></div>
+                <div class="chips">
+                  <span class="chip">password_reset<button type="button" aria-label="移除"><!--@icon:x:icon-sm--></button></span>
+                  <span class="chip">email_change<button type="button" aria-label="移除"><!--@icon:x:icon-sm--></button></span>
+                  <span class="chip">security_change<button type="button" aria-label="移除"><!--@icon:x:icon-sm--></button></span>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除条件"><!--@icon:x--></button>
+              </div>
+            </article>
+
+            <article class="rule-card" data-effect="deny" data-enabled="false" aria-label="规则：自定义屏蔽词（已停用）">
+              <div class="rule-head" style="margin-bottom:0">
+                <input type="checkbox" class="switch" aria-label="启用此规则">
+                <input class="rule-name" value="自定义屏蔽词" aria-label="规则名称">
+                <span class="tag">已停用</span>
+                <span class="hint">屏蔽 · 主题 + 正文包含 更换邮箱、change your email</span>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="更多操作"><!--@icon:more--></button>
+              </div>
+            </article>
+          </div>
+          <div class="rule-add" style="margin-top: var(--space-3)">
+            <button class="btn btn-secondary btn-sm" type="button"><!--@icon:plus-->添加规则</button>
+            <button class="btn btn-ghost btn-sm" type="button">用 JSON 编辑</button>
+            <span class="hint" style="align-self:center">3 / 30 条</span>
+          </div>
+        </section>
+
+        <!-- 3 呈现 -->
+        <section aria-labelledby="s-present">
+          <h2 class="section-title" id="s-present"><span class="idx">3</span>呈现</h2>
+          <p class="section-lead">决定能看到的邮件“显示多少”。</p>
+
+          <div class="setting-row">
+            <span class="label" id="l-view">视图模式</span>
+            <div class="stack">
+              <div class="segmented" role="radiogroup" aria-labelledby="l-view">
+                <label><input type="radio" name="view" aria-disabled="true" aria-describedby="why-full" id="view-full"><span><!--@icon:lock:icon-sm-->完整</span></label>
+                <label><input type="radio" name="view"><span>纯文本</span></label>
+                <label><input type="radio" name="view" checked><span>仅验证码</span></label>
+                <label><input type="radio" name="view"><span>仅元信息</span></label>
+              </div>
+              <div class="callout callout-warning constraint" id="why-full" role="note">
+                <!--@icon:lock-->
+                <div>
+                  <p><b>“完整”暂时不能选：</b>这个规则组配了 1 条脱敏规则，链接也设成了“全部移除”。</p>
+                  <p>完整视图显示的是清洗后的 HTML，文字会被标签切开（如 <code>12&lt;b&gt;34&lt;/b&gt;</code>），在 HTML 上做替换不可靠，可能漏掉该脱敏的内容。所以脱敏和改写链接只能配合纯文本或更严格的视图。</p>
+                  <div class="actions"><button type="button">删除脱敏规则</button><button type="button">把链接改回“保留”</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <span class="label">验证码提取</span>
+            <div class="stack">
+              <div class="inline">
+                <label class="check"><input type="checkbox" class="cb" checked> 验证码</label>
+                <label class="check muted"><input type="checkbox" class="cb" disabled> 登录链接</label>
+              </div>
+              <p class="hint">登录链接等于一次完整登录。先把“链接”改成只允许指定域名，才能勾选。</p>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <span class="label">发件人显示</span>
+            <div class="select-wrap" style="width:220px"><select class="select" aria-label="发件人显示"><option>只显示名称</option><option>完整地址</option><option>只显示域名</option><option>隐藏</option></select><!--@icon:chevron-down--></div>
+          </div>
+          <div class="setting-row">
+            <span class="label">收件地址显示</span>
+            <div class="stack">
+              <div class="select-wrap" style="width:220px"><select class="select" aria-label="收件地址显示"><option>完整显示</option><option>打码</option><option>隐藏</option></select><!--@icon:chevron-down--></div>
+              <p class="hint">共享号的别名就是登录邮箱，买家需要核对，所以显示完整。</p>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="label">链接与图片</span>
+            <div class="inline">
+              <div class="select-wrap" style="width:220px"><select class="select" aria-label="链接"><option>链接：全部移除</option><option>链接：保留</option><option>链接：只保留指定域名</option></select><!--@icon:chevron-down--></div>
+              <div class="select-wrap" style="width:180px"><select class="select" aria-label="远程图片"><option>远程图片：阻止</option><option>远程图片：允许</option></select><!--@icon:chevron-down--></div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="label">附件</span>
+            <div class="select-wrap" style="width:220px"><select class="select" aria-label="附件"><option>隐藏</option><option>只列文件名</option><option>可下载</option></select><!--@icon:chevron-down--></div>
+          </div>
+          <div class="setting-row">
+            <span class="label">列表正文预览</span>
+            <div class="inline">
+              <input type="checkbox" class="switch" disabled aria-label="列表带正文预览" aria-describedby="why-snip">
+              <span class="hint" id="why-snip">“仅验证码”视图的列表只显示验证码，没有预览可开。</span>
+            </div>
+          </div>
+          <div class="setting-row">
+            <span class="label">脱敏规则</span>
+            <div class="stack">
+              <div class="redact">
+                <div class="grow"><b>手机号打码</b><span class="muted">正则 <code>1[3-9]\d{9}</code></span><span class="muted">主题、正文 → <code>***</code></span></div>
+                <button class="btn btn-ghost btn-sm btn-icon" type="button" aria-label="删除脱敏规则"><!--@icon:trash--></button>
+              </div>
+              <div><button class="btn btn-secondary btn-sm" type="button"><!--@icon:plus-->添加脱敏规则</button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4 数量上限 -->
+        <section aria-labelledby="s-limit">
+          <h2 class="section-title" id="s-limit"><span class="idx">4</span>数量上限</h2>
+          <p class="section-lead">过滤之后只保留最新的几封，没有分页。</p>
+          <div class="field" style="max-width: 240px">
+            <label for="f-max">最多显示</label>
+            <div class="input-suffix"><input class="input num" id="f-max" value="3" inputmode="numeric"><span>封</span></div>
+            <p class="hint">连点几次“重新发送”时能看到最新几封，又不会变成历史记录。</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- 测试器 -->
+      <aside class="tester" aria-label="规则测试器">
+        <div class="tester-head">
+          <h2>测试器 <small><span class="dot dot-success"></span>用当前未保存的配置试跑</small></h2>
+          <div class="field">
+            <label for="t-addr">收件地址</label>
+            <div class="select-wrap block"><select class="select input-mono" id="t-addr"><option>swift_lantern_7k2q9x@icloud.com</option></select><!--@icon:chevron-down--></div>
+          </div>
+          <div class="tester-sum">
+            <span>最近 <b>8</b> 封</span>
+            <span><span class="dot dot-success"></span> 可见 <b>3</b></span>
+            <span><span class="dot"></span> 不可见 <b>5</b></span>
+            <span style="margin-left:auto"><button class="btn btn-ghost btn-sm" type="button"><!--@icon:refresh:icon-sm-->重新试跑</button></span>
+          </div>
+        </div>
+        <div class="tester-list">
+          <div class="t-item">
+            <div class="t-top"><span class="state ok"><span class="dot dot-success"></span>可见</span><span class="from">noreply@tm.openai.com</span><span class="when">32 秒前</span></div>
+            <div class="t-subject">你的 OpenAI 验证码是 482910</div>
+            <div class="t-reason"><span>命中允许</span><span class="tag">本平台的验证码</span><span>· 提取到 <code>482910</code></span></div>
+            <div class="t-preview" aria-label="访客看到的样子">
+              <small>访客看到的样子 · OpenAI · swift_lantern_7k2q9x@icloud.com</small>
+              <span class="pv-code">482910</span>
+            </div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot dot-danger"></span>不可见</span><span class="from">noreply@tm.openai.com</span><span class="when">4 分钟前</span></div>
+            <div class="t-subject">Reset your password for OpenAI</div>
+            <div class="t-reason"><span class="tag tag-danger">deny:屏蔽改密与安全通知</span><span>邮件分类 = password_reset</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot dot-warning"></span>不可见</span><span class="from">—</span><span class="when">6 分钟前</span></div>
+            <div class="t-subject muted">（无法解析主题）</div>
+            <div class="t-reason"><span class="tag tag-warning">parse_failed</span><span>原文解析失败。访客看不到，管理员可在“全部邮件”看原文。</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state ok"><span class="dot dot-success"></span>可见</span><span class="from">noreply@tm.openai.com</span><span class="when">9 分钟前</span></div>
+            <div class="t-subject" title="[OpenAI] Your verification code for signing in to ChatGPT from a new device in San Francisco, California, United States — enter this code within 10 minutes to continue">[OpenAI] Your verification code for signing in to ChatGPT from a new device in San Francisco, California, United States — enter this code within 10 minutes to continue</div>
+            <div class="t-reason"><span>命中允许</span><span class="tag">本平台的验证码</span><span>· 提取到 <code>731094</code></span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot"></span>不可见</span><span class="from">noreply@tm.openai.com</span><span class="when">11 分钟前</span></div>
+            <div class="t-subject">欢迎使用 ChatGPT：从这里开始</div>
+            <div class="t-reason"><span class="tag">no_allow_match</span><span>未命中任何允许规则：邮件分类 = other，不是 verification；没有提取到验证码</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot dot-warning"></span>不可见</span><span class="from">news@email.openai.com</span><span class="when">12 分钟前</span></div>
+            <div class="t-subject">OpenAI 产品更新 · 11 月</div>
+            <div class="t-reason"><span class="tag tag-warning">body_truncated</span><span>正文超长，无法完整判定（规则里有正文类屏蔽）</span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state ok"><span class="dot dot-success"></span>可见</span><span class="from">noreply@tm.openai.com</span><span class="when">14 分钟前</span></div>
+            <div class="t-subject">你的 OpenAI 验证码是 205117</div>
+            <div class="t-reason"><span>命中允许</span><span class="tag">本平台的验证码</span><span>· 提取到 <code>205117</code></span></div>
+          </div>
+          <div class="t-item">
+            <div class="t-top"><span class="state"><span class="dot"></span>不可见</span><span class="from">noreply@tm.openai.com</span><span class="when">22 分钟前</span></div>
+            <div class="t-subject">你的 OpenAI 验证码是 118342</div>
+            <div class="t-reason"><span class="tag">out_of_window</span><span>超出 15 分钟的滚动窗口</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+<script>
+  document.getElementById('view-full').addEventListener('click', function (e) {
+    e.preventDefault();
+    document.getElementById('why-full').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+</script>
+</body>
+</html>
