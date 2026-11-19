@@ -42,6 +42,15 @@
 | `pnpm --filter worker dev` | 本地起 Worker |
 | `pnpm --filter web dev` / `build` | 前端开发 / 构建 |
 
+## 并发开发
+
+可能有其他子 agent 同时在别的 worktree 里开发。
+
+- 只改派发说明里划给你的目录和文件。
+- 根 `package.json`、`pnpm-lock.yaml`、`packages/shared/`、`apps/worker/src/constants.ts`、`apps/worker/migrations/` 是共享文件，派发说明没有明确交给你时不改；确实需要改的，在汇报里写明要改什么、为什么。
+- 新建迁移文件只用派发说明分配给你的编号。
+- 起 `wrangler dev` 时用派发说明给你的端口（没给就用 8787）；收尾只结束你自己启动的进程（记下 PID 再 `kill`），不要用 `pkill -f workerd` 这类会误伤其他 worktree 的命令。
+
 ## 交付
 
 每个任务结束时给出：做了什么、关键文件路径、实际运行过的验证命令及其输出（原样粘贴结尾部分）、没做完或有风险的地方。命令没真正跑过就不要说通过。不要 `git commit`，提交由主 agent 在验收后完成。

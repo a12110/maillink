@@ -1,0 +1,32 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <news@newsletter.example.com>
+From: "Example Weekly" <news@newsletter.example.com>
+To: plain.user@example.com
+Subject: Example Weekly: five things worth reading
+Date: Fri, 20 Nov 2026 08:15:00 +0000
+Message-ID: <synthetic-html-0004@newsletter.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="synthetic-boundary-0004"
+
+--synthetic-boundary-0004
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Example Weekly - five things worth reading
+Read online: https://newsletter.example.com/issues/42
+
+--synthetic-boundary-0004
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+<!doctype html>
+<html>
+  <body style="font-family: sans-serif">
+    <h1>Example Weekly</h1>
+    <p>Five things worth reading. <a href="https://newsletter.example.com/issues/42">Read online</a></p>
+    <script>window.synthetic = "this script must be stripped by the renderer";</script>
+    <img src="https://tracker.example.com/pixel.gif?u=synthetic" width="1" height="1" alt="">
+  </body>
+</html>
+
+--synthetic-boundary-0004--

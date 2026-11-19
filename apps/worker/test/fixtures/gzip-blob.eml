@@ -1,0 +1,14 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <alerts@security.example.net>
+From: Example Security <alerts@security.example.net>
+To: plain.user@example.com
+Subject: New sign-in code: 907351
+Date: Fri, 20 Nov 2026 08:20:00 +0000
+Message-ID: <synthetic-gzip-0005@security.example.net>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+
+Use code 907351 to finish signing in.
+
+This message is stored gzip-compressed in raw_blob (raw is empty) to mimic ENABLE_MAIL_GZIP.

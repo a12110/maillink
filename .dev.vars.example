@@ -1,0 +1,11 @@
+# 复制为 apps/worker/.dev.vars（已被 .gitignore 忽略）后填入真实值。wrangler dev 自动读取。
+# 绝不要把真实密钥提交进仓库。
+
+# 主密钥：HKDF 派生链接 token 加密、TOTP 密钥加密、OAuth client secret 加密、Cookie 签名、密码 pepper。
+# 生成：openssl rand -base64 48
+# 更换会让已加密的数据全部失效，部署后不要随意改。
+APP_SECRET=replace-with-output-of-openssl-rand-base64-48
+
+# 首次初始化创建管理员时校验的令牌，用完可删除。
+# 生成：openssl rand -hex 24
+SETUP_TOKEN=replace-with-output-of-openssl-rand-hex-24

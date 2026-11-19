@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+
+# wrangler / miniflare 需要的原生二进制安装脚本
+onlyBuiltDependencies:
+  - esbuild
+  - workerd

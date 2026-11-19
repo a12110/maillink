@@ -1,0 +1,13 @@
+X-Synthetic-Sample: synthetic fixture, not a real email
+Return-Path: <noreply@login.example.org>
+From: Example Login <noreply@login.example.org>
+To: plain.user@example.com
+Subject: 登录验证码 635217
+Date: Fri, 20 Nov 2026 08:05:00 +0000
+Message-ID: <synthetic-code-0002@login.example.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+你的登录验证码是 635217，5 分钟内有效。
+请勿向任何人透露此验证码。

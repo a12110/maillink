@@ -1,0 +1,27 @@
+{
+  "name": "worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json && tsc -p scripts/tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "types": "wrangler types",
+    "db:migrate": "wrangler d1 migrations apply APP_DB --local",
+    "db:seed-mail": "node scripts/seed-mail-db.ts"
+  },
+  "dependencies": {
+    "@maillink/shared": "workspace:*",
+    "hono": "^4.13.19",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.8.5",
+    "@cloudflare/workers-types": "^5.20261119.1",
+    "@types/node": "^26.6.6",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.165.0"
+  }
+}
