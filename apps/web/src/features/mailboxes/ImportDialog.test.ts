@@ -21,7 +21,7 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 
-const CSV = "a@icloud.com,备注一,OpenAI\nnot-an-email\na@icloud.com";
+const CSV = "a@icloud.com,OpenAI,备注一\nnot-an-email\na@icloud.com";
 
 const PREVIEW: MailboxImportResponse = {
   dry_run: true,
@@ -103,6 +103,13 @@ describe("导入两步对话框", () => {
     expect(confirm.disabled).toBe(true);
     await click(button("返回修改"));
     expect(body().querySelector("textarea")?.value).toBe("a@icloud.com");
+  });
+
+  it("格式说明与占位示例按 06 §8 的列序：地址, 平台, 备注", async () => {
+    await open();
+    expect(body().textContent).toContain("地址[,平台[,备注]]");
+    expect(body().textContent).toContain("平台列会成为该地址的标签");
+    expect(body().querySelector("textarea")?.placeholder).toMatch(/^alias_one@icloud\.com,OpenAI,共享号 #12\n/u);
   });
 
   it("本地检查不通过时不发请求，就地写明原因", async () => {

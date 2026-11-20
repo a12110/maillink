@@ -92,8 +92,8 @@ export type MailboxTagListResponse = z.infer<typeof mailboxTagListResponseSchema
 
 export const mailboxImportRequestSchema = z.object({
   /**
-   * 每行一个地址，可带备注与标签列：`地址[,备注[,标签]]`（逗号或制表符分隔，CSV 双引号转义）。
-   * 标签列里多个标签用空白、`;` 或 `|` 分隔。首行是 address / 地址 表头时跳过。
+   * 每行一个地址，可带平台与备注列：`地址[,平台→标签[,备注]]`（06 §8；逗号或制表符分隔，CSV 双引号转义）。
+   * 平台列映射成标签，多个标签用空白、`;` 或 `|` 分隔。首行是 address / 地址 表头时跳过。
    */
   content: z.string().min(1).max(MAILBOX_LIMITS.importMaxChars),
   /** 只返回预览，不写库 */

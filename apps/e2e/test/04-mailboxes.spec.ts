@@ -5,15 +5,19 @@ import { expect, test } from "../support/fixtures";
 test.use({ storageState: ADMIN_STATE });
 
 const IMPORT_TAG = "e2e-seed";
+// 06 §8 的列序：地址, 平台, 备注；平台列映射成标签
+const PLATFORM_TAG = "Steam";
+const PLATFORM_NOTE = "日文样本, 带逗号";
 
-test("收件地址：两步对话框导入种子地址，预览区分新增 / 重复 / 无效，列表计数正确", async ({ page }) => {
+test("收件地址：两步对话框导入种子地址，预览区分新增 / 重复 / 无效，列表计数正确", async ({ page, adminApi }) => {
   await page.goto("/admin/mailboxes");
   await expect(page.getByText("还没有收件地址")).toBeVisible();
 
   await page.getByRole("button", { name: "导入", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "导入收件地址" });
-  // 4 个种子地址 + 1 行重复（大小写不同）+ 1 行无效
-  const lines = [...SEED_ADDRESSES, SEED_ADDRESSES[0].toUpperCase(), "not-an-email"];
+  // 4 个种子地址（其中一行带平台与备注列）+ 1 行重复（大小写不同）+ 1 行无效
+  const seedLines = SEED_ADDRESSES.map((address, index) => (index === 2 ? `${address},${PLATFORM_TAG},"${PLATFORM_NOTE}"` : address));
+  const lines = [...seedLines, SEED_ADDRESSES[0].toUpperCase(), "not-an-email"];
   await dialog.getByLabel("地址列表").fill(lines.join("\n"));
   await dialog.getByRole("textbox", { name: "本次导入的标签" }).fill(IMPORT_TAG);
   await dialog.getByRole("textbox", { name: "本次导入的标签" }).press("Enter");
@@ -36,6 +40,11 @@ test("收件地址：两步对话框导入种子地址，预览区分新增 / �
   await expect(rows).toHaveCount(SEED_ADDRESSES.length);
   for (const address of SEED_ADDRESSES) await expect(rows.filter({ hasText: address })).toHaveCount(1);
   await expect(rows.first().getByText(IMPORT_TAG)).toBeVisible();
+  const listed = (await (await adminApi.get("/api/admin/mailboxes?limit=100")).json()) as { items: Array<{ address: string; note: string | null; tags: string[] }> };
+  const withPlatform = listed.items.find((item) => item.address === SEED_ADDRESSES[2]);
+  expect(withPlatform?.note).toBe(PLATFORM_NOTE);
+  expect([...(withPlatform?.tags ?? [])].sort()).toEqual([IMPORT_TAG, PLATFORM_TAG].sort());
+  expect(listed.items.find((item) => item.address === SEED_ADDRESSES[0])).toMatchObject({ note: null, tags: [IMPORT_TAG] });
   await expect(page.getByRole("button", { name: /启用\s*4$/ })).toBeVisible();
   await expect(page.getByText(`第 1–4 行，共 4 行`)).toBeVisible();
 

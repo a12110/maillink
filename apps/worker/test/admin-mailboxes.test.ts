@@ -42,12 +42,12 @@ describe("导入解析（纯函数）", () => {
   });
 
   it("CSV 单元格：逗号或制表符分隔，双引号转义", () => {
-    expect(splitImportLine('a@x.com,"note, with comma",vip;gold')).toEqual(["a@x.com", "note, with comma", "vip;gold"]);
+    expect(splitImportLine('a@x.com,vip;gold,"note, with comma"')).toEqual(["a@x.com", "vip;gold", "note, with comma"]);
     expect(splitImportLine('a@x.com\t"say ""hi"""')).toEqual(["a@x.com", 'say "hi"']);
   });
 
-  it("表头跳过、空行跳过、标签列与统一标签合并", () => {
-    const lines = parseMailboxImport("address,note,tags\n\nA@X.com,备注,vip gold\nb@x.com,,bad,tag", ["batch1"]);
+  it("列序是 地址, 平台, 备注（06 §8）：表头跳过、空行跳过、平台列映射成标签并与统一标签合并", () => {
+    const lines = parseMailboxImport("address,platform,note\n\nA@X.com,vip gold,备注\nb@x.com,bad,,tag", ["batch1"]);
     expect(lines).toHaveLength(2);
     expect(lines[0]).toMatchObject({ line: 3, address: "A@x.com", address_lc: "a@x.com", note: "备注", tags: ["vip", "gold", "batch1"], error: null });
     expect(lines[1]).toMatchObject({ line: 4, note: null, tags: ["bad", "batch1"], error: null });
@@ -58,7 +58,7 @@ describe("POST /api/admin/mailboxes/import", () => {
   it("dry_run：新增 / 重复 / 无效三类逐条给出原因，不写库", async () => {
     await importMailboxes("exist@example.com");
     const { status, body } = await importMailboxes(
-      ["new@example.com", "EXIST@Example.com", "New@EXAMPLE.com", "not-an-address", `x@example.com,${"n".repeat(501)}`].join("\n"),
+      ["new@example.com", "EXIST@Example.com", "New@EXAMPLE.com", "not-an-address", `x@example.com,,${"n".repeat(501)}`].join("\n"),
       { dry_run: true },
     );
     expect(status).toBe(200);
@@ -77,7 +77,7 @@ describe("POST /api/admin/mailboxes/import", () => {
   });
 
   it("正式导入：写入地址、备注、标签；大小写不同视为重复；写审计", async () => {
-    const { status, body } = await importMailboxes("Alice@Example.com,第一批,vip\nalice@example.com\nbob@example.com", { tags: ["t1"] });
+    const { status, body } = await importMailboxes("Alice@Example.com,vip,第一批\nalice@example.com\nbob@example.com", { tags: ["t1"] });
     expect(status).toBe(201);
     expect(body.summary).toEqual({ new: 2, duplicate: 1, invalid: 0 });
     expect(body.items[0]?.id).toEqual(expect.any(Number));
@@ -92,14 +92,14 @@ describe("POST /api/admin/mailboxes/import", () => {
 
   it("再次导入已有地址不会给它补打标签", async () => {
     await importMailboxes("a@example.com");
-    await importMailboxes("a@example.com,,late");
+    await importMailboxes("a@example.com,late");
     expect((await listMailboxes()).items[0]?.tags).toEqual([]);
   });
 
   it("并发同秒导入同一地址：只有真正插入的一方写标签，另一方记为已存在", async () => {
     const [first, second] = await Promise.all([
-      importMailboxes("race@example.com,,from-a"),
-      importMailboxes("race@example.com,,from-b"),
+      importMailboxes("race@example.com,from-a"),
+      importMailboxes("race@example.com,from-b"),
     ]);
     const statuses = [first.body.items[0]?.status, second.body.items[0]?.status].sort();
     expect(statuses).toEqual(["duplicate", "new"]);
@@ -120,7 +120,7 @@ describe("POST /api/admin/mailboxes/import", () => {
 
 describe("GET /api/admin/mailboxes", () => {
   it("带总数、链接数、授权数与最近来信时间；关键词 / 标签 / 状态筛选与游标分页", async () => {
-    await importMailboxes("one@example.com,,red\ntwo@example.com,,blue\nthree@example.com,,red");
+    await importMailboxes("one@example.com,red\ntwo@example.com,blue\nthree@example.com,red");
     await putMail({ address: "one@example.com", ageSec: 120 });
     const latest = await putMail({ address: "one@example.com", ageSec: 10 });
     expect(latest).toBeGreaterThan(0);
@@ -147,7 +147,7 @@ describe("GET /api/admin/mailboxes", () => {
 
 describe("修改、批量与删除", () => {
   it("PATCH：改名称、备注、状态，标签整体替换；不存在 404", async () => {
-    const { body } = await importMailboxes("a@example.com,,old");
+    const { body } = await importMailboxes("a@example.com,old");
     const id = body.items[0]?.id as number;
     const res = await api(`/api/admin/mailboxes/${id}`, {
       cookie,
