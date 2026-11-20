@@ -21,6 +21,7 @@ const EXPECTED_TABLES = [
   "link_access_logs",
   "audit_logs",
   "settings",
+  "auth_flow_tokens",
 ];
 
 const EXPECTED_INDEXES = [
@@ -34,6 +35,7 @@ const EXPECTED_INDEXES = [
   "idx_umg_mailbox",
   "idx_umg_rule_group",
   "idx_lal_link",
+  "idx_auth_flow_tokens_expires",
 ];
 
 async function listSchemaObjects(type: "table" | "index"): Promise<string[]> {

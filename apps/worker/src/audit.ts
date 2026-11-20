@@ -16,6 +16,29 @@ export const AUDIT_ACTIONS = {
   userPasswordReset: "user.password_reset",
   userSessionsRevoke: "user.sessions_revoke",
   sessionRevoke: "auth.session_revoke",
+  // M5：两步验证、通行密钥、OAuth
+  mfaFailed: "auth.mfa_failed",
+  mfaLocked: "auth.mfa_locked",
+  reauthFailed: "auth.reauth_failed",
+  sessionsRevokeOthers: "auth.sessions_revoke_others",
+  totpEnable: "auth.totp_enable",
+  totpDisable: "auth.totp_disable",
+  recoveryCodesRegenerate: "auth.recovery_codes_regenerate",
+  passkeyAdd: "auth.passkey_add",
+  passkeyRename: "auth.passkey_rename",
+  passkeyRemove: "auth.passkey_remove",
+  passkeyCounterRollback: "auth.passkey_counter_rollback",
+  identityLink: "auth.identity_link",
+  identityLinkRejected: "auth.identity_link_rejected",
+  identityUnlink: "auth.identity_unlink",
+  oauthSignup: "auth.oauth_signup",
+  userTotpClear: "user.totp_clear",
+  userPasskeysRemove: "user.passkeys_remove",
+  userIdentitiesRemove: "user.identities_remove",
+  oauthProviderCreate: "oauth_provider.create",
+  oauthProviderUpdate: "oauth_provider.update",
+  oauthProviderDelete: "oauth_provider.delete",
+  oauthProviderUpdateRejected: "oauth_provider.update_rejected",
   // M3b：规则组与收件地址
   ruleGroupCreate: "rule_group.create",
   ruleGroupUpdate: "rule_group.update",
@@ -42,7 +65,7 @@ export type AuditInput = {
   action: AuditAction;
   /** 执行者；登录失败等没有已确认身份的场景为 null */
   actorUserId: number | null;
-  targetType?: "user" | "session" | "rule_group" | "mailbox" | "share_link";
+  targetType?: "user" | "session" | "passkey" | "identity" | "oauth_provider" | "rule_group" | "mailbox" | "share_link";
   targetId?: number | string;
   /** 会被 JSON 序列化。禁止放密码、令牌、哈希 */
   detail?: Record<string, unknown>;

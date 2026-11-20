@@ -15,6 +15,18 @@ export const KEY_PURPOSES = {
   passwordPepper: "password-pepper",
   sessionPublicId: "session-public-id",
   linkToken: "link-token",
+  /** AES-GCM：users.totp_secret_enc */
+  totpSecret: "totp-secret",
+  /** HMAC：恢复码的库内摘要 */
+  recoveryCode: "recovery-code",
+  /** HMAC：签名 Cookie（pending_auth、通行密钥 challenge） */
+  signedCookie: "signed-cookie",
+  /** AES-GCM：加密 Cookie（TOTP 启用前的暂存密钥、OAuth 流程状态） */
+  encryptedCookie: "encrypted-cookie",
+  /** AES-GCM：oauth_providers.client_secret_enc */
+  oauthClientSecret: "oauth-client-secret",
+  /** HMAC：WebAuthn user handle（不把用户 id 直接交给认证器） */
+  passkeyUserHandle: "passkey-user-handle",
 } as const;
 export type KeyPurpose = (typeof KEY_PURPOSES)[keyof typeof KEY_PURPOSES];
 

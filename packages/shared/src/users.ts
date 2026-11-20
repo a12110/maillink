@@ -13,6 +13,7 @@ import {
   SEARCH_KEYWORD_MAX_LENGTH,
 } from "./limits";
 import { listResponseSchema } from "./http";
+import { myIdentitySchema, myPasskeySchema } from "./account-security";
 
 /** 空串视为"清空"；邮箱统一小写（库里只存 email_lc） */
 const optionalDisplayNameSchema = z
@@ -44,6 +45,10 @@ export const meResponseSchema = z.object({
   email: z.string().nullable(),
   role: userRoleSchema,
   has_password: z.boolean(),
+  /** 是否已启用两步验证 */
+  totp_enabled: z.boolean(),
+  /** 未使用的恢复码个数；未启用 2FA 时为 0 */
+  recovery_codes_remaining: z.number().int(),
   created_at: z.number().int(),
   last_login_at: z.number().int().nullable(),
 });
@@ -95,6 +100,13 @@ export const adminUserSchema = z.object({
   mailbox_grant_count: z.number().int(),
 });
 export type AdminUser = z.infer<typeof adminUserSchema>;
+
+/** GET /api/admin/users/:id：在列表字段之外带上通行密钥与 OAuth 绑定明细，供单个清除时选择 */
+export const adminUserDetailSchema = adminUserSchema.extend({
+  passkeys: z.array(myPasskeySchema),
+  identities: z.array(myIdentitySchema),
+});
+export type AdminUserDetail = z.infer<typeof adminUserDetailSchema>;
 
 export const adminUserListSchema = listResponseSchema(adminUserSchema);
 export type AdminUserList = z.infer<typeof adminUserListSchema>;

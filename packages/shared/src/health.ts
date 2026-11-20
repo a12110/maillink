@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cronStatusSchema, rateLimitStatusSchema } from "./system-status";
 
 /** MAIL_DB 中 raw_mails 的可选列对应的能力标记，见 01 §3.1 */
 export const mailCapabilitiesSchema = z.object({
@@ -41,5 +42,7 @@ export const healthResponseSchema = z.object({
     error: z.string().nullable(),
     probe: mailSchemaProbeSchema.nullable(),
   }),
+  rate_limit: rateLimitStatusSchema,
+  cron: cronStatusSchema,
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;

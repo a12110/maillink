@@ -11,14 +11,18 @@ export type UserRow = {
   role: UserRole;
   status: UserStatus;
   password_hash: string | null;
+  /** 非 NULL 表示已启用两步验证 */
+  totp_enabled_at: number | null;
+  /** 1 = 当前邮箱由管理员设置（OAuth 自动关联只认这类邮箱，见 auth/oauth-link.ts） */
+  email_admin_set: number;
   created_at: number;
   updated_at: number;
   last_login_at: number | null;
 };
 
-// 刻意不查 totp_secret_enc：需要它的代码（M5）自己取
+// 刻意不查 totp_secret_enc / totp_last_step：只有 db/totp.ts 读写它们
 const USER_COLUMNS =
-  "id, username, username_lc, email_lc, display_name, role, status, password_hash, created_at, updated_at, last_login_at";
+  "id, username, username_lc, email_lc, display_name, role, status, password_hash, totp_enabled_at, email_admin_set, created_at, updated_at, last_login_at";
 
 export type NewUser = {
   username: string;
@@ -26,7 +30,10 @@ export type NewUser = {
   email: string | null;
   role: UserRole;
   status: UserStatus;
-  password_hash: string;
+  /** NULL = 不设密码（只能用通行密钥或 OAuth 登录的账号，如 OAuth 自动建号） */
+  password_hash: string | null;
+  /** 邮箱是否由管理员设置；缺省视为否 */
+  email_admin_set?: boolean;
 };
 
 export type UserPatch = {
@@ -35,6 +42,8 @@ export type UserPatch = {
   email?: string | null;
   role?: UserRole;
   status?: UserStatus;
+  /** 与 email 一起传：管理员设置为 true，用户自己改为 false */
+  email_admin_set?: boolean;
 };
 
 export async function countUsers(db: D1Database): Promise<number> {
@@ -53,7 +62,7 @@ export function findUserByUsername(db: D1Database, username: string): Promise<Us
     .first<UserRow>();
 }
 
-const INSERT_USER_VALUES = "?, ?, ?, ?, ?, ?, ?, ?, ?";
+const INSERT_USER_VALUES = "?, ?, ?, ?, ?, ?, ?, ?, ?, ?";
 
 function insertParams(user: NewUser, now: number): unknown[] {
   return [
@@ -64,13 +73,14 @@ function insertParams(user: NewUser, now: number): unknown[] {
     user.role,
     user.status,
     user.password_hash,
+    user.email !== null && user.email_admin_set === true ? 1 : 0,
     now,
     now,
   ];
 }
 
 const INSERT_COLUMNS =
-  "username, username_lc, email_lc, display_name, role, status, password_hash, created_at, updated_at";
+  "username, username_lc, email_lc, display_name, role, status, password_hash, email_admin_set, created_at, updated_at";
 
 /** 唯一约束冲突时抛出 D1 错误，由调用方用 uniqueViolationTarget 识别 */
 export async function insertUser(db: D1Database, user: NewUser, now: number): Promise<number> {
@@ -84,7 +94,7 @@ export async function insertUser(db: D1Database, user: NewUser, now: number): Pr
 /** 仅当 users 表仍为空时插入首个管理员（并发初始化时只有一个会成功）；供 setup 与其他初始化写入放进同一个 batch */
 export function firstAdminStatement(
   db: D1Database,
-  user: Omit<NewUser, "role" | "status" | "display_name" | "email">,
+  user: Omit<NewUser, "role" | "status" | "display_name" | "email" | "email_admin_set"> & { password_hash: string },
   now: number,
 ): D1PreparedStatement {
   const full: NewUser = { ...user, display_name: null, email: null, role: "admin", status: "active" };
@@ -109,6 +119,12 @@ function lastAdminGuard(
   };
 }
 
+/** 邮箱被改动时才更新来源标记；清空邮箱时标记一并清零 */
+function emailAdminSetValue(patch: UserPatch): number | undefined {
+  if (patch.email === undefined) return undefined;
+  return patch.email !== null && patch.email_admin_set === true ? 1 : 0;
+}
+
 /**
  * 更新用户。返回 false 表示没有行被改：用户不存在，或被"最后一个管理员"保护拦下（由调用方区分）。
  * 唯一约束冲突时抛 D1 错误。
@@ -119,6 +135,7 @@ export async function updateUser(db: D1Database, id: number, patch: UserPatch, n
     ["username_lc", patch.username?.toLowerCase()],
     ["display_name", patch.display_name],
     ["email_lc", patch.email],
+    ["email_admin_set", emailAdminSetValue(patch)],
     ["role", patch.role],
     ["status", patch.status],
   ];
