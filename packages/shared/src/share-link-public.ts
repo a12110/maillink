@@ -98,6 +98,8 @@ export const linkPublicStatusSchema = z.object({
   public_note: z.string().nullable(),
   /** state=daily_limit 时同 deliveries.daily_resets_at */
   retry_after_at: z.number().int().nullable(),
+  /** state=device_limit 时给出设备数上限（"最多 N 台，名额已满"）；其他状态为 null，不对外多透露 */
+  max_devices: z.number().int().nullable(),
 });
 export type LinkPublicStatus = z.infer<typeof linkPublicStatusSchema>;
 

@@ -29,6 +29,7 @@ import { createAuthEndpoints } from "./endpoints-auth";
 import { ApiError } from "./errors";
 import { createAdminEndpoints } from "./endpoints-admin";
 import { createSettingsEndpoints } from "./endpoints-settings";
+import { createLinkEndpoints } from "./links-endpoints";
 
 function userPath(id: number, suffix = ""): string {
   return `/api/admin/users/${id}${suffix}`;
@@ -89,6 +90,7 @@ export function createEndpoints(client: ApiClient) {
 
     ...createAdminEndpoints(client),
     ...createSettingsEndpoints(client),
+    ...createLinkEndpoints(client),
   };
 }
 

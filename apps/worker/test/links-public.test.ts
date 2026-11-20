@@ -106,7 +106,9 @@ describe("POST /start", () => {
     expect((await second.json<ErrorBody>()).error).toMatchObject({ code: "link_device_limit", public_note: "换设备请联系客服" });
     expect((await accessLogs(id)).at(-1)).toMatchObject({ event: "denied", reason: "device_limit" });
     const status = await (await publicApi(`/api/s/${token}`)).json<LinkPublicStatus>();
-    expect(status).toMatchObject({ state: "device_limit", public_note: "换设备请联系客服" });
+    expect(status).toMatchObject({ state: "device_limit", public_note: "换设备请联系客服", max_devices: 1 });
+    const registered = await (await publicApi(`/api/s/${token}`, { cookie: first })).json<LinkPublicStatus>();
+    expect(registered).toMatchObject({ state: "active", max_devices: null });
     expect((await publicApi(`/api/s/${token}/mails`)).status).toBe(403);
     expect((await publicApi(`/api/s/${token}/mails`, { cookie: first })).status).toBe(200);
   });

@@ -1,10 +1,13 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { describeError } from "../../lib/messages";
 import { Callout, ConfirmDialog, ErrorCallout } from "../../ui";
+import { saveHandoff } from "../links/create-handoff";
 import { deleteConsequence, SELECT_ALL_LIMIT } from "./batch-state";
 import type { BatchFailure } from "./batch-state";
 import { MailboxBatchBar } from "./MailboxToolbar";
+import { GrantUsersDialog } from "./GrantUsersDialog";
 import { TagBatchDialog } from "./TagBatchDialog";
 import type { TagMode } from "./TagBatchDialog";
 import { useMailboxBatch } from "./useMailboxBatch";
@@ -21,6 +24,19 @@ function FailureNotice({ failures, onDismiss }: { failures: BatchFailure[]; onDi
   );
 }
 
+function GrantSlot({ open, mailboxes, onClose }: { open: boolean; mailboxes: Selection["selected"]; onClose: () => void }) {
+  return open ? <GrantUsersDialog mailboxes={mailboxes} onClose={onClose} /> : null;
+}
+
+/** 「生成取件链接」：地址 id 进 URL（create_for），地址文本走 sessionStorage 交接，链接页的创建对话框据此预选 */
+function useCreateLinks(selection: Selection): () => void {
+  const navigate = useNavigate();
+  return () => {
+    saveHandoff([...selection.selected.values()]);
+    void navigate({ to: "/admin/links", search: { create_for: [...selection.selected.keys()] } });
+  };
+}
+
 type Props = {
   selection: Selection;
   total: number | undefined;
@@ -35,10 +51,12 @@ export function BatchLayer({ selection, total, activeQuery, toolbar }: Props) {
   const selectAll = useSelectAll(selection, activeQuery);
   const [tagMode, setTagMode] = useState<TagMode | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [granting, setGranting] = useState(false);
   const count = selection.selected.size;
   const busy = batch.mutation.isPending;
   const batchError = batch.mutation.isError ? describeError(batch.mutation.error) : null;
   const ids = () => [...selection.selected.keys()];
+  const createLinks = useCreateLinks(selection);
   const closeTag = () => {
     setTagMode(null);
     batch.mutation.reset();
@@ -59,6 +77,8 @@ export function BatchLayer({ selection, total, activeQuery, toolbar }: Props) {
           walking={selectAll.walking}
           busy={busy}
           onSelectAll={selectAll.run}
+          onCreateLinks={createLinks}
+          onGrant={() => setGranting(true)}
           onTag={setTagMode}
           onSetStatus={(status) => batch.mutation.mutate({ ids: ids(), action: status === "active" ? "enable" : "disable" })}
           onDelete={() => setDeleting(true)}
@@ -80,6 +100,7 @@ export function BatchLayer({ selection, total, activeQuery, toolbar }: Props) {
         onClose={closeTag}
         onSubmit={(mode, tags) => batch.mutation.mutate({ ids: ids(), action: mode === "add" ? "add_tags" : "remove_tags", tags }, { onSuccess: closeTag })}
       />
+      <GrantSlot open={granting} mailboxes={selection.selected} onClose={() => setGranting(false)} />
       <ConfirmDialog
         open={deleting}
         onOpenChange={(open) => (open ? setDeleting(true) : closeDelete())}

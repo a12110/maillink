@@ -47,16 +47,29 @@ function table(items: AdminMailbox[] | undefined, selection: Selection, over: Re
 }
 
 describe("收件地址表", () => {
-  it("行内操作只有真正存在的入口：该地址的邮件（带 to_address 筛选）与编辑；链接数 / 授权数是普通数字，不渲染假入口", async () => {
+  it("行内操作：该地址的邮件（带 to_address 筛选）、已有链接（带 mailbox_id）与编辑；链接数可点，授权数是普通数字", async () => {
     mounted = await mount(table([box(1)], selectionOf([])));
     const actions = mounted.container.querySelector(".row-actions");
-    const link = actions?.querySelector("a");
-    expect(link?.getAttribute("href")).toBe("/admin/mails");
-    expect(JSON.parse(link?.getAttribute("data-search") ?? "null")).toEqual({ to_address: "a1@icloud.com" });
-    expect(link?.getAttribute("aria-label")).toBe("查看 a1@icloud.com 的邮件");
-    expect(actions?.querySelectorAll("a, button")).toHaveLength(2);
+    const hrefs = Array.from(actions?.querySelectorAll("a") ?? []).map((a) => [a.getAttribute("href"), JSON.parse(a.getAttribute("data-search") ?? "null")]);
+    expect(hrefs).toEqual([
+      ["/admin/mails", { to_address: "a1@icloud.com" }],
+      ["/admin/links", { mailbox_id: 1 }],
+    ]);
+    expect(actions?.querySelector("a")?.getAttribute("aria-label")).toBe("查看 a1@icloud.com 的邮件");
+    expect(actions?.querySelectorAll("a, button")).toHaveLength(3);
+  });
+
+  it("链接数大于 0 可点，直达带该地址筛选的链接列表；授权数是普通数字", async () => {
+    mounted = await mount(table([box(1)], selectionOf([])));
+    const countLinks = Array.from(mounted.container.querySelectorAll(".col-num a"));
+    expect(countLinks).toHaveLength(1);
+    expect(countLinks[0]?.textContent).toBe("2");
+    expect(JSON.parse(countLinks[0]?.getAttribute("data-search") ?? "null")).toEqual({ mailbox_id: 1 });
+  });
+
+  it("链接数为 0：普通灰字，不渲染入口", async () => {
+    mounted = await mount(table([box(1, { link_count: 0 })], selectionOf([])));
     expect(mounted.container.querySelectorAll(".col-num a")).toHaveLength(0);
-    expect(Array.from(mounted.container.querySelectorAll(".col-num")).map((c) => c.textContent)).toContain("2");
   });
 
   it("勾选行与“选择当前页全部”；已选行高亮；部分选中时表头是半选", async () => {

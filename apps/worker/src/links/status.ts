@@ -51,6 +51,7 @@ export async function buildPublicStatus(db: D1Database, req: LinkRequest, scope:
     public_title: row.public_title,
     public_note: row.public_note,
     retry_after_at: state === "daily_limit" ? (quota?.daily_resets_at ?? null) : null,
+    max_devices: state === "device_limit" ? (access.max_devices ?? null) : null,
   };
 }
 
