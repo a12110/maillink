@@ -65,3 +65,18 @@ const AUTH_METHOD_LABEL: Record<string, string> = { password: "密码" };
 export function describeAuthMethod(method: string): string {
   return AUTH_METHOD_LABEL[method] ?? method;
 }
+
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+
+/** Unix 秒 → “32 秒前 / 4 分钟前 / 3 小时前”；一天以上回到绝对时间；未来时间（时钟偏差）也按绝对时间，不写“负秒前” */
+export function formatRelative(unixSec: number, now: Date = new Date()): string {
+  const diff = Math.floor(now.getTime() / MS_PER_SECOND) - unixSec;
+  if (diff < 0) return formatDateTime(unixSec, now);
+  if (diff < SECONDS_PER_MINUTE) return `${diff} 秒前`;
+  const minutes = Math.floor(diff / SECONDS_PER_MINUTE);
+  if (minutes < MINUTES_PER_HOUR) return `${minutes} 分钟前`;
+  const hours = Math.floor(minutes / MINUTES_PER_HOUR);
+  return hours < HOURS_PER_DAY ? `${hours} 小时前` : formatDateTime(unixSec, now);
+}

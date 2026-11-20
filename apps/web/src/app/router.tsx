@@ -1,4 +1,4 @@
-import { createRootRouteWithContext, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
+import { createRootRouteWithContext, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from "@tanstack/react-router";
 import type { RouterHistory } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { AccountPage } from "../features/account/AccountPage";
@@ -7,6 +7,7 @@ import { SetupPage } from "../features/auth/SetupPage";
 import { RegisterPage } from "../features/register/RegisterPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { parseMailsSearch } from "../features/mails/search";
+import { parseNewRuleGroupSearch } from "../features/rule-groups/new-search";
 import { MailsPage } from "../features/mails/MailsPage";
 import { MailsRouteError } from "../features/mails/MailsRouteError";
 import { UsersPage } from "../features/users/UsersPage";
@@ -113,14 +114,39 @@ const settingsIndexRoute = createRoute({
   },
 });
 
+// 本期新增的管理页按路由拆包（规则组编辑器带着 shared 的校验与正则分析，体积最大）
+const mailboxesRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/mailboxes",
+  component: lazyRouteComponent(() => import("../features/mailboxes/MailboxesPage"), "MailboxesPage"),
+});
+
+const auditRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/audit",
+  component: lazyRouteComponent(() => import("../features/audit/AuditPage"), "AuditPage"),
+});
+const ruleGroupsRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/rule-groups",
+  component: lazyRouteComponent(() => import("../features/rule-groups/RuleGroupsPage"), "RuleGroupsPage"),
+});
+// 静态的 /new 优先于 /$id
+const newRuleGroupRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/rule-groups/new",
+  validateSearch: parseNewRuleGroupSearch,
+  component: lazyRouteComponent(() => import("../features/rule-groups/RuleGroupEditPage"), "NewRuleGroupPage"),
+});
+const editRuleGroupRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/rule-groups/$id",
+  component: lazyRouteComponent(() => import("../features/rule-groups/RuleGroupEditPage"), "RuleGroupEditPage"),
+});
 const settingsGroupRoute = createRoute({ getParentRoute: () => adminLayout, path: "/settings/$group", component: SettingsPage });
 
 const adminPlaceholders = [
-  placeholder("/mailboxes", "收件地址", "收件地址的导入与管理将随邮件后端（M2）提供，本页暂不显示任何数据。"),
   placeholder("/links", "取件链接", "取件链接的创建与管理将在后续里程碑实现，本页暂不显示任何数据。"),
-  placeholder("/rule-groups", "规则组", "规则组列表与编辑器将随规则引擎（M3a）提供，本页暂不显示任何数据。"),
-  placeholder("/rule-groups/$id", "规则组编辑", "规则组编辑与测试器将在后续里程碑实现，本页暂不显示任何数据。"),
-  placeholder("/audit", "审计日志", "审计日志列表将在后续里程碑实现，本页暂不显示任何数据。"),
 ];
 
 const routeTree = rootRoute.addChildren([
@@ -130,7 +156,19 @@ const routeTree = rootRoute.addChildren([
   workspaceLayout.addChildren([
     inboxRoute,
     accountRoute,
-    adminLayout.addChildren([adminIndexRoute, usersRoute, mailsRoute, settingsIndexRoute, settingsGroupRoute, ...adminPlaceholders]),
+    adminLayout.addChildren([
+      adminIndexRoute,
+      usersRoute,
+      mailsRoute,
+      mailboxesRoute,
+      ruleGroupsRoute,
+      newRuleGroupRoute,
+      editRuleGroupRoute,
+      auditRoute,
+      settingsIndexRoute,
+      settingsGroupRoute,
+      ...adminPlaceholders,
+    ]),
   ]),
 ]);
 
