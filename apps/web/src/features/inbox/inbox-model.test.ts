@@ -54,9 +54,12 @@ describe("范围解析与 mailbox_id", () => {
     expect(resolveScope(ALL, 99)).toEqual({ kind: "missing", mailboxId: 99 });
   });
 
-  it("详情接口的 mailbox_id：单个邮箱带，“全部”不带", () => {
-    expect(detailMailboxId({ kind: "mailbox", mailbox: FULL })).toBe(1);
-    expect(detailMailboxId({ kind: "all" })).toBeUndefined();
+  it("详情接口的 mailbox_id：单个邮箱用它自己；“全部”用被选中那一项自带的；还没加载出来时不带", () => {
+    const items = [{ id: 7, mailbox_id: 3 }, { id: 8, mailbox_id: 4 }] as MyMailListItem[];
+    expect(detailMailboxId({ kind: "mailbox", mailbox: FULL }, items, 8)).toBe(1);
+    expect(detailMailboxId({ kind: "all" }, items, 8)).toBe(4);
+    expect(detailMailboxId({ kind: "all" }, items, 99)).toBeUndefined();
+    expect(detailMailboxId({ kind: "all" }, items, null)).toBeUndefined();
   });
 
   it("不可用的邮箱 / 已不在授权里 / 全部都不可用：给出原因，不请求", () => {

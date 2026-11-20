@@ -8,6 +8,7 @@ import {
 } from "@maillink/shared";
 import { TextField } from "../../ui";
 import { bindText, CheckField } from "./fields";
+import { SESSION_DURATION_MAX_TEXT, SESSION_DURATION_MIN_TEXT } from "./form-model";
 import { SettingsGroupForm } from "./SettingsGroupForm";
 import type { FormContext } from "./SettingsGroupForm";
 
@@ -20,8 +21,8 @@ function SecurityFields(context: FormContext<"security">) {
       <CheckField label="管理员必须通过两步验证" checked={draft.admin_require_2fa} disabled={disabled}
         onChange={(event) => update({ admin_require_2fa: event.target.checked })}
         hint="开启后，没有第二因素（TOTP 或通行密钥）的管理员无法访问管理接口。保存时会检查至少有一个管理员已经具备。" />
-      <TextField label="会话空闲时长（小时）" inputMode="decimal" hint="超过这段时间没有操作，会话失效。最短 1 小时。" {...bindText(context, "session_idle_hours")} />
-      <TextField label="会话绝对时长（天）" inputMode="decimal" hint="从登录起最长保持的时间，不能短于空闲时长。最长 365 天。" {...bindText(context, "session_absolute_days")} />
+      <TextField label="会话空闲时长（小时）" inputMode="decimal" hint={`超过这段时间没有操作，会话失效。最短 ${SESSION_DURATION_MIN_TEXT}。`} {...bindText(context, "session_idle_hours")} />
+      <TextField label="会话绝对时长（天）" inputMode="decimal" hint={`从登录起最长保持的时间，不能短于空闲时长。最长 ${SESSION_DURATION_MAX_TEXT}。`} {...bindText(context, "session_absolute_days")} />
       <TextField label="密码最小长度" inputMode="numeric" hint={`${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH}；只影响新设置的密码，老用户照常登录。`} {...bindText(context, "password_min_length")} />
     </>
   );

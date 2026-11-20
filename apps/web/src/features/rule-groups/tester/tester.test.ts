@@ -115,7 +115,7 @@ describe("结果渲染", () => {
 
   it("汇总 + 逐封：可见 / 不可见、原因码与中文说明、命中规则与条件、提取到的验证码", async () => {
     const items = [
-      item({ mail_id: 11, visible: true, reason_code: "allow_match", reason: "allow:含验证码", matched: [{ rule_id: "r1", rule_name: "含验证码", effect: "allow", hits: [{ kind: "leaf", path: "when", field: "code.present", op: "is", value: "true" }] }], extracted: { code: "482910", code_origin: "builtin", code_steps: [], login_link: null }, preview }),
+      item({ mail_id: 11, subject: "你的验证码是 482910", visible: true, reason_code: "allow_match", reason: "allow:含验证码", matched: [{ rule_id: "r1", rule_name: "含验证码", effect: "allow", hits: [{ kind: "leaf", path: "when", field: "code.present", op: "is", value: "true" }] }], extracted: { code: "482910", code_origin: "builtin", code_steps: [], login_link: null }, preview }),
       item({ mail_id: 12, reason_code: "deny", reason: "deny:屏蔽账单", matched: [{ rule_id: "r2", rule_name: "屏蔽账单", effect: "deny", hits: [{ kind: "leaf", path: "when", field: "category", op: "eq", value: "billing" }] }] }),
       item({ mail_id: 13, parse_status: "failed", reason_code: "parse_failed", reason: "parse_failed" }),
       item({ mail_id: 14, reason_code: "body_truncated", reason: "body_truncated" }),
@@ -154,6 +154,28 @@ describe("结果渲染", () => {
     expect(text(root)).toContain("有邮件本次没解析到");
     // 邮件 id 链到“全部邮件”该封
     expect(JSON.parse(one(row(0), "a.t-id").getAttribute("data-search") ?? "null")).toEqual({ id: 11 });
+  });
+
+  it("不可见的邮件也显示发件人与主题（管理员视角）；解析失败 / 尚未解析时是弱化的占位，不显示 null", async () => {
+    mounted = await render(response([
+      item({ mail_id: 21, subject: "账单已出", sender: { address: "billing@shop.example", name: "Shop 账单" }, reason_code: "no_allow_match" }),
+      item({ mail_id: 22, parse_status: "failed", subject: null, sender: null, reason_code: "parse_failed", reason: "parse_failed" }),
+      item({ mail_id: 23, parse_status: "pending", subject: null, sender: null, reason_code: "pending", reason: "pending" }),
+      item({ mail_id: 24, subject: "<img src=x onerror=alert(1)>", sender: { address: "a@b.example", name: null } }),
+    ]));
+    const rows = Array.from(mounted.container.querySelectorAll<HTMLElement>(".t-item"));
+    const [shown, failed, pending, hostile] = rows;
+    if (!shown || !failed || !pending || !hostile) throw new Error("行数不对");
+    expect(text(one(shown, ".t-subject"))).toBe("账单已出");
+    expect(text(one(shown, ".t-sender"))).toBe("发件人：Shop 账单 <billing@shop.example>");
+    expect(shown.querySelector(".t-unknown")).toBeNull();
+    expect(text(one(failed, ".t-subject"))).toBe("主题：无法解析");
+    expect(text(one(failed, ".t-sender"))).toBe("发件人：无法解析");
+    expect(one(failed, ".t-sender").classList.contains("t-unknown")).toBe(true);
+    expect(text(failed)).not.toContain("null");
+    expect(text(one(pending, ".t-sender"))).toBe("发件人：尚未解析");
+    expect(text(one(hostile, ".t-subject"))).toBe("<img src=x onerror=alert(1)>");
+    expect(hostile.querySelector("img")).toBeNull();
   });
 
   it("访客视角预览：点开才看；验证码、主题按纯文本；非 http(s) 的登录链接不渲染成链接", async () => {

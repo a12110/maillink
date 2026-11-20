@@ -14,7 +14,7 @@ import { describeError } from "../../lib/messages";
 import { Button, Callout, ErrorCallout, TextField } from "../../ui";
 import { TurnstileWidget } from "../turnstile/TurnstileWidget";
 import type { TurnstileLoader } from "../turnstile/loader";
-import { describeRegisterError } from "./errors";
+import { describeRegisterError, SessionAfterRegisterError } from "./errors";
 
 const FIELDS = ["username", "password", "email"] as const;
 type Field = (typeof FIELDS)[number];
@@ -30,8 +30,13 @@ function useRegister() {
   return useMutation({
     mutationFn: async (body: RegisterRequest) => {
       await api.register(body);
-      // 注册成功即已登录：以会话接口为准刷新缓存，再由 `/` 按角色分流
-      await queryClient.fetchQuery({ ...sessionQuery(), staleTime: 0 });
+      // 注册成功即已登录：以会话接口为准刷新缓存，再由 `/` 按角色分流。
+      // 走到这里账号已经创建，会话请求失败不能当作注册失败（重试注册只会得到 username_taken）
+      try {
+        await queryClient.fetchQuery({ ...sessionQuery(), staleTime: 0 });
+      } catch (cause) {
+        throw new SessionAfterRegisterError(cause);
+      }
     },
     onSuccess: () => navigate({ to: "/" }),
   });
@@ -43,6 +48,21 @@ function Closed() {
       <Callout title="未开放注册">管理员目前没有开放自助注册。如需账号，请联系管理员创建。</Callout>
       <Link to="/login" className="btn" data-variant="secondary" data-block="true">
         去登录
+      </Link>
+    </>
+  );
+}
+
+/** 账号已创建但没能拿到会话：请去登录，不再提供注册表单，也不自动重试 */
+function CreatedGoLogin({ cause }: { cause: unknown }) {
+  const { message, detail } = describeError(cause);
+  return (
+    <>
+      <Callout title="账号已创建，请前往登录">
+        获取登录状态时出错：{message}（{detail}）。账号已经注册成功，直接登录即可。
+      </Callout>
+      <Link to="/login" className="btn" data-variant="primary" data-block="true">
+        前往登录
       </Link>
     </>
   );
@@ -114,6 +134,7 @@ function RegisterForm({ config, loader }: FormProps) {
 
   // 提交时才发现注册已被关闭（后端 404）：换成未开放状态
   if (isApiError(register.error, "not_found")) return <Closed />;
+  if (register.error instanceof SessionAfterRegisterError) return <CreatedGoLogin cause={register.error.original} />;
   const fieldLevel = Object.values(serverErrors).some(Boolean);
   return (
     <form className="auth-form" onSubmit={submit} noValidate>

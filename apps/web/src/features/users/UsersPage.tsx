@@ -45,11 +45,17 @@ function useUserList() {
   };
 }
 
+/** 页头摘要：来自列表响应的 total（满足筛选条件的总数，翻页不变）；加载中或出错时不显示，免得出现 0 */
+function UserCountSummary({ total, filtered }: { total: number; filtered: boolean }) {
+  return <span>{filtered ? "符合筛选的共 " : "共 "}<b className="num">{total}</b> 个用户</span>;
+}
+
 export function UsersPage() {
   const state = useUserList();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const { list } = state;
+  const total = list.isError || list.isPlaceholderData ? undefined : list.data?.total;
 
   // 关闭侧板后焦点回到打开它的那一行（键盘用户不丢位置）；行已不存在（如刚删除）则不处理
   const closePanel = () => {
@@ -60,7 +66,7 @@ export function UsersPage() {
 
   return (
     <>
-      <PageHeader title="用户" />
+      <PageHeader title="用户" summary={total === undefined ? undefined : <UserCountSummary total={total} filtered={state.filtered} />} />
       <div className="split" data-panel={selectedId === null ? "closed" : "open"}>
         <div className="table-scope">
           <UserToolbar filters={state.filters} onChange={state.changeFilters} onCreate={() => setCreating(true)} />

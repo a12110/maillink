@@ -105,6 +105,9 @@
     font-weight: var(--weight-strong); color: var(--color-text-muted); font-size: var(--text-xs);
     background: var(--color-surface); border-bottom: 1px solid var(--color-border);
   }
+  /* 列宽不够时截断而不是压到相邻表头；勾选框列不截断（会裁掉焦点环） */
+  .table th:not(.col-check) { overflow: hidden; text-overflow: ellipsis; }
+  .table .th-sub { display: block; font-weight: var(--weight-regular); line-height: 1.2; }
   .table td { height: var(--row-height); padding: 0 var(--space-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
   .table tbody tr:nth-child(even) { background: var(--color-row-alt); }
   .table tbody tr:hover { background: var(--color-row-hover); }
