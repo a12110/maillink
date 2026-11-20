@@ -6,7 +6,7 @@ export function utf8(text: string): Uint8Array {
   return encoder.encode(text);
 }
 
-export function randomBytes(length: number): Uint8Array {
+export function randomBytes(length: number): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(length));
 }
 
@@ -33,6 +33,17 @@ export function fromBase64(text: string): Uint8Array {
 
 export function toBase64Url(bytes: Uint8Array): string {
   return toBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/;
+const BASE64_BLOCK = 4;
+
+/** 严格解码 base64url（不接受 `+` `/` `=`）；非法输入抛 Error */
+export function fromBase64Url(text: string): Uint8Array {
+  if (!BASE64URL_PATTERN.test(text)) throw new Error("无效的 base64url 字符串");
+  const padded = text.replaceAll("-", "+").replaceAll("_", "/");
+  const padding = (BASE64_BLOCK - (padded.length % BASE64_BLOCK)) % BASE64_BLOCK;
+  return fromBase64(padded + "=".repeat(padding));
 }
 
 export function toHex(bytes: Uint8Array): string {
