@@ -84,6 +84,17 @@ export function devicesText(link: Pick<AdminShareLink, "device_count" | "access"
   return max === undefined ? String(link.device_count) : `${link.device_count} / ${max}`;
 }
 
+export const AUTO_REVEAL_NO_COUNT_HINT = "自动显示模式不计取码次数";
+
+/** 取码次数（24h / 累计）：auto 方式不写取码记录，count 为 null（界面显示"—"并带说明），不显示恒为 0 的数字 */
+export function deliveriesCell(
+  link: Pick<AdminShareLink, "access">,
+  count: number,
+  title: string,
+): { count: number | null; title: string } {
+  return link.access.reveal === "auto" ? { count: null, title: AUTO_REVEAL_NO_COUNT_HINT } : { count, title };
+}
+
 const MINUTE = 60;
 const HOUR = 3600;
 const DAY = 86_400;

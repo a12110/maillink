@@ -13,11 +13,18 @@
   --nav-marker-width: 3px;
   --avatar-size: 28px;
   --brand-mark-size: 24px;
+  --auth-logo-size: 36px;
+  --auth-logo-icon-size: 20px;
   --sidepanel-width: 400px;
   --dialog-max-width: 520px;
   --auth-max-width: 400px;
   --content-max-width: 960px;        /* 账号页等表单 + 表格混排页面的宽度上限；表单本身再限到 400px */
   --table-foot-height: 44px;
+  --table-min-link: 480px;           /* 窄屏表格最小宽度：勾选 40 + 名称 ≥160 + 状态 196 + 操作 76 */
+  --table-min-mailbox: 460px;        /* 勾选 40 + 地址 ≥240 + 状态 96 + 操作 76 */
+  --table-min-audit: 600px;          /* 时间 220 + 动作 ≥260 + 详情 120 */
+  --table-min-user: 400px;           /* 用户名 ≥208 + 角色 96 + 状态 96 */
+  --table-min-rule-group: 480px;     /* 名称 280 + 呈现/状态 120 + 操作 72 */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
   --viewport-gutter: 32px;           /* 对话框与视口边缘的最小间隔 */

@@ -35,6 +35,7 @@ export function EditorHeader(props: Props) {
   return (
     <header className="editor-head">
       <div className="titles">
+        <h1 className="sr-only">{usage === null ? "新建规则组" : `编辑规则组：${name.trim() || "未命名"}`}</h1>
         <Link className="crumb" to="/admin/rule-groups"><ChevronLeft className="icon-sm" />规则组</Link>
         <input className="editor-name" value={name} aria-label="规则组名称" aria-invalid={nameError ? "true" : undefined} placeholder="规则组名称" maxLength={RULE_GROUP_API_LIMITS.nameMaxLength}
           onChange={(event) => onName(event.target.value)} />

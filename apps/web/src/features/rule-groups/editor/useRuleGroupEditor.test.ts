@@ -75,6 +75,23 @@ describe("库里的配置不是合法 JSON", () => {
   });
 });
 
+describe("编辑页标题语义", () => {
+  const header = (name: string, usage: { links: number; grants: number } | null) =>
+    createElement(EditorHeader, { name, nameError: null, usage, changes: 0, saving: false, saveBlockedReason: null, onName: () => undefined, onDiscard: () => undefined, onSave: () => undefined });
+
+  it("恰好一个 h1：新建 / 编辑（带名称，名称为空写“未命名”），视觉上只给读屏用", async () => {
+    mounted = await mount(header("", null));
+    expect(Array.from(mounted.container.querySelectorAll("h1")).map((h) => h.textContent)).toEqual(["新建规则组"]);
+    await mounted.render(header(" 验证码 ", { links: 1, grants: 0 }));
+    const titles = mounted.container.querySelectorAll("h1");
+    expect(titles).toHaveLength(1);
+    expect(titles[0]?.textContent).toBe("编辑规则组：验证码");
+    expect(titles[0]?.className).toBe("sr-only");
+    await mounted.render(header("  ", { links: 0, grants: 0 }));
+    expect(mounted.container.querySelector("h1")?.textContent).toBe("编辑规则组：未命名");
+  });
+});
+
 describe("名称长度上限与接口一致", () => {
   it("规则组名称 = nameMaxLength，规则名称 = maxNameLength", async () => {
     mounted = await mount(createElement(EditorHeader, { name: "x", nameError: null, usage: null, changes: 0, saving: false, saveBlockedReason: null, onName: () => undefined, onDiscard: () => undefined, onSave: () => undefined }));
