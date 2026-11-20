@@ -1,12 +1,15 @@
-import type { AdminMailListItem, AdminMailListResponse } from "@maillink/shared";
+import type { AdminMailListItem } from "@maillink/shared";
 
 // “全部邮件”列表的游标分页与 partial 重取。独立于 React，便于用假时钟测试；
 // 约定（见 packages/shared/src/mails.ts）：响应 partial=true 时本页有邮件还没解析完，
 // 调用方稍后重取【同一个请求】，期间不推进游标（不翻到下一页），直到 partial 为 false。
 
-export type MailPage = {
+/** 分页响应里这个 store 用到的字段：管理端“全部邮件”与用户收件箱（visibleMailListResponse）都满足 */
+export type PagedResponse<T> = { items: readonly T[]; next_cursor: string | null; partial: boolean };
+
+export type MailPage<T = AdminMailListItem> = {
   cursor: string | undefined;
-  items: readonly AdminMailListItem[];
+  items: readonly T[];
   nextCursor: string | null;
 };
 
@@ -17,8 +20,8 @@ export type PartialProgress = {
   exhausted: boolean;
 };
 
-export type MailListState = {
-  pages: readonly MailPage[];
+export type MailListState<T = AdminMailListItem> = {
+  pages: readonly MailPage<T>[];
   busy: "first" | "more" | "refetch" | null;
   /** 最近一次请求失败的原因；已显示的内容保留 */
   error: unknown;
@@ -27,25 +30,25 @@ export type MailListState = {
   partial: PartialProgress | null;
 };
 
-export type FetchMailPage = (cursor: string | undefined) => Promise<AdminMailListResponse>;
+export type FetchMailPage<T = AdminMailListItem> = (cursor: string | undefined) => Promise<PagedResponse<T>>;
 
 type Mode = "first" | "more" | "refetch";
 type Operation = { cursor: string | undefined; mode: Mode };
 
-const IDLE: MailListState = { pages: [], busy: null, error: null, hasError: false, partial: null };
+const IDLE: MailListState<never> = { pages: [], busy: null, error: null, hasError: false, partial: null };
 
-export function listItems(state: MailListState): AdminMailListItem[] {
+export function listItems<T>(state: MailListState<T>): T[] {
   return state.pages.flatMap((page) => page.items);
 }
 
 /** 能不能“加载更多”：最后一页完整、还有下一页、没有请求在途 */
-export function nextCursorOf(state: MailListState): string | null {
+export function nextCursorOf<T>(state: MailListState<T>): string | null {
   if (state.busy !== null || state.partial !== null || state.hasError) return null;
   return state.pages.at(-1)?.nextCursor ?? null;
 }
 
-export class MailListStore {
-  private state: MailListState = IDLE;
+export class MailListStore<T = AdminMailListItem> {
+  private state: MailListState<T> = IDLE;
   private readonly listeners = new Set<() => void>();
   private generation = 0;
   private retriesDone = 0;
@@ -53,7 +56,7 @@ export class MailListStore {
   private lastOperation: Operation = { cursor: undefined, mode: "first" };
 
   constructor(
-    private readonly fetchPage: FetchMailPage,
+    private readonly fetchPage: FetchMailPage<T>,
     private readonly delaysMs: readonly number[],
   ) {}
 
@@ -62,7 +65,7 @@ export class MailListStore {
     return () => this.listeners.delete(listener);
   };
 
-  getSnapshot = (): MailListState => this.state;
+  getSnapshot = (): MailListState<T> => this.state;
 
   /** 换筛选或刷新：丢掉旧结果与在途请求，从第一页开始 */
   start(): void {
@@ -104,7 +107,7 @@ export class MailListStore {
     this.timer = null;
   }
 
-  private set(next: MailListState): void {
+  private set(next: MailListState<T>): void {
     this.state = next;
     this.listeners.forEach((listener) => listener());
   }
@@ -123,8 +126,8 @@ export class MailListStore {
     );
   }
 
-  private accept(operation: Operation, response: AdminMailListResponse): void {
-    const page: MailPage = { cursor: operation.cursor, items: response.items, nextCursor: response.next_cursor };
+  private accept(operation: Operation, response: PagedResponse<T>): void {
+    const page: MailPage<T> = { cursor: operation.cursor, items: response.items, nextCursor: response.next_cursor };
     const kept = operation.mode === "first" ? [] : operation.mode === "refetch" ? this.state.pages.slice(0, -1) : this.state.pages;
     const pages = [...kept, page];
     if (!response.partial) {

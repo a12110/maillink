@@ -1,5 +1,6 @@
 import {
   adminSessionsRevokedSchema,
+  adminUserDetailSchema,
   adminUserListSchema,
   adminUserSchema,
   loginResponseSchema,
@@ -24,6 +25,7 @@ import type {
 } from "@maillink/shared";
 import { HTTP_UNAUTHORIZED } from "./client";
 import type { ApiClient } from "./client";
+import { createAuthEndpoints } from "./endpoints-auth";
 import { ApiError } from "./errors";
 import { createAdminEndpoints } from "./endpoints-admin";
 import { createSettingsEndpoints } from "./endpoints-settings";
@@ -40,6 +42,7 @@ export type { SettingsInputByGroup } from "./endpoints-settings";
 export function createEndpoints(client: ApiClient) {
   const { request } = client;
   return {
+    ...createAuthEndpoints(client),
     publicConfig: () => request({ path: "/api/public/config", schema: publicConfigSchema }),
     setupStatus: () => request({ path: "/api/setup/status", schema: setupStatusSchema }),
     setup: (body: SetupRequest) =>
@@ -72,7 +75,8 @@ export function createEndpoints(client: ApiClient) {
 
     listUsers: (query: AdminUserListQuery) =>
       request({ path: "/api/admin/users", query, schema: adminUserListSchema }),
-    getUser: (id: number) => request({ path: userPath(id), schema: adminUserSchema }),
+    /** 详情带通行密钥与 OAuth 绑定明细（供侧板单个清除） */
+    getUser: (id: number) => request({ path: userPath(id), schema: adminUserDetailSchema }),
     createUser: (body: AdminUserCreate) =>
       request({ method: "POST", path: "/api/admin/users", body, schema: adminUserSchema }),
     patchUser: (id: number, body: AdminUserPatch) =>
