@@ -2,9 +2,12 @@ import { Copy, ExternalLink, Lock, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import type { LinkDeliveryQuota, PresentedMail } from "@maillink/shared";
 import { PICKUP_OLDER_CODES_SHOWN, PICKUP_STALE_CODE_SEC } from "../../constants";
+
+const SEC_PER_MINUTE = 60;
 import { PickupBar, PickupMain } from "../../shell/PickupShell";
 import { Button, Tag } from "../../ui";
 import { isHttpUrl } from "../mail";
+import type { ExhaustedKind } from "./mail-model";
 import { kindOf, linkDomain, originOf, quotaLines, remainingSuffix, speakCode } from "./mail-model";
 import { formatAgo, isStale } from "./time";
 
@@ -13,8 +16,8 @@ type Actions = {
   reveal: (id: number) => Promise<boolean>;
   /** 正在取码的邮件 id */
   revealing: number | null;
-  /** 点击取码已无次数可用 */
-  exhausted: boolean;
+  /** 点击取码已无次数可用（总次数 / 仅每日） */
+  exhausted: ExhaustedKind;
 };
 
 type CodeViewProps = Actions & {
@@ -41,8 +44,13 @@ function metaLine(mail: PresentedMail, now: number, suffix?: string) {
   );
 }
 
+/** 由 PICKUP_STALE_CODE_SEC 换算，改常量文案跟着变：「10 分钟」 */
+export function staleMinutesText(): string {
+  return `${Math.round(PICKUP_STALE_CODE_SEC / SEC_PER_MINUTE)} 分钟`;
+}
+
 function StaleTag({ mail, now }: { mail: PresentedMail; now: number }) {
-  return isStale(mail.received_at, now, PICKUP_STALE_CODE_SEC) ? <Tag tone="warning">收到超过 10 分钟，可能已过期</Tag> : null;
+  return isStale(mail.received_at, now, PICKUP_STALE_CODE_SEC) ? <Tag tone="warning">收到超过 {staleMinutesText()}，可能已过期</Tag> : null;
 }
 
 function LatestCard({ mail, now, fresh }: { mail: PresentedMail; now: number; fresh: boolean }) {
@@ -85,7 +93,7 @@ function LinkDomain({ link }: { link: string }) {
   );
 }
 
-function LockedLatest({ mails, deliveries, now, actions }: { mails: readonly PresentedMail[]; deliveries: LinkDeliveryQuota | null; now: number; actions: Actions }) {
+function LockedLatest({ mails, deliveries, now }: { mails: readonly PresentedMail[]; deliveries: LinkDeliveryQuota | null; now: number }) {
   const newest = mails[0] as PresentedMail;
   const origin = originOf(newest);
   return (
@@ -105,7 +113,6 @@ function LockedLatest({ mails, deliveries, now, actions }: { mails: readonly Pre
           {quotaLines(deliveries).join("；")}。同一封邮件重复查看不重复计次。
         </p>
       ) : null}
-      {actions.exhausted ? <p className="pk-note"><b>取码次数已用完。</b>需要更多次数请联系卖家。</p> : null}
     </>
   );
 }
@@ -131,7 +138,7 @@ function OlderAction({ mail, actions }: { mail: PresentedMail; actions: Actions 
   }
   if (kind !== "locked") return null;
   return (
-    <Button size="sm" variant="secondary" disabled={actions.exhausted || actions.revealing !== null} onClick={() => void actions.reveal(mail.id)}>
+    <Button size="sm" variant="secondary" disabled={actions.exhausted !== null || actions.revealing !== null} onClick={() => void actions.reveal(mail.id)}>
       查看
     </Button>
   );
@@ -164,7 +171,7 @@ function MoreLocked({ mails, deliveries, actions }: { mails: readonly PresentedM
         <span className="code pk-old-locked">还有 {mails.length} 封更早的邮件未查看</span>
         <span>每查看一封计 1 次{remainingSuffix(deliveries)}</span>
       </div>
-      <Button size="sm" variant="secondary" disabled={actions.exhausted || actions.revealing !== null} onClick={() => void actions.reveal(next.id)}>
+      <Button size="sm" variant="secondary" disabled={actions.exhausted !== null || actions.revealing !== null} onClick={() => void actions.reveal(next.id)}>
         查看
       </Button>
     </div>
@@ -191,7 +198,7 @@ function CodeBar({ latest, deliveries, actions, resume }: { latest: PresentedMai
   if (kind === "locked") {
     return (
       <PickupBar>
-        <Button variant="primary" size="lg" block disabled={actions.exhausted} busy={actions.revealing === latest.id} busyLabel="正在取码…" onClick={() => void actions.reveal(latest.id)}>
+        <Button variant="primary" size="lg" block disabled={actions.exhausted !== null} busy={actions.revealing === latest.id} busyLabel="正在取码…" onClick={() => void actions.reveal(latest.id)}>
           查看验证码{remainingSuffix(deliveries)}
         </Button>
       </PickupBar>
@@ -235,7 +242,7 @@ export function CodeView(props: CodeViewProps) {
     <>
       <PickupMain>
         {head}
-        <Latest loaded={loaded} latest={latest} lockedItems={lockedItems} deliveries={deliveries} now={now} fresh={latest !== undefined && freshIds.has(latest.id)} actions={actions} />
+        <Latest loaded={loaded} latest={latest} lockedItems={lockedItems} deliveries={deliveries} now={now} fresh={latest !== undefined && freshIds.has(latest.id)} />
         {older.length > 0 || olderLocked.length > 0 ? (
           <>
             <h2 className="pk-section-label">更早收到的</h2>
@@ -254,15 +261,15 @@ export function CodeView(props: CodeViewProps) {
   );
 }
 
-type LatestProps = { loaded: boolean; latest: PresentedMail | undefined; lockedItems: readonly PresentedMail[]; deliveries: LinkDeliveryQuota | null; now: number; fresh: boolean; actions: Actions };
+type LatestProps = { loaded: boolean; latest: PresentedMail | undefined; lockedItems: readonly PresentedMail[]; deliveries: LinkDeliveryQuota | null; now: number; fresh: boolean };
 
-function Latest({ loaded, latest, lockedItems, deliveries, now, fresh, actions }: LatestProps) {
+function Latest({ loaded, latest, lockedItems, deliveries, now, fresh }: LatestProps) {
   if (!loaded) {
     return (
       <section className="pk-code-card" aria-hidden="true">
-        <span className="skeleton" style={{ width: "40%", margin: "0 auto 16px" }} />
-        <span className="skeleton" style={{ width: "80%", height: 44, margin: "0 auto 12px" }} />
-        <span className="skeleton" style={{ width: "50%", margin: "0 auto" }} />
+        <span className="skeleton pk-skel-label" />
+        <span className="skeleton pk-skel-code" />
+        <span className="skeleton pk-skel-meta" />
       </section>
     );
   }
@@ -270,7 +277,7 @@ function Latest({ loaded, latest, lockedItems, deliveries, now, fresh, actions }
   const linkBlocked = kindOf(latest) === "link" && !isHttpUrl(latest.login_link ?? "");
   return (
     <>
-      {kindOf(latest) === "locked" ? <LockedLatest mails={lockedItems} deliveries={deliveries} now={now} actions={actions} /> : <LatestCard mail={latest} now={now} fresh={fresh} />}
+      {kindOf(latest) === "locked" ? <LockedLatest mails={lockedItems} deliveries={deliveries} now={now} /> : <LatestCard mail={latest} now={now} fresh={fresh} />}
       {linkBlocked ? <p className="pk-note">这个登录链接不是 http(s) 地址，已禁止打开。</p> : null}
     </>
   );

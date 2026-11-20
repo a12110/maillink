@@ -1,4 +1,4 @@
-import { Link2, Power, PowerOff, Search, Tag, Tags, Trash2, Upload, X } from "lucide-react";
+import { Link2, Power, PowerOff, Search, Tag, Tags, Trash2, Upload, UserPlus, X } from "lucide-react";
 import type { MailboxStatus } from "@maillink/shared";
 import { Button, Select } from "../../ui";
 import { STATUS_LABEL } from "./labels";
@@ -75,6 +75,8 @@ type BatchBarProps = {
   onSelectAll: () => void;
   /** 生成取件链接：带着选中的地址去链接页的创建对话框 */
   onCreateLinks: () => void;
+  /** 授权给用户：选中的地址 × 选中的用户 */
+  onGrant: () => void;
   onTag: (mode: "add" | "remove") => void;
   onSetStatus: (status: MailboxStatus) => void;
   onDelete: () => void;
@@ -94,7 +96,7 @@ function SelectAllControl(props: BatchBarProps) {
   );
 }
 
-/** 批量条：与默认工具栏等高、同一位置互换；「生成取件链接」接替「导入」成为主按钮（授权给用户待后续） */
+/** 批量条：与默认工具栏等高、同一位置互换；「生成取件链接」接替「导入」成为主按钮；次操作含「授权给用户」 */
 export function MailboxBatchBar(props: BatchBarProps) {
   const { count, busy } = props;
   return (
@@ -103,6 +105,7 @@ export function MailboxBatchBar(props: BatchBarProps) {
       <SelectAllControl {...props} />
       <span className="sep" />
       <Button size="sm" variant="primary" disabled={busy} onClick={props.onCreateLinks}><Link2 />生成取件链接</Button>
+      <Button size="sm" disabled={busy} onClick={props.onGrant}><UserPlus />授权给用户</Button>
       <Button size="sm" disabled={busy} onClick={() => props.onTag("add")}><Tag />打标签</Button>
       <Button size="sm" disabled={busy} onClick={() => props.onTag("remove")}><Tags />去标签</Button>
       <Button size="sm" disabled={busy} onClick={() => props.onSetStatus("active")}><Power />启用</Button>

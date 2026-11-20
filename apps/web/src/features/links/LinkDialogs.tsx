@@ -9,11 +9,12 @@ import { BatchResultDialog, ExtendDialog, RevokeDialog, RuleGroupDialog } from "
 import { buildBatch, summarizeBatch } from "./batch";
 import type { BatchSummary } from "./batch";
 import { CreateLinkDialog } from "./CreateLinkDialog";
+import type { PickedMailbox } from "./MailboxPicker";
 import { ExportPanel } from "./ExportPanel";
 import { CopyLinkDialog, RebindDialog, ResetDevicesDialog, RotateDialog } from "./LinkOpDialogs";
 
 export type DialogState =
-  | { kind: "create"; preselected: number[] }
+  | { kind: "create"; preselected: PickedMailbox[] }
   | { kind: "copy"; link: AdminShareLink }
   | { kind: "rebind"; link: AdminShareLink }
   | { kind: "reset"; link: AdminShareLink }

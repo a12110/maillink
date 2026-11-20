@@ -73,13 +73,24 @@ export function NoMailboxView() {
   );
 }
 
-export function DeviceLimitView({ publicNote }: { publicNote: string | null }) {
+export function DeviceLimitView({ publicNote, maxDevices }: { publicNote: string | null; maxDevices: number | null }) {
   return (
     <>
       <StateScreen icon={Smartphone} tone="warning" title="这个链接已在其他设备上使用">
-        设备名额已满。换了手机或浏览器的话，需要卖家重置设备。
+        {maxDevices === null ? "设备名额已满。" : `这个链接最多可在 ${maxDevices} 台设备上使用，名额已满。`}换了手机或浏览器的话，需要卖家重置设备。
       </StateScreen>
       <SellerNote note={publicNote} />
+    </>
+  );
+}
+
+/** 「最早的一次取码会在 MM-DD HH:mm 满 24 小时，到时恢复 1 次（约 N 小时 N 分钟后）」：每日上限页与取码页的提示共用 */
+export function DailyResetText({ retryAfterAt }: { retryAfterAt: number | null }) {
+  const now = useNowSeconds();
+  if (retryAfterAt === null) return null;
+  return (
+    <>
+      最早的一次取码会在 <span className="mono">{formatDateTime(retryAfterAt)}</span> 满 24 小时，到时恢复 1 次（约 {formatCountdown(retryAfterAt, now)}后）。
     </>
   );
 }
@@ -87,18 +98,13 @@ export function DeviceLimitView({ publicNote }: { publicNote: string | null }) {
 type DailyLimitProps = { retryAfterAt: number | null; dailyLimit: number | null; publicNote: string | null };
 
 export function DailyLimitView({ retryAfterAt, dailyLimit, publicNote }: DailyLimitProps) {
-  const now = useNowSeconds();
   return (
     <>
       <StateScreen icon={Clock} tone="warning" title="今天的取码次数用完了">
-        {dailyLimit === null ? "这个链接每 24 小时的取码次数有上限。" : `这个链接每 24 小时最多取 ${dailyLimit} 次。`}
-        {retryAfterAt === null ? null : (
-          <>
-            {" "}最早的一次取码会在 <span className="mono">{formatDateTime(retryAfterAt)}</span> 满 24 小时，到时恢复 1 次（约 {formatCountdown(retryAfterAt, now)}后）。
-          </>
-        )}
+        {dailyLimit === null ? "这个链接每 24 小时的取码次数有上限。" : `这个链接每 24 小时最多取 ${dailyLimit} 次。`}{" "}
+        <DailyResetText retryAfterAt={retryAfterAt} />
       </StateScreen>
-      <p className="pk-note" style={{ textAlign: "center" }}>
+      <p className="pk-note pk-note-center">
         这是每日上限，不是链接失效，到时间后回来就行。
       </p>
       <SellerNote note={publicNote} />

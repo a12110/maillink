@@ -3,7 +3,7 @@ import type { LinkPublicStatus } from "@maillink/shared";
 import { classifyPickupError, describeMailError } from "./failures";
 import type { InlineProblem } from "./failures";
 import type { PickupMailStore } from "./mail-store";
-import { effectiveRemaining } from "./mail-model";
+import { exhaustedKind } from "./mail-model";
 import type { PickupApi } from "./pickup-api";
 
 type Options = {
@@ -52,6 +52,6 @@ export function useReveal({ token, api, store, status, onBlocked }: Options) {
     }
   };
 
-  const exhausted = status.reveal === "click" && effectiveRemaining(deliveries) === 0;
+  const exhausted = exhaustedKind(deliveries, status.reveal === "click");
   return { deliveries, revealing, problem, exhausted, reveal };
 }

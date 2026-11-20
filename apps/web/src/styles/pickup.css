@@ -63,6 +63,15 @@
     .pk-code-card[data-fresh="true"], .pk-item[data-fresh="true"] { animation: pk-flash 2400ms linear; }
   }
 
+  /* 骨架屏：尺寸写在这里，组件里不写内联 px */
+  .pk-skel-label { width: 40%; margin: 0 auto var(--space-4); }
+  .pk-skel-code { width: 80%; height: 44px; margin: 0 auto var(--space-3); }
+  .pk-skel-meta { width: 50%; margin: 0 auto; }
+  .pk-skel-row { height: 56px; margin: var(--space-4); }
+  .pk-skel-title { width: 60%; height: 28px; }
+  .pk-skel-sub { width: 40%; }
+  .pk-note-center { text-align: center; }
+
   /* ── 状态行 ── */
   .pk-live { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
   .pk-live .pulse { position: relative; width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--color-success); }

@@ -1,6 +1,7 @@
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { describeError } from "../../lib/messages";
 import { Button, ErrorCallout } from "../../ui";
+import type { PickedMailbox } from "./MailboxPicker";
 import { AccessStep } from "./CreateAccessStep";
 import { CreateResult } from "./CreateResult";
 import { AddressesStep, RuleGroupStep } from "./CreateSteps";
@@ -19,7 +20,7 @@ function Stepper({ step }: { step: number }) {
   );
 }
 
-type Props = { preselected: number[]; onClose: () => void; onCreated: (ids: number[]) => void };
+type Props = { preselected: PickedMailbox[]; onClose: () => void; onCreated: (ids: number[]) => void };
 
 function Steps({ form }: { form: ReturnType<typeof useCreateForm> }) {
   const { draft, errors, step, patch } = form;

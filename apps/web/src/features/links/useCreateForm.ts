@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/instance";
 import { linkKeys } from "../../api/links-queries";
+import type { PickedMailbox } from "./MailboxPicker";
 import { buildCreateBody, EMPTY_DRAFT } from "./create-form";
 import type { CreateDraft, FieldErrors } from "./create-form";
 
@@ -16,8 +17,8 @@ function stepIssue(step: number, draft: CreateDraft): FieldErrors {
 }
 
 /** 创建向导的状态：草稿、步骤、字段错误、提交（成功后刷新列表缓存） */
-export function useCreateForm(preselected: number[], onCreated: (ids: number[]) => void) {
-  const [draft, setDraft] = useState<CreateDraft>({ ...EMPTY_DRAFT, mailboxes: preselected.map((id) => ({ id, address: null })) });
+export function useCreateForm(preselected: PickedMailbox[], onCreated: (ids: number[]) => void) {
+  const [draft, setDraft] = useState<CreateDraft>({ ...EMPTY_DRAFT, mailboxes: preselected });
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<FieldErrors>({});
   const queryClient = useQueryClient();

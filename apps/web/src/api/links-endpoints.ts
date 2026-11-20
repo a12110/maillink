@@ -1,5 +1,4 @@
 import {
-  adminMailboxListResponseSchema,
   adminRuleGroupListSchema,
   adminShareLinkSchema,
   linkLogListResponseSchema,
@@ -12,7 +11,6 @@ import {
   shareLinkTokenSchema,
 } from "@maillink/shared";
 import type {
-  AdminMailboxListQuery,
   ShareLinkBatch,
   ShareLinkCreate,
   ShareLinkExport,
@@ -47,9 +45,6 @@ export function createLinkEndpoints(client: ApiClient) {
     previewLink: (id: number, limit?: number) => request({ path: `${BASE}/${id}/preview`, query: { limit }, schema: linkPreviewResponseSchema }),
     batchLinks: (body: ShareLinkBatch) => request({ method: "POST", path: `${BASE}/batch`, body, schema: shareLinkBatchResponseSchema }),
     exportLinks: (body: ShareLinkExport) => request({ method: "POST", path: `${BASE}/export`, body, schema: shareLinkExportResponseSchema }),
-    /** 创建 / 换绑对话框选收件地址用（与收件地址页的列表同一接口） */
-    searchMailboxes: (query: AdminMailboxListQuery) =>
-      request({ path: "/api/admin/mailboxes", query, schema: adminMailboxListResponseSchema }),
     /** 选规则组 / 筛选用 */
     listRuleGroupChoices: () => request({ path: "/api/admin/rule-groups", schema: adminRuleGroupListSchema }),
   };

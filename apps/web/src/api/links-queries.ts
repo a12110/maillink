@@ -34,6 +34,6 @@ export const linkRuleGroupChoicesQuery = () =>
 export const mailboxPickerQuery = (query: AdminMailboxListQuery) =>
   queryOptions({
     queryKey: [...linkKeys.mailboxes, query] as const,
-    queryFn: () => api.searchMailboxes(query),
+    queryFn: () => api.listMailboxes(query),
     placeholderData: keepPreviousData,
   });

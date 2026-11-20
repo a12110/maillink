@@ -57,3 +57,12 @@ export function remainingSuffix(deliveries: LinkDeliveryQuota | null): string {
   const remaining = effectiveRemaining(deliveries);
   return remaining === null ? "" : `（剩余 ${remaining} 次）`;
 }
+
+/** 点击取码已无次数可用：total = 总次数用尽（之后一切请求都是 410），daily = 仅每日上限用尽（按滚动 24 小时恢复） */
+export type ExhaustedKind = "total" | "daily" | null;
+
+export function exhaustedKind(deliveries: LinkDeliveryQuota | null, clickMode: boolean): ExhaustedKind {
+  if (!clickMode || deliveries === null) return null;
+  if (deliveries.total_remaining === 0) return "total";
+  return deliveries.daily_remaining === 0 ? "daily" : null;
+}

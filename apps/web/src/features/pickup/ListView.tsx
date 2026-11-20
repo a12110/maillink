@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { LinkDeliveryQuota, PresentedMail } from "@maillink/shared";
 import { PickupBar, PickupMain } from "../../shell/PickupShell";
 import { Button, Tag } from "../../ui";
+import type { ExhaustedKind } from "./mail-model";
 import { originOf, remainingSuffix } from "./mail-model";
 import { PickupMailDetail } from "./PickupMailDetail";
 import type { PickupApi } from "./pickup-api";
@@ -24,7 +25,7 @@ type ListViewProps = {
   resume: ReactNode;
   reveal: (id: number) => Promise<boolean>;
   revealing: number | null;
-  exhausted: boolean;
+  exhausted: ExhaustedKind;
   hasOlder: boolean;
   onLoadOlder: () => void;
 };
@@ -93,7 +94,7 @@ function Empty({ loaded }: { loaded: boolean }) {
   if (!loaded) {
     return (
       <div className="pk-list-wrap" aria-busy="true">
-        <span className="skeleton" style={{ margin: 16, height: 56 }} />
+        <span className="skeleton pk-skel-row" />
       </div>
     );
   }
@@ -132,16 +133,13 @@ function ListColumn(props: ColumnProps) {
                 fresh={freshIds.has(mail.id)}
                 deliveries={deliveries}
                 interactive={props.hasDetail}
-                disabled={mail.locked === true && (exhausted || revealing !== null)}
+                disabled={mail.locked === true && (exhausted !== null || revealing !== null)}
                 onOpen={props.onOpen}
               />
             ))}
           </ul>
         </div>
       )}
-      {exhausted && items.some((mail) => mail.locked === true) ? (
-        <p className="pk-note"><b>取码次数已用完。</b>需要更多次数请联系卖家。</p>
-      ) : null}
       {props.hasOlder ? (
         <Button variant="secondary" block onClick={props.onLoadOlder}>
           加载更早的邮件

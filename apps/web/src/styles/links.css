@@ -89,13 +89,14 @@
   .picker { display: grid; gap: var(--space-2); }
   .picker-bar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
   .picker-count { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); margin: 0; }
-  .picker-list { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
-  .picker-list li + li { border-top: 1px solid var(--color-border); }
-  .picker-list label { display: flex; align-items: center; gap: var(--space-3); min-height: var(--row-height); padding: 0 var(--space-3); font-size: var(--text-sm); cursor: pointer; }
-  .picker-list label:hover { background: var(--color-row-hover); }
-  .picker-list .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .picker-list .dim { color: var(--color-text-subtle); white-space: nowrap; font-size: var(--text-xs); }
-  .picker-list .picker-empty { padding: var(--space-4); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
+  .picker .picker-list { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+  .picker .picker-list li + li { border-top: 1px solid var(--color-border); }
+  .picker .picker-list label { display: flex; align-items: center; gap: var(--space-3); min-height: var(--row-height); padding: 0 var(--space-3); font-size: var(--text-sm); cursor: pointer; }
+  .picker .picker-list label:hover { background: var(--color-row-hover); }
+  .picker .picker-list .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picker .picker-list .dim { color: var(--color-text-subtle); white-space: nowrap; font-size: var(--text-xs); }
+  .picker .picker-list .picker-empty { padding: var(--space-4); text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); }
+  .picker-selected { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
   .picker-foot { display: flex; align-items: center; justify-content: space-between; font-size: var(--text-sm); color: var(--color-text-muted); }
 
   /* 完整链接与导出 */
@@ -110,4 +111,12 @@
   .result-list li { display: grid; gap: 2px; padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-border); }
   .result-list li:last-child { border-bottom: 0; }
   .result-list span { color: var(--color-text-muted); }
+}
+
+@layer components {
+  /* 收件地址页「授权给用户」的逐条结果 */
+  .grant-results { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); max-height: 240px; overflow-y: auto; font-size: var(--text-sm); }
+  .grant-results li { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-height: var(--row-height); border-top: 1px solid var(--color-border); }
+  .grant-results li:first-child { border-top: 0; }
+  .grant-who { overflow-wrap: anywhere; min-width: 0; }
 }

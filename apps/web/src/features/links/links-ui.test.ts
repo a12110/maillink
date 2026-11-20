@@ -4,6 +4,7 @@ import { createElement, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdminShareLink, PublicConfig } from "@maillink/shared";
 import { queryKeys } from "../../api/queries";
+import { makePublicConfig } from "../../test/fixtures";
 import { click, mount, typeInto } from "../../test/render";
 import type { Mounted } from "../../test/render";
 import { ToastProvider } from "../../ui";
@@ -27,19 +28,7 @@ afterEach(async () => {
 });
 
 function config(turnstile: PublicConfig["turnstile"]): PublicConfig {
-  return {
-    site_name: "MailLink",
-    site_logo: "",
-    site_description: "",
-    site_footer: "",
-    login_notice: "",
-    pickup_notice: "",
-    appearance: { preset: "default", accent: "#c8432b", mode: "system", radius: "4" },
-    registration_enabled: false,
-    login_methods: ["password"],
-    oauth_providers: [],
-    turnstile,
-  };
+  return makePublicConfig({ turnstile });
 }
 
 async function render(element: ReturnType<typeof createElement>, publicConfig?: PublicConfig): Promise<HTMLElement> {

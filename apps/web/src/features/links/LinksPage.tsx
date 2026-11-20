@@ -8,6 +8,7 @@ import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { describeError } from "../../lib/messages";
 import { PageHeader } from "../../shell/PageHeader";
 import { useToast } from "../../ui";
+import { clearHandoff, resolveHandoff } from "./create-handoff";
 import { LinkDialogs } from "./LinkDialogs";
 import type { DialogState } from "./LinkDialogs";
 import { LinkPanel } from "./LinkPanel";
@@ -67,6 +68,18 @@ function dialogForBatch(kind: BatchKind, ids: number[]): DialogState {
   return { kind, ids };
 }
 
+/** 关闭创建对话框（含完成）时清掉 URL 里的 create_for 与地址交接，刷新不再弹窗 */
+function useCloseDialog(dialog: DialogState | null, hasCreateFor: boolean, close: () => void): () => void {
+  const navigate = routeApi.useNavigate();
+  return () => {
+    if (dialog?.kind === "create") {
+      clearHandoff();
+      if (hasCreateFor) void navigate({ search: (previous) => ({ ...previous, create_for: undefined }), replace: true });
+    }
+    close();
+  };
+}
+
 /** 勾选：跨页保留；“选择本页全部”只动当前页 */
 function useSelection(links: AdminShareLink[] | undefined) {
   const [checked, setChecked] = useState<ReadonlySet<number>>(new Set());
@@ -91,7 +104,8 @@ export function LinksPage() {
   const [autoPreview, setAutoPreview] = useState(false);
   const links = list.data?.items;
   const { checked, toggle, toggleAll, clear: clearSelection } = useSelection(links);
-  const [dialog, setDialog] = useState<DialogState | null>(state.createFor ? { kind: "create", preselected: state.createFor } : null);
+  const [dialog, setDialog] = useState<DialogState | null>(state.createFor ? { kind: "create", preselected: resolveHandoff(state.createFor) } : null);
+  const closeDialog = useCloseDialog(dialog, state.createFor !== undefined, () => setDialog(null));
   const titles = new Map((links ?? []).map((link) => [link.id, link]));
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: linkKeys.all });
@@ -145,7 +159,7 @@ export function LinksPage() {
       <LinkDialogs
         dialog={dialog}
         labelOf={(id) => (titles.get(id) ? (titles.get(id)?.name ?? titles.get(id)?.order_ref ?? `#${id}`) : `#${id}`)}
-        onClose={() => setDialog(null)}
+        onClose={closeDialog}
         onChanged={(message) => {
           refresh();
           if (message) toast.success(message);

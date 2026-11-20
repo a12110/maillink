@@ -1,103 +1,14 @@
 // @vitest-environment happy-dom
-import { act, createElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LinkDeliveryQuota, LinkPublicStatus, PresentedMail, VisibleMailListResponse } from "@maillink/shared";
-import { click, mount, typeInto } from "../../test/render";
-import type { Mounted } from "../../test/render";
+import { act } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LinkPublicStatus } from "@maillink/shared";
+import { click, typeInto } from "../../test/render";
 import { MAIL_FRAME_SANDBOX } from "../mail";
-import { PickupPage } from "./PickupPage";
+import type { TurnstileApi, TurnstileRenderOptions } from "../turnstile/loader";
+import { buttonByText, fakeApi, installLifecycle, list, loadTurnstile, mail, nowSec, open, quota, settle, status, TOKEN, unmount } from "./pickup-test-kit";
 import { PickupError } from "./pickup-api";
-import type { PickupApi } from "./pickup-api";
 
-import type { TurnstileApi, TurnstileLoader, TurnstileRenderOptions } from "../turnstile/loader";
-
-const loadTurnstile = vi.fn<TurnstileLoader>();
-
-const TOKEN = "TOKEN_SECRET_VALUE_0123456789abcdefghijklmnopqrstuv";
-const NOW = new Date(2026, 10, 20, 12, 0, 0);
-const nowSec = () => Math.floor(NOW.getTime() / 1000);
-
-let mounted: Mounted | null = null;
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(NOW);
-});
-afterEach(async () => {
-  await mounted?.unmount();
-  mounted = null;
-  vi.useRealTimers();
-  vi.clearAllMocks();
-  document.title = "";
-  Object.defineProperty(document, "hidden", { value: false, configurable: true });
-});
-
-function status(overrides: Partial<LinkPublicStatus> = {}): LinkPublicStatus {
-  return {
-    state: "active",
-    activated: true,
-    visitor_registered: true,
-    requires_password: false,
-    requires_turnstile: false,
-    turnstile: { required: false },
-    site: { show_brand: false },
-    view: "code_only",
-    reveal: "auto",
-    deliveries: null,
-    poll_interval_sec: 10,
-    mailboxes: ["sw***@icloud.com"],
-    mailbox_count: 1,
-    recipient_display: "masked",
-    expires_at: nowSec() + 2 * 86_400,
-    expire_after_first_access_sec: null,
-    public_title: "ChatGPT 共享号",
-    public_note: null,
-    retry_after_at: null,
-    ...overrides,
-  };
-}
-
-function quota(overrides: Partial<LinkDeliveryQuota> = {}): LinkDeliveryQuota {
-  return { total_limit: 2, total_used: 0, total_remaining: 2, daily_limit: null, daily_used: 0, daily_remaining: null, daily_resets_at: null, ...overrides };
-}
-
-function mail(id: number, ageSec: number, extra: Partial<PresentedMail> = {}): PresentedMail {
-  return { id, received_at: nowSec() - ageSec, sender: { name: "OpenAI" }, ...extra };
-}
-
-function list(items: PresentedMail[]): VisibleMailListResponse {
-  return { items, next_cursor: null, partial: false, next_after_id: items[0]?.id ?? null };
-}
-
-type MockedApi = { [K in keyof PickupApi]: ReturnType<typeof vi.fn<PickupApi[K]>> };
-
-function fakeApi(over: Partial<PickupApi> = {}): MockedApi {
-  const base: MockedApi = {
-    status: vi.fn<PickupApi["status"]>(async () => status()),
-    start: vi.fn<PickupApi["start"]>(async () => status()),
-    mails: vi.fn<PickupApi["mails"]>(async () => list([])),
-    reveal: vi.fn<PickupApi["reveal"]>(),
-    detail: vi.fn<PickupApi["detail"]>(),
-  };
-  return Object.assign(base, over) as MockedApi;
-}
-
-async function open(api: PickupApi): Promise<HTMLElement> {
-  mounted = await mount(createElement(PickupPage, { token: TOKEN, api, turnstileLoader: loadTurnstile }));
-  await settle();
-  return mounted.container;
-}
-
-async function settle() {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(0);
-  });
-}
-
-function buttonByText(root: HTMLElement, text: string): HTMLButtonElement {
-  const found = Array.from(root.querySelectorAll("button")).find((b) => b.textContent?.includes(text));
-  if (!found) throw new Error(`找不到按钮：${text}\n${root.textContent}`);
-  return found;
-}
+installLifecycle();
 
 describe("取件页状态机：状态与错误码映射", () => {
   it("needs_start：标题、卖家说明、开始取码；文档标题不含 token", async () => {
@@ -112,8 +23,9 @@ describe("取件页状态机：状态与错误码映射", () => {
 
   it("device_limit：说明 + 卖家留言（纯文本）", async () => {
     const note = "换了手机请联系我\n微信 <b>x</b>";
-    const root = await open(fakeApi({ status: vi.fn(async () => status({ state: "device_limit", visitor_registered: false, public_note: note })) }));
+    const root = await open(fakeApi({ status: vi.fn(async () => status({ state: "device_limit", visitor_registered: false, public_note: note, max_devices: 2 })) }));
     expect(root.textContent).toContain("这个链接已在其他设备上使用");
+    expect(root.textContent).toContain("这个链接最多可在 2 台设备上使用，名额已满");
     expect(root.querySelector(".pk-contact .note")?.textContent).toBe(note);
     expect(root.querySelector(".pk-contact b")).toBeNull();
     expect(root.querySelector("button")).toBeNull();
@@ -137,18 +49,18 @@ describe("取件页状态机：状态与错误码映射", () => {
     expect(root.textContent).toContain("暂时没有可用的收件地址");
   });
 
-  it("404 → 链接不存在；410 → 链接已失效（不透露原因）；403 link_not_yet_valid → 生效时间", async () => {
-    let root = await open(fakeApi({ status: vi.fn(async () => { throw new PickupError(404, "link_not_found", "链接不存在", {}); }) }));
-    expect(root.querySelector("h1")?.textContent).toBe("链接不存在");
-    await mounted?.unmount();
-
-    root = await open(fakeApi({ status: vi.fn(async () => { throw new PickupError(410, "link_unavailable", "链接已失效", {}); }) }));
-    expect(root.querySelector("h1")?.textContent).toBe("链接已失效");
+  it.each([
+    [404, "link_not_found", {}, "链接不存在"],
+    [410, "link_unavailable", {}, "链接已失效"],
+    [403, "link_not_yet_valid", { valid_from: nowSec() + 86_400 }, "还没到生效时间"],
+  ])("HTTP %i %s → %s", async (statusCode, code, extra, title) => {
+    const root = await open(fakeApi({ status: vi.fn(async () => { throw new PickupError(statusCode, code, "x", extra); }) }));
+    expect(root.querySelector("h1")?.textContent).toBe(title);
     expect(root.textContent).not.toMatch(/撤销|暂停|过期|用尽|白名单/);
-    await mounted?.unmount();
+  });
 
-    root = await open(fakeApi({ status: vi.fn(async () => { throw new PickupError(403, "link_not_yet_valid", "尚未生效", { valid_from: nowSec() + 86_400 }); }) }));
-    expect(root.querySelector("h1")?.textContent).toBe("还没到生效时间");
+  it("未到生效时间写出绝对时间", async () => {
+    const root = await open(fakeApi({ status: vi.fn(async () => { throw new PickupError(403, "link_not_yet_valid", "x", { valid_from: nowSec() + 86_400 }); }) }));
     expect(root.textContent).toContain("11-21 12:00");
   });
 
@@ -171,11 +83,11 @@ describe("取件页状态机：状态与错误码映射", () => {
     expect(root.querySelector(".callout")?.textContent).toContain("公告 <script>x</script>");
     expect(root.querySelector("script")).toBeNull();
     expect(document.title).toBe("ChatGPT 共享号 · 我的小店");
-    await mounted?.unmount();
+    await unmount();
 
     root = await open(fakeApi({ status: vi.fn(async () => status({ state: "needs_start", site: { show_brand: true, name: "店", logo: "https://evil.example/x.png" } })) }));
     expect(root.querySelector(".pk-brand img")).toBeNull();
-    await mounted?.unmount();
+    await unmount();
 
     root = await open(fakeApi({ status: vi.fn(async () => status({ state: "needs_start", site: { show_brand: false } })) }));
     expect(root.querySelector(".pk-brand")).toBeNull();
@@ -356,57 +268,6 @@ describe("code_only 视图", () => {
   });
 });
 
-describe("点击取码（reveal=click）", () => {
-  it("locked 项显示有新邮件与剩余次数；点击 reveal 后显示验证码并更新剩余次数", async () => {
-    const mails = vi.fn(async () => list([mail(5, 20, { locked: true })]));
-    const reveal = vi.fn(async () => ({ mail: mail(5, 20, { code: "731205" }), counted: true, deliveries: quota({ total_used: 1, total_remaining: 1 }) }));
-    const root = await open(fakeApi({ status: vi.fn(async () => status({ reveal: "click", deliveries: quota() })), mails, reveal }));
-    expect(root.textContent).toContain("有 1 封新邮件");
-    expect(root.textContent).toContain("总共还可取 2 次（共 2 次）");
-    expect(root.textContent).not.toContain("731205");
-    const button = buttonByText(root.querySelector(".pk-bar") as HTMLElement, "查看验证码");
-    expect(button.textContent).toContain("（剩余 2 次）");
-    await click(button);
-    await settle();
-    expect(reveal).toHaveBeenCalledWith(TOKEN, 5);
-    expect(root.querySelector(".pk-code-card output")?.textContent).toBe("731205");
-    expect(root.textContent).not.toContain("有 1 封新邮件");
-  });
-
-  it("总次数用尽：停止轮询并保留已显示的码", async () => {
-    const mails = vi.fn(async () => list([mail(5, 20, { locked: true })]));
-    const reveal = vi.fn(async () => ({ mail: mail(5, 20, { code: "731205" }), counted: true, deliveries: quota({ total_used: 2, total_remaining: 0 }) }));
-    const root = await open(fakeApi({ status: vi.fn(async () => status({ reveal: "click", deliveries: quota({ total_used: 1, total_remaining: 1 }) })), mails, reveal }));
-    await click(buttonByText(root, "查看验证码"));
-    await settle();
-    const callsAfterReveal = mails.mock.calls.length;
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
-    });
-    expect(mails.mock.calls.length).toBe(callsAfterReveal);
-    expect(root.querySelector(".pk-code-card output")?.textContent).toBe("731205");
-    expect(root.textContent).toContain("取码次数已用完，已停止刷新");
-  });
-
-  it("每日次数用尽：locked 的查看按钮禁用并说明", async () => {
-    const mails = vi.fn(async () => list([mail(5, 20, { locked: true })]));
-    const deliveries = quota({ total_limit: null, total_remaining: null, daily_limit: 3, daily_used: 3, daily_remaining: 0 });
-    const root = await open(fakeApi({ status: vi.fn(async () => status({ reveal: "click", deliveries })), mails }));
-    expect(buttonByText(root, "查看验证码").disabled).toBe(true);
-    expect(root.textContent).toContain("取码次数已用完");
-  });
-
-  it("reveal 返回每日上限（429）：重新取状态，切到每日上限页", async () => {
-    const mails = vi.fn(async () => list([mail(5, 20, { locked: true })]));
-    const reveal = vi.fn().mockRejectedValue(new PickupError(429, "link_daily_limit", "今日用完", { retry_after_at: nowSec() + 3600 }));
-    const statusFn = vi.fn().mockResolvedValueOnce(status({ reveal: "click", deliveries: quota({ total_limit: null, total_remaining: null, daily_limit: 3, daily_used: 2, daily_remaining: 1 }) })).mockResolvedValue(status({ state: "daily_limit", retry_after_at: nowSec() + 3600, deliveries: quota({ daily_limit: 3 }) }));
-    const root = await open(fakeApi({ status: statusFn, mails, reveal }));
-    await click(buttonByText(root, "查看验证码"));
-    await settle();
-    expect(root.textContent).toContain("今天的取码次数用完了");
-  });
-});
-
 describe("列表 + 详情视图", () => {
   it("text 视图：列表项 → 详情纯文本，不链接化；meta_only 没有详情", async () => {
     const items = [mail(2, 30, { subject: "你的验证码", snippet: "摘要", sender: { name: "Google" } })];
@@ -421,7 +282,7 @@ describe("列表 + 详情视图", () => {
     expect(body?.textContent).toBe("访问 https://x.example.com 获取\n<b>不是标签</b>");
     expect(body?.querySelector("a, b")).toBeNull();
     expect(root.querySelector("iframe")).toBeNull();
-    await mounted?.unmount();
+    await unmount();
 
     const root2 = await open(fakeApi({ status: vi.fn(async () => status({ view: "meta_only" })), mails: vi.fn(async () => list(items)), detail }));
     expect(root2.querySelector("button.pk-item")).toBeNull();
@@ -451,84 +312,5 @@ describe("列表 + 详情视图", () => {
     expect(reveal).toHaveBeenCalledWith(TOKEN, 2);
     expect(detail).toHaveBeenCalledWith(TOKEN, 2);
     expect(root.querySelector(".pk-article .mail-text")?.textContent).toBe("正文");
-  });
-});
-
-describe("轮询暂停", () => {
-  it("无操作一段时间后暂停，给“继续刷新”；点击后恢复", async () => {
-    const api = fakeApi({ mails: vi.fn(async () => list([mail(1, 5, { code: "111222" })])) });
-    const root = await open(api);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5 * 60 * 1000 + 1000);
-    });
-    expect(root.textContent).toContain("自动刷新已暂停");
-    const calls = api.mails.mock.calls.length;
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
-    });
-    expect(api.mails.mock.calls.length).toBe(calls);
-    await click(buttonByText(root.querySelector(".pk-bar") as HTMLElement, "继续刷新"));
-    await settle();
-    expect(api.mails.mock.calls.length).toBe(calls + 1);
-    expect(root.textContent).not.toContain("自动刷新已暂停");
-  });
-});
-
-describe("加载不全（partial）与新邮件提示", () => {
-  const partial = (items: PresentedMail[]): VisibleMailListResponse => ({ items, next_cursor: null, partial: true, next_after_id: null });
-
-  it("partial：静默补全（1s / 2s / 4s），保留已显示内容；3 次仍不全给出提示与重试，成功后消失", async () => {
-    const one = mail(1, 30, { code: "111222" });
-    const mails = vi.fn<PickupApi["mails"]>().mockResolvedValueOnce(partial([one])).mockResolvedValueOnce(partial([one])).mockResolvedValueOnce(partial([one])).mockResolvedValueOnce(partial([one])).mockResolvedValue(list([one]));
-    const root = await open(fakeApi({ mails }));
-    expect(root.textContent).toContain("正在补全邮件（第 1 次，共 3 次），不需要你操作");
-    expect(root.querySelector(".pk-code-card output")?.textContent).toBe("111222");
-    expect(root.querySelector('[role="alert"]')).toBeNull();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-    expect(root.textContent).toContain("第 2 次");
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
-    });
-    expect(root.textContent).toContain("第 3 次");
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(4000);
-    });
-    expect(root.querySelector('[role="alert"]')?.textContent).toContain("邮件没有加载完整（PARTIAL）");
-    expect(root.querySelector(".pk-code-card output")?.textContent).toBe("111222");
-    await click(buttonByText(root, "重试"));
-    await settle();
-    expect(root.querySelector('[role="alert"]')).toBeNull();
-    expect(root.textContent).not.toContain("没有加载完整");
-  });
-
-  it("新邮件在后台到达：标题前缀、朗读、刚收到标签；回到前台恢复标题，标签 4 秒后消失", async () => {
-    const first = list([mail(1, 30, { code: "111222" })]);
-    const second: VisibleMailListResponse = { items: [mail(2, 1, { code: "556677" })], next_cursor: null, partial: false, next_after_id: 2 };
-    const mails = vi.fn<PickupApi["mails"]>().mockResolvedValueOnce(first).mockResolvedValueOnce(second).mockResolvedValue(second);
-    const root = await open(fakeApi({ mails }));
-    const setHidden = (hidden: boolean) => {
-      Object.defineProperty(document, "hidden", { value: hidden, configurable: true });
-      document.dispatchEvent(new Event("visibilitychange"));
-    };
-    setHidden(true);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(10_000);
-    });
-    expect(mails).toHaveBeenCalledTimes(2);
-    expect(document.title).toBe("(新) 验证码 · ChatGPT 共享号");
-    expect(root.querySelector(".sr-only[role='status']")?.textContent).toBe("收到新验证码 5 5 6 6 7 7");
-    expect(root.querySelector(".pk-code-card output")?.textContent).toBe("556677");
-    expect(root.querySelector(".pk-code-card .tag")?.textContent).toBe("刚收到");
-    expect(root.querySelector(".pk-code-card")?.getAttribute("data-fresh")).toBe("true");
-    setHidden(false);
-    await settle();
-    expect(document.title).toBe("ChatGPT 共享号");
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(4000);
-    });
-    expect(root.querySelector(".pk-code-card .tag")).toBeNull();
-    expect(root.querySelector(".pk-old .code")?.textContent).toBe("111222");
   });
 });

@@ -67,6 +67,20 @@ function useSelection(value: readonly PickedMailbox[], onChange: (value: PickedM
   return { selected, atMax, toggle, addPage };
 }
 
+const PREVIEW_SHOWN = 4;
+
+/** 已选地址预览（跨页保留的选择，不在当前页也看得到）；只有 id 时显示 #id */
+function SelectedPreview({ value }: { value: readonly PickedMailbox[] }) {
+  if (value.length === 0) return null;
+  const shown = value.slice(0, PREVIEW_SHOWN).map((item) => item.address ?? `#${item.id}`);
+  return (
+    <p className="picker-selected mono" title={value.map((item) => item.address ?? `#${item.id}`).join("\n")}>
+      {shown.join("、")}
+      {value.length > PREVIEW_SHOWN ? ` 等 ${value.length} 个` : ""}
+    </p>
+  );
+}
+
 function PickerCount({ count, max, onClear }: { count: number; max: number | undefined; onClear: () => void }) {
   return (
     <p className="picker-count num" role="status">
@@ -92,6 +106,7 @@ export function MailboxPicker({ value, onChange, max }: MailboxPickerProps) {
         <Button size="sm" onClick={addPage} disabled={items.length === 0 || atMax}>选择本页全部</Button>
       </div>
       <PickerCount count={value.length} max={max} onClear={() => onChange([])} />
+      <SelectedPreview value={value} />
       {list.isError ? <ErrorCallout title="收件地址加载失败" {...describeError(list.error)} onRetry={() => void list.refetch()} /> : null}
       <PickerList items={items} loading={list.isFetching} empty={list.data !== undefined && items.length === 0} selected={selected} atMax={atMax} onToggle={toggle} />
       <div className="picker-foot">

@@ -20,8 +20,10 @@ type PickupShellProps = {
 const DATA_IMAGE_PREFIX = "data:image/";
 
 /**
- * 取件页外壳：无导航、手机优先单栏（--pickup-max-width）。不加载任何第三方资源，
- * 也不请求 /api/public/config：品牌来自 `GET /api/s/:token` 的 `site`。
+ * 取件页外壳：无导航、手机优先单栏（--pickup-max-width）。不加载任何第三方资源。
+ * 品牌（名称、data URI Logo、公告）来自 `GET /api/s/:token` 的 `site`，本组件不查询配置；
+ * 但外观（强调色、圆角、明暗）只有 /api/public/config.appearance 提供，由 app/bootstrap 在所有页面启动时取一次并应用，
+ * 取件页按卖家设置的外观显示（设置页的外观预览就是取件卡片），所以 /s/ 下保留这次请求，不跳过。
  * 子节点由页面用 PickupMain / PickupBar 组合。根节点同时带 `pk-page`，设计脚本 design/scripts/hit-area.js 按这个类名选可点元素。
  */
 export function PickupShell({ children, brand, topRight, wide }: PickupShellProps) {

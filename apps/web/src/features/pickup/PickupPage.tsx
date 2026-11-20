@@ -123,7 +123,7 @@ const FAILURE_VIEWS: { [K in PageFailure["kind"]]: (failure: FailureOf<K>, ctx: 
   unavailable: () => <UnavailableView />,
   not_yet_valid: (failure) => <NotYetValidView validFrom={failure.validFrom} />,
   no_mailbox: () => <NoMailboxView />,
-  device_limit: (failure, { last }) => <DeviceLimitView publicNote={failure.publicNote ?? last?.public_note ?? null} />,
+  device_limit: (failure, { last }) => <DeviceLimitView publicNote={failure.publicNote ?? last?.public_note ?? null} maxDevices={last?.max_devices ?? null} />,
   daily_limit: (failure, { last }) => (
     <DailyLimitView retryAfterAt={failure.retryAfterAt} dailyLimit={last?.deliveries?.daily_limit ?? null} publicNote={last?.public_note ?? null} />
   ),
@@ -140,8 +140,8 @@ function PageBody({ phase, token, api, turnstileLoader, title, onReload, onStatu
   if (phase.kind === "loading") {
     return (
       <PickupMain>
-        <span className="skeleton" style={{ width: "60%", height: 28 }} aria-label="正在加载" role="status" />
-        <span className="skeleton" style={{ width: "40%" }} aria-hidden="true" />
+        <span className="skeleton pk-skel-title" aria-label="正在加载" role="status" />
+        <span className="skeleton pk-skel-sub" aria-hidden="true" />
       </PickupMain>
     );
   }
@@ -162,7 +162,7 @@ function PageBody({ phase, token, api, turnstileLoader, title, onReload, onStatu
       return (
         <PickupMain>
           <SiteNotice notice={status.site.notice} />
-          <DeviceLimitView publicNote={status.public_note} />
+          <DeviceLimitView publicNote={status.public_note} maxDevices={status.max_devices} />
         </PickupMain>
       );
     case "daily_limit":
