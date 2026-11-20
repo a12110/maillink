@@ -46,6 +46,9 @@
   - 设计令牌唯一来源为 `apps/web/src/styles/tokens.css`；原型与校验脚本放 `design/`，随仓库提交。
   - 初始化时不把默认设置写入 `settings` 表，读取时库里没有的键取代码里集中定义的默认值（03 §2 原写"写入默认设置"；效果相同，避免默认值存两处）。
   - `PATCH /api/me` 允许用户改自己的邮箱（03 §6 只列了显示名与密码）。本地邮箱不经验证，所以 M5 的"按已验证邮箱自动关联 OAuth"只能信 IdP 侧的 `email_verified`，且仍默认关闭；M5 派发时要明确这一点。
+  - 详情判定用的正文（02 §5 与 §7 冲突，主 agent 裁定）：§5"用完整正文再判一次"理解为"重新解析原文、不信任索引"；判定用正文仍截到 `BODY_INDEX_CAP_BYTES`，`body_truncated` 按 §3.5 不可见、详情 404，与列表一致。原因：§7 的正则回溯防线以被匹配文本 ≤32 KB 为前提，详情跑完整正文时 200 KB 正文可达 15.7 s。展示正文仍用 `display_body`。
+  - `max_mails` 是全局上限：列表首页、增量轮询、详情都以"最新 N 封"这一个集合为准（轮询不得绕过）。
+  - 限流：`wrangler.jsonc` 正式配置 `RATE_LIMITER` binding；运行时缺失时受保护接口返回 503 `rate_limiter_not_configured`，health 标出未配置（01 §2"不静默放行"）。
   - M2 / M3a 分工：内置验证码提取与 `category` 分类在 `mail-parse`（M2，符合 01 §1）；规则组级的 `code_regex` 与 `login_link` 提取在 `rules`（M3a）。两边以 01 §4.1 的 `MailFacts` 对接，具体 TS 结构由主 agent 在两份派发说明里写成同一份，M3b 合并时去重。
 
 ## 邮件 HTML 展示的硬性要求（M3a 安全评审给出，M3b 与前端派发时必须照抄）
@@ -82,15 +85,16 @@
 | M1 | 初始化、账号密码登录、会话、用户与角色（后端）；含 M0 遗留修复 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M1 |
 | M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M2 |
 | M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M3a |
-| M3b-1 | 取件流水线（access）、收件地址 API、规则组 API（含测试器与草稿）、setup 写模板、管理员邮件 HTML、M3a 遗留加固 | opus-5-5#high（集成核心，按复杂任务升级） | 进行中（worktree `m3b1-pipeline-mailboxes`，分支 `m3b1`，基于 `5b33f97`，端口 8797，迁移号 0004） | 执行会话 `ses_e0a269005ffeXXMzyWYgGFPNQw` |
+| M3b-1 | 取件流水线（access）、收件地址 API、规则组 API（含测试器与草稿）、setup 写模板、管理员邮件 HTML、M3a 遗留加固 | opus-5-5#high（集成核心，按复杂任务升级） | 通过，已合并 | 见记录 2026-11-20 M3b-1 |
 | M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 待办（等 M3b-1 合并；迁移号 0006） | |
 | M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办（等 M3b-1 合并，可与 M3b-2 并发；迁移号 0007） | |
-| M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 进行中（worktree `m5-mfa-passkey-oauth`，分支 `m5`，基于 `5b33f97`，端口 8798，迁移号 0005；与 M3 无关，并发） | 执行会话 `ses_e0a26007fffe162XUPKIsWf9PB` |
+| M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 待验收（拆为 TOTP/通行密钥/Cookie `ses_e095117c5ffe9SrzWGQkrJ8FfF` 与 OAuth/OIDC `ses_e0950cdefffe03lkP6zljipx8r` 两个 opus-5-5#xhigh 评审；worktree `m5-mfa-passkey-oauth`，分支 `m5`，迁移号 0005） | 执行会话 `ses_e0a26007fffe162XUPKIsWf9PB`；主 agent 复跑 44 文件 1064 用例通过 |
 | M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
 | UI-3+ | 收件地址、规则组编辑与测试器、取件链接、取件页、我的邮件、账号安全的 2FA/通行密钥/第三方账号、系统设置（随后端推进） | sonnet-5-5#high | 待办 | |
-| M7 | 审计、cron、限流、加固 | sonnet-5-5#high | 待办 | |
+| M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 进行中（worktree `m7a-audit-cron-ratelimit`，分支 `m7a`，基于 `c389fa2`，端口 8800，迁移号 0008） | 执行会话 `ses_e09bdba94ffe2IAefGi5c5A1sV` |
+| M7b | e2e、部署文档、最终加固 | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
 ## 记录
@@ -154,3 +158,13 @@
 - 主 agent 复跑：web 14 文件 111 用例通过；首轮复跑 worker 37 文件 999 用例通过；改动只在 `apps/web/`、无新增依赖。
 - 验收确认：iframe sandbox 精确为 `allow-popups allow-popups-to-escape-sandbox`、`srcDoc` 原样；纯文本不链接化、全仓无 `dangerouslySetInnerHTML`；partial 1s/2s/4s 退避不推进游标、筛选变化时旧请求作废无竞态；队列行两行（约 60px）符合 DESIGN.md（36px 只针对表格）；构建 3 分 28 秒复测 2.78 s，系机器负载。
 - 另做：`mailsRoute` 专属错误页留在工作区并可"清除筛选"；刷新保留旧列表。
+
+### 2026-11-20 M3b-1 通过
+
+- 执行：opus-5-5#high（`ses_e0a269005ffeXXMzyWYgGFPNQw`）。验收拆为流水线安全 opus-5-5#xhigh（`ses_e09c2594fffe310opffzJcjwc5`）与收件地址/规则组 API opus-5-5#high（`ses_e09c21bc7ffeuLXX0Zn0mQyzU1`），两者首轮均"有条件通过"；修复后流水线评审复验"通过"。
+- 首轮必修：增量轮询（`after_id`）绕过 `max_mails`（复现 `max_mails=2`、6 封，从 0 轮询拿到全部 6 封）；详情用完整正文跑管理员正则打破 02 §7 回溯防线（`code\w*-?\w*!` + 200 KB 正文详情 15.7 s）；`extractHtmlOrFail` 把所有异常转成解析失败；两处 magic number。另修：导入标签改 `INSERT … RETURNING` 按 id 写；批量删除审计带地址与引用数；收件地址路由 `no-store`；setup 模板插入条件精确化。
+- 主 agent 复跑：typecheck/lint 三包 Done；`pnpm test` 42 文件 1092 用例通过；`apps/worker/src` 无 `truncateBody`。
+- 复验证据（原复现脚本）：从 `after_id=0` 轮询只得 [5,6]，与首页一致；200 KB 正文详情 0.7 s、404，与列表一致；`scanNewestVisible` 遇未就绪或触到 `SCAN_CAP` 时只返回已确定的可见邮件（失败关闭）。
+- 首轮已确认：详情与附件每次重走完整检查且不读 `mail_index`；8 类越权 mail id 统一 404；时间与地址下推进 SQL；partial 游标不漏不重；规则组乐观锁单语句原子；测试器只写 `mail_index`；setup 管理员与 6 个模板同一 batch。
+- 对接 M3b-2 / M4：`access` 导出 `listVisibleMails`、`getVisibleMailDetail`、`getVisibleAttachment`、`testRuleGroup`、`compileStoredPolicy`、`grantPolicy(null=黑名单·无规则·full)`；规则组编译失败抛 503；`HtmlSanitizeError` 只回 text。
+- 遗留：设了 `max_mails` 时详情/附件每次多扫一遍首页（最坏约 40–45 次查询，Paid 下可接受）；只隔可省略原子的重叠量词（如 `x\d+-?\d+y`，平方级）静态放行，靠长度上限兜底。
