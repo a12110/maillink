@@ -49,6 +49,8 @@
   - 详情判定用的正文（02 §5 与 §7 冲突，主 agent 裁定）：§5"用完整正文再判一次"理解为"重新解析原文、不信任索引"；判定用正文仍截到 `BODY_INDEX_CAP_BYTES`，`body_truncated` 按 §3.5 不可见、详情 404，与列表一致。原因：§7 的正则回溯防线以被匹配文本 ≤32 KB 为前提，详情跑完整正文时 200 KB 正文可达 15.7 s。展示正文仍用 `display_body`。
   - `max_mails` 是全局上限：列表首页、增量轮询、详情都以"最新 N 封"这一个集合为准（轮询不得绕过）。
   - 限流：`wrangler.jsonc` 正式配置 `RATE_LIMITER` binding；运行时缺失时受保护接口返回 503 `rate_limiter_not_configured`，health 标出未配置（01 §2"不静默放行"）。
+  - 限流拆成两个 binding（对 01 §2 的修订）：`RATE_LIMITER`（登录、初始化、注册、再确认类接口，10 次/60 秒）与 `LINK_RATE_LIMITER`（取件链接公开接口，阈值容纳正常轮询）。原因：Workers Rate Limiting 一个 binding 只有一组阈值，共用会让正常取件被误拦。
+  - 限流的已知取舍：simple binding 不能只数失败，任何人从多个 IP 每分钟发 10 次即可锁住某个用户名的登录；NAT 后多人共用 `login:ip` 配额。按用户的第二因素失败上限由 M5 在应用层实现，不依赖 binding。
   - M2 / M3a 分工：内置验证码提取与 `category` 分类在 `mail-parse`（M2，符合 01 §1）；规则组级的 `code_regex` 与 `login_link` 提取在 `rules`（M3a）。两边以 01 §4.1 的 `MailFacts` 对接，具体 TS 结构由主 agent 在两份派发说明里写成同一份，M3b 合并时去重。
 
 ## 邮件 HTML 展示的硬性要求（M3a 安全评审给出，M3b 与前端派发时必须照抄）
@@ -86,14 +88,14 @@
 | M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M2 |
 | M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M3a |
 | M3b-1 | 取件流水线（access）、收件地址 API、规则组 API（含测试器与草稿）、setup 写模板、管理员邮件 HTML、M3a 遗留加固 | opus-5-5#high（集成核心，按复杂任务升级） | 通过，已合并 | 见记录 2026-11-20 M3b-1 |
-| M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 待办（等 M3b-1 合并；迁移号 0006） | |
-| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待办（等 M3b-1 合并，可与 M3b-2 并发；迁移号 0007） | |
-| M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 待验收（拆为 TOTP/通行密钥/Cookie `ses_e095117c5ffe9SrzWGQkrJ8FfF` 与 OAuth/OIDC `ses_e0950cdefffe03lkP6zljipx8r` 两个 opus-5-5#xhigh 评审；worktree `m5-mfa-passkey-oauth`，分支 `m5`，迁移号 0005） | 执行会话 `ses_e0a26007fffe162XUPKIsWf9PB`；主 agent 复跑 44 文件 1064 用例通过 |
+| M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 进行中（worktree `m3b2-share-links`，分支 `m3b2`，基于 `94958bb`，端口 8801，迁移号 0006；链接限流留 `TODO(M7a)` 合并后接线） | 执行会话 `ses_e0948db9effeKBWWnpHMEcs7Uv` |
+| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 进行中（worktree `m4-grants-inbox`，分支 `m4`，基于 `94958bb`，端口 8802，迁移号 0007） | 执行会话 `ses_e094878daffeBlFSsR5d2jlAep` |
+| M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 退回修复（两位评审均"有条件通过"：启用 2FA/添加通行密钥前未再确认身份、OAuth 回调不检查 `login_methods`、OAuth 失败不入审计；并入按用户的二次验证失败上限等 9 项；评审会话 `ses_e095117c5ffe9SrzWGQkrJ8FfF`、`ses_e0950cdefffe03lkP6zljipx8r`；worktree `m5-mfa-passkey-oauth`，分支 `m5`，迁移号 0005） | 执行会话 `ses_e0a26007fffe162XUPKIsWf9PB`；主 agent 复跑 44 文件 1064 用例通过 |
 | M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
 | UI-3+ | 收件地址、规则组编辑与测试器、取件链接、取件页、我的邮件、账号安全的 2FA/通行密钥/第三方账号、系统设置（随后端推进） | sonnet-5-5#high | 待办 | |
-| M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 进行中（worktree `m7a-audit-cron-ratelimit`，分支 `m7a`，基于 `c389fa2`，端口 8800，迁移号 0008） | 执行会话 `ses_e09bdba94ffe2IAefGi5c5A1sV` |
+| M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7a |
 | M7b | e2e、部署文档、最终加固 | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
@@ -168,3 +170,12 @@
 - 首轮已确认：详情与附件每次重走完整检查且不读 `mail_index`；8 类越权 mail id 统一 404；时间与地址下推进 SQL；partial 游标不漏不重；规则组乐观锁单语句原子；测试器只写 `mail_index`；setup 管理员与 6 个模板同一 batch。
 - 对接 M3b-2 / M4：`access` 导出 `listVisibleMails`、`getVisibleMailDetail`、`getVisibleAttachment`、`testRuleGroup`、`compileStoredPolicy`、`grantPolicy(null=黑名单·无规则·full)`；规则组编译失败抛 503；`HtmlSanitizeError` 只回 text。
 - 遗留：设了 `max_mails` 时详情/附件每次多扫一遍首页（最坏约 40–45 次查询，Paid 下可接受）；只隔可省略原子的重叠量词（如 `x\d+-?\d+y`，平方级）静态放行，靠长度上限兜底。
+
+### 2026-11-20 M7a 通过
+
+- 执行：sonnet-5-5#high（`ses_e09bdba94ffe2IAefGi5c5A1sV`）；验收：opus-5-5#high（`ses_e09480745ffeCj2nAAltk7Z8W8`），"有条件通过"，1 项必修：再确认类接口（`POST /api/me/password`、注册、TOTP、恢复码、通行密钥管理）未挂限流。
+- 修复由主 agent 直接核对（可机械验证）：`constants.ts` 的 `RATE_LIMITED_ROUTES` 覆盖登录（IP + 用户名）、注册、初始化、`/api/auth/mfa/*`、`/api/auth/passkey/*`、`/api/auth/oauth/*`、`/api/me/password`、`/api/me/totp/*`（POST/DELETE）、`/api/me/recovery-codes`、`/api/me/passkeys/*`（POST/PATCH/DELETE）；`index.ts` 遍历清单挂载；覆盖测试遍历 `app.routes` 并自检能报出清单外路由（2 条通过）。
+- 主 agent 复跑：typecheck/lint 三包 Done；worker 40 文件 1083 用例、web 111 用例通过；web build 成功。
+- 验收确认：限流 key 无碰撞；`CF-Connecting-IP` 由边缘覆盖不可伪造；缺 binding 503、超限 429 带 `Retry-After`、binding 抛错 500，均不放行；尾斜杠/大写/双斜杠路径 404、URL 编码照样限流；cron 不写 MAIL_DB、预热游标不跳邮件、孤儿清理在 MAIL_DB 不健康时中止不删；日志保留边界有测试；审计列表 zod 校验与 `no-store`。
+- 另做：第二个 binding `LINK_RATE_LIMITER`（120 次/60 秒，`link` 用途专用，缺失同样 503）；登录类请求体 >4 KB 返回 413；审计列表返回前递归剔除敏感键；审计游标与时间参数严格数字校验；删除过时 `TODO(M7)`。
+- 遗留：两个 binding 的 `namespace_id`（1001/1002）为占位值，部署前按账号调整；本地触发 cron 用 `/cdn-cgi/handler/scheduled?cron=…`（`/__scheduled` 被 SPA 兜底截走）；清理单次上限（日志每表 5 万行、孤儿索引 1 万行）超出时 `last_run` 未标"截断"。
