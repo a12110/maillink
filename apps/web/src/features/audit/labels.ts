@@ -41,6 +41,21 @@ export const AUDIT_ACTION_LABEL: Readonly<Record<string, string>> = {
   "mailbox.update": "修改收件地址",
   "mailbox.delete": "删除收件地址",
   "mailbox.batch": "批量操作收件地址",
+  "settings.update": "修改系统设置",
+  "auth.register": "用户注册",
+  "grant.batch": "批量授权邮箱",
+  "grant.update": "修改邮箱授权",
+  "grant.delete": "撤销邮箱授权",
+  "link.create": "创建取件链接",
+  "link.update": "修改取件链接",
+  "link.revoke": "吊销取件链接",
+  "link.delete": "删除取件链接",
+  "link.token_view": "查看取件链接令牌",
+  "link.token_rotate": "轮换取件链接令牌",
+  "link.rebind": "重新绑定取件链接",
+  "link.reset": "重置取件链接",
+  "link.batch": "批量操作取件链接",
+  "link.export": "导出取件链接",
 };
 
 export const AUDIT_TARGET_LABEL: Readonly<Record<string, string>> = {
@@ -51,6 +66,9 @@ export const AUDIT_TARGET_LABEL: Readonly<Record<string, string>> = {
   oauth_provider: "OAuth 提供方",
   rule_group: "规则组",
   mailbox: "收件地址",
+  share_link: "取件链接",
+  grant: "邮箱授权",
+  settings: "系统设置",
 };
 
 /** 关联外部身份被拒（auth.identity_link_rejected）时 detail.reason 的取值 → 中文。未登记的原样显示 */

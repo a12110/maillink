@@ -25,6 +25,8 @@
   --table-min-audit: 600px;          /* 时间 220 + 动作 ≥260 + 详情 120 */
   --table-min-user: 400px;           /* 用户名 ≥208 + 角色 96 + 状态 96 */
   --table-min-rule-group: 480px;     /* 名称 280 + 呈现/状态 120 + 操作 72 */
+  --table-min-oauth: 640px;          /* 名称 ≥164 + slug 160 + 状态 96 + 操作 220 */
+  --table-min-session: 340px;        /* 设备 ≥220 + 操作 120 */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
   --viewport-gutter: 32px;           /* 对话框与视口边缘的最小间隔 */
