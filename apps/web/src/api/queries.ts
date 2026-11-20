@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
-import type { AdminUserListQuery } from "@maillink/shared";
+import type { AdminUserListQuery, SettingGroup } from "@maillink/shared";
 import { MAIL_DETAIL_STALE_MS, SESSION_STALE_MS } from "../constants";
 import { api } from "./instance";
 
@@ -12,6 +12,8 @@ export const queryKeys = {
   mySessions: ["me", "sessions"] as const,
   adminUsers: ["admin", "users"] as const,
   adminMails: ["admin", "mails"] as const,
+  adminSettings: ["admin", "settings"] as const,
+  adminOAuthProviders: ["admin", "oauth-providers"] as const,
 };
 
 /** 初始化一旦完成就永不再变；仍需要初始化时每次都重新问 */
@@ -50,3 +52,15 @@ export const adminMailQuery = (id: number, raw: boolean) =>
     staleTime: MAIL_DETAIL_STALE_MS,
     placeholderData: (previous) => (previous?.id === id ? previous : undefined),
   });
+
+/** 设置表单自己持有草稿，进入页面时总是取最新值：不设新鲜期 */
+export const settingsGroupQuery = <G extends SettingGroup>(group: G) =>
+  queryOptions({
+    queryKey: [...queryKeys.adminSettings, group] as const,
+    queryFn: () => api.getSettings(group),
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+export const oauthProvidersQuery = () =>
+  queryOptions({ queryKey: queryKeys.adminOAuthProviders, queryFn: api.listOAuthProviders });
