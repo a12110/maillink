@@ -105,10 +105,11 @@
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
 | UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 进行中（worktree `ui3-mailboxes-rulegroups`，分支 `ui3`，基于 `5375ffa`，端口 8804） | 执行会话 `ses_e09313850ffe7INAHx6EaIz0kU` |
 | UI-4a | 登录两步验证/通行密钥/OAuth、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、我的邮件 `/inbox` | sonnet-5-5#high | 进行中（worktree `ui4a-auth-account-inbox`，分支 `ui4a`，基于 `2449a43`，端口 8805） | 执行会话 `ses_e091cec86ffeMdruzBXfSfQbgA` |
-| UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 待办（等 M6 合并） | |
-| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 待办（等 M3b-2 合并） | |
+| UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 进行中（worktree `ui4b-settings-register`，分支 `ui4b`，基于 `8183143`，端口 8807；不改登录页） | 执行会话 `ses_e0904ddc7ffeZp1L3x9WEywhla` |
+| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 待办（M3b-2 已合并，等 INT-1 与开发线名额） | |
 | M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7a |
-| M7b | e2e、部署文档、最终加固 | sonnet-5-5#high | 待办 | |
+| INT-1 | M3b-2 × M6 集成：链接允许 Turnstile、"开始取码"接入 Turnstile、`GET /api/s/:token` 带出品牌/公告/data URI Logo/site key、创建链接用默认值、cron 清理 `link_password_attempts` 与 `auth_flow_tokens` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 INT-1 |
+| M7b | e2e、部署文档、最终加固（含管理员强制 2FA 口径收紧、SPA 页面 CSP） | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
 ## 记录
@@ -227,3 +228,12 @@
 - 验收确认：secret 独立 HKDF 用途 + AAD 加密、GET 只回 `secret_set`、审计不含 secret；公开配置是白名单；siteverify POST 表单、5 s 超时、16 KB 上限、`redirect: manual`；未配置 503、token 无效 400、不可达 503，均不放行；登录顺序 限流 → 登录方式 → Turnstile → 哈希；`login_methods_lockout` 与 `admin_2fa_lockout` 规则完整；会话时长"取较早者"与 cron 清理一致。
 - 前端对接：Turnstile 控件 `action` 只能是 `login` / `register` / `pickup`；`PUBLIC_ORIGIN` 主机名须与控件所在域名一致。
 - 遗留：管理员强制 2FA 判定口径收紧（M7b）；取件页 Turnstile 与"开始取码"接线、`pickup_notice`/`show_brand`/data URI Logo 带入 `GET /api/s/:token`、链接保存时允许 `turnstile=true`（系统已配置时）——M3b-2 与 M6 都合并后由集成任务完成；前端强调色改用 shared `theme-contrast`（UI-4b）。
+
+### 2026-11-20 INT-1 通过
+
+- 执行：sonnet-5-5#high（`ses_e09104474ffeMc0rGi2vOo7gh7`）；验收：opus-5-5#high（`ses_e09008246ffeiYFrkPscBKpXoO`），"通过"，无必修。
+- 内容：系统配好 Turnstile（启用 + 范围含 pickup + 两把密钥）才允许链接 `turnstile=true`；"开始取码"在限流之后、口令占位与 PBKDF2 之前 `enforceTurnstile(c, "pickup", token, { forced })`，已登记设备跳过；`GET /api/s/:token` 新增 `turnstile: {required, site_key?}` 与 `site: {show_brand, name?, logo?(仅 data:image/), notice?}`；创建链接未给过期/轮询间隔时用 `links.default_*`；每日 cron 清理 `link_password_attempts`（`created_at < now - 窗口`）与 `auth_flow_tokens`（`expires_at <= now`）。
+- 顺带修 M5 遗留偶发测试：`totp.test.ts` 断言随机 base64url 密文不含 `t1`（约 2% 碰撞），改为解码密文段后断言不含明文 JSON。
+- 主 agent 复跑：worker 70 文件 1536 用例连跑多次全过；web 111 用例通过。
+- 验收确认：Turnstile 失败时不占口令名额、不登记设备、不写 `first_access_at`；已登记设备跳过只认本链接 HMAC 名 Cookie 且在 `link_visitors` 可查；GET 无副作用；`site_key` 仅 required 时给，系统 key 缺失时 start 503（失败关闭）；https Logo 不返回；cron 删除条件与计数窗口口径一致（窗口起点那行保留）。
+- 取舍（已接受）：`data:image/svg+xml` 放行（前端只能用 `<img src>` 渲染）；PATCH access 整体替换，不给的字段回到默认值（前端编辑表单须整体提交当前值）；默认过期从 `max(now, valid_from)` 起算；暂留重复字段 `requires_turnstile`（UI-5 对接后删除）。
