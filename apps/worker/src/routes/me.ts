@@ -4,6 +4,7 @@ import { changePasswordRequestSchema, revokeSessionsQuerySchema, updateMeRequest
 import type { MeResponse, MySession, OkResponse, SessionsRevokedResponse } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "../auth/password";
+import { assertPasswordPolicy } from "../auth/password-policy";
 import { createSessionPublicIdMaker } from "../auth/session-public-id";
 import { nowSec } from "../clock";
 import { PUBLIC_SESSION_ID_MAX_LENGTH } from "../constants";
@@ -83,6 +84,7 @@ meRoutes.post("/password", async (c) => {
     throw new ApiError(HTTP_BAD_REQUEST, "invalid_current_password", "当前密码错误");
   }
 
+  await assertPasswordPolicy(db, body.new_password);
   await setPasswordHash(db, user.id, await hashPassword(c.env, body.new_password), nowSec());
   // 改密码后其他会话全部失效，保留当前会话（03 §3）
   const revoked = await deleteUserSessions(db, user.id, auth.session.idHash);

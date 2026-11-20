@@ -47,6 +47,9 @@ export const AUDIT_ACTIONS = {
   mailboxUpdate: "mailbox.update",
   mailboxDelete: "mailbox.delete",
   mailboxBatch: "mailbox.batch",
+  // M6：系统设置与注册
+  settingsUpdate: "settings.update",
+  userRegister: "auth.register",
   // M4：用户邮箱授权
   grantBatch: "grant.batch",
   grantUpdate: "grant.update",
@@ -69,7 +72,7 @@ export type AuditInput = {
   action: AuditAction;
   /** 执行者；登录失败等没有已确认身份的场景为 null */
   actorUserId: number | null;
-  targetType?: "user" | "session" | "passkey" | "identity" | "oauth_provider" | "rule_group" | "mailbox" | "grant" | "share_link";
+  targetType?: "user" | "session" | "passkey" | "identity" | "oauth_provider" | "rule_group" | "mailbox" | "grant" | "share_link" | "settings";
   targetId?: number | string;
   /** 会被 JSON 序列化。禁止放密码、令牌、哈希 */
   detail?: Record<string, unknown>;

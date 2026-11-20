@@ -8,6 +8,7 @@ import {
 import type { AdminUser, AdminUserDetail, OkResponse } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { hashPassword } from "../auth/password";
+import { assertPasswordPolicy } from "../auth/password-policy";
 import { nowSec } from "../clock";
 import { findAdminUser, listAdminUsers } from "../db/admin-users";
 import { listUserIdentities } from "../db/identities";
@@ -78,6 +79,7 @@ adminUserRoutes.get("/", async (c) => {
 adminUserRoutes.post("/", async (c) => {
   const db = c.env.APP_DB;
   const body = await parseJsonBody(c, adminUserCreateSchema);
+  await assertPasswordPolicy(db, body.password);
   const passwordHash = await hashPassword(c.env, body.password);
   const id = await mapUserConflicts(
     insertUser(
@@ -165,6 +167,7 @@ adminUserRoutes.post("/:id/password", async (c) => {
   const body = await parseJsonBody(c, adminPasswordResetSchema);
   await requireUserRow(db, id);
 
+  await assertPasswordPolicy(db, body.password);
   await setPasswordHash(db, id, await hashPassword(c.env, body.password), nowSec());
   const revoked = await deleteUserSessions(db, id);
   await recordAudit(c, {

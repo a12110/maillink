@@ -27,3 +27,5 @@ export * from "./share-links-api";
 export * from "./share-link-public";
 export * from "./audit";
 export * from "./system-status";
+export * from "./settings";
+export * from "./theme-contrast";

@@ -1,8 +1,5 @@
-import {
-  CLEANUP_DELETE_BATCH_SIZE,
-  CLEANUP_MAX_BATCHES,
-  SESSION_IDLE_SEC,
-} from "../constants";
+import { CLEANUP_DELETE_BATCH_SIZE, CLEANUP_MAX_BATCHES } from "../constants";
+import { sessionLimits } from "../auth/session";
 import { getSettings } from "../db/settings";
 import { nowSec } from "../clock";
 import { cleanOrphanIndexRows } from "./orphans";
@@ -13,11 +10,12 @@ import type { CronEnv, Processed } from "./types";
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
-/** 空闲过期与绝对过期两个条件任一满足即删除，与 auth/session.ts 的 sessionExpired 一致 */
+/** 与 auth/session.ts 的 sessionExpired 同一套条件（时长读系统设置）：空闲过期、expires_at 到期、创建时间 + 绝对时长到期任一满足即删除 */
 async function deleteExpiredSessions(db: D1Database, now: number): Promise<number> {
+  const { idleSec, absoluteSec } = await sessionLimits(db);
   const result = await db
-    .prepare("DELETE FROM sessions WHERE expires_at <= ?1 OR last_seen_at + ?2 <= ?1")
-    .bind(now, SESSION_IDLE_SEC)
+    .prepare("DELETE FROM sessions WHERE expires_at <= ?1 OR last_seen_at + ?2 <= ?1 OR created_at + ?3 <= ?1")
+    .bind(now, idleSec, absoluteSec)
     .run();
   return result.meta.changes;
 }
