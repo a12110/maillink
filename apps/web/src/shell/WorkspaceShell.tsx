@@ -11,6 +11,7 @@ import { DESKTOP_MEDIA_QUERY } from "../constants";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { describeError } from "../lib/messages";
 import { Button, ErrorCallout } from "../ui";
+import { Admin2faBanner } from "./Admin2faNotice";
 import { BrandMark, SiteName } from "./Brand";
 import { SidebarContent } from "./Sidebar";
 
@@ -72,6 +73,7 @@ export function WorkspaceShell() {
         {sidebar(() => setDrawerOpen(false))}
       </NavDrawer>
       <main className="main" id="main">
+        {session.admin_2fa_required === true ? <Admin2faBanner /> : null}
         {logout.isError ? (
           <ErrorCallout title="退出登录失败" {...describeError(logout.error)} onRetry={() => logout.mutate()} />
         ) : null}

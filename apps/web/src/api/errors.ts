@@ -6,6 +6,8 @@ export class ApiError extends Error {
     message: string,
     /** 错误体里 code / message 之外的字段（如规则组校验的 issues、删除冲突的 usage） */
     readonly details: Readonly<Record<string, unknown>> = {},
+    /** 响应头 Retry-After（秒）；429 时才有 */
+    readonly retryAfterSec?: number,
   ) {
     super(message);
     this.name = "ApiError";

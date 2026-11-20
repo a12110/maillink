@@ -101,4 +101,18 @@ describe("API 客户端", () => {
     await expect(client.request({ path: "/api/x", schema: okSchema })).rejects.toMatchObject({ status: 403 });
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
+
+  it("429：带出 Retry-After（整数秒）；缺失或格式不对时为 undefined", async () => {
+    const limited = (retryAfter?: string) =>
+      setup(
+        () =>
+          new Response(JSON.stringify({ error: { code: "rate_limited", message: "x" } }), {
+            status: 429,
+            headers: retryAfter === undefined ? {} : { "Retry-After": retryAfter },
+          }),
+      ).client.request({ path: "/api/x", schema: okSchema });
+    await expect(limited("60")).rejects.toMatchObject({ code: "rate_limited", retryAfterSec: 60 });
+    await expect(limited()).rejects.toMatchObject({ retryAfterSec: undefined });
+    await expect(limited("Wed, 21 Oct 2026 07:28:00 GMT")).rejects.toMatchObject({ retryAfterSec: undefined });
+  });
 });
