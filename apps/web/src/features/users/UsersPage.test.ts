@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AdminUser } from "@maillink/shared";
 import { settle } from "../../test/dom";
 import { errorReply, installFakeFetch } from "../../test/fake-fetch";
 import { mountWithProviders } from "../../test/providers";
-import { click } from "../../test/render";
+import { click, selectValue } from "../../test/render";
 import type { Mounted } from "../../test/render";
 import { UsersPage } from "./UsersPage";
 
@@ -50,5 +50,22 @@ describe("用户页页头：共 N 个用户", () => {
     expect(mounted.container.textContent).toContain("internal_error");
     expect(summary(mounted.container)).toBeNull();
     expect(mounted.container.textContent).not.toContain("共 0 个用户");
+  });
+
+  it("切换筛选：新数据回来前不显示旧的总数，回来后显示新的", async () => {
+    let release: (response: Response) => void = () => undefined;
+    const reply = (total: number) => new Response(JSON.stringify({ items: [user(1)], next_cursor: null, total }), { status: 200, headers: { "Content-Type": "application/json" } });
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) =>
+      String(input).includes("role=admin") ? new Promise<Response>((resolve) => { release = resolve; }) : reply(57));
+    mounted = await mountWithProviders(createElement(UsersPage));
+    await settle();
+    expect(summary(mounted.container)).toBe("共 57 个用户");
+
+    await selectValue(mounted.container.querySelector<HTMLSelectElement>('select[aria-label="角色筛选"]') as HTMLSelectElement, "admin");
+    await settle();
+    expect(summary(mounted.container)).toBeNull();
+    await act(async () => release(reply(2)));
+    await settle();
+    expect(summary(mounted.container)).toBe("符合筛选的共 2 个用户");
   });
 });

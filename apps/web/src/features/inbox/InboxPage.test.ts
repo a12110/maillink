@@ -189,6 +189,21 @@ describe("我的邮件：code_only 与 meta_only 不放详情入口", () => {
     expect(server.callsTo("GET /api/me/mails/21").map((call) => call.url)).toEqual(["/api/me/mails/21?mailbox_id=2"]);
   });
 
+  it("“全部”里深链接的邮件不在第一页：详情先按收件地址请求一次，加载更多后它出现在列表里也不重复请求", async () => {
+    const A: PresentedMail = { ...ROW, id: 21, subject: "第一页" };
+    const B: PresentedMail = { ...ROW, id: 22, subject: "第二页" };
+    const { box: el, server } = await openInbox("/inbox?id=22", {
+      "GET /api/me/mailboxes": { json: { items: [box(1), box(2)], next_cursor: null } },
+      "GET /api/me/mails": (call) => (call.url.includes("cursor=50") ? list(of(2, "full", [B])) : list(of(1, "full", [A]), { next_cursor: "50" })),
+      "GET /api/me/mails/22": { json: { ...B, text: "二" } },
+    });
+    expect(server.callsTo("GET /api/me/mails/22")).toHaveLength(1);
+    await act(async () => byText(el, "button", "加载更多").click());
+    await settle();
+    expect(el.textContent).toContain("第二页");
+    expect(server.callsTo("GET /api/me/mails/22")).toHaveLength(1);
+  });
+
   it("login_link：只显示域名，打开按钮带 rel=noopener noreferrer；javascript: 链接不渲染成链接", async () => {
     const items = [box(2, { view: "code_only" })];
     const { box: el } = await openInbox("/inbox?mailbox=2", {

@@ -153,18 +153,18 @@ const security: GroupSpec<"security"> = {
       session_absolute_sec: Math.round((values.session_absolute_days ?? 0) * SECONDS_PER_DAY),
       password_min_length: values.password_min_length ?? 0,
     };
+    const rangeErrors: Record<string, string> = {};
     const idleRange = sessionRangeError(raw.session_idle_sec);
     const absoluteRange = sessionRangeError(raw.session_absolute_sec);
-    if (idleRange !== null || absoluteRange !== null) {
-      return failed({
-        ...(idleRange === null ? {} : { session_idle_hours: idleRange }),
-        ...(absoluteRange === null ? {} : { session_absolute_days: absoluteRange }),
-      });
-    }
-    return validate(securitySettingsSchema, raw, Object.keys(raw), {
+    if (idleRange !== null) rangeErrors["session_idle_hours"] = idleRange;
+    if (absoluteRange !== null) rangeErrors["session_absolute_days"] = absoluteRange;
+    const result = validate(securitySettingsSchema, raw, Object.keys(raw), {
       session_idle_sec: "session_idle_hours",
       session_absolute_sec: "session_absolute_days",
     });
+    if (Object.keys(rangeErrors).length === 0) return result;
+    // 范围错误用中文原文，与 schema 的其他字段错误（如密码最小长度）合并一起返回
+    return result.ok ? failed(rangeErrors) : { ...result, fields: { ...result.fields, ...rangeErrors } };
   },
 };
 

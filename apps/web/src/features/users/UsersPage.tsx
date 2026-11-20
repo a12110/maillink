@@ -55,7 +55,7 @@ export function UsersPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const { list } = state;
-  const total = list.isError ? undefined : list.data?.total;
+  const total = list.isError || list.isPlaceholderData ? undefined : list.data?.total;
 
   // 关闭侧板后焦点回到打开它的那一行（键盘用户不丢位置）；行已不存在（如刚删除）则不处理
   const closePanel = () => {

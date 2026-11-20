@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Inbox, RefreshCw } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { MyMailbox, MyMailListItem } from "@maillink/shared";
 import { myMailboxesQuery } from "../../api/queries-auth";
 import { DESKTOP_MEDIA_QUERY } from "../../constants";
@@ -91,16 +91,27 @@ function waitingForList(scope: InboxScope, mailboxId: number | undefined, list: 
   return scope.kind === "all" && mailboxId === undefined && list.pages.length === 0 && !list.hasError;
 }
 
+/** 同一封选中邮件的 mailbox_id 首次解析出来就锁定：之后“加载更多”让列表里多出这封也不换请求、不重挂载详情 */
+function useLockedMailboxId(selectedId: number | null, scope: InboxScope, resolved: number | undefined, waiting: boolean): number | undefined {
+  const locked = useRef<{ id: number | null; scope: InboxScope["kind"]; mailboxId: number | undefined } | null>(null);
+  if (waiting) return resolved;
+  if (locked.current?.id !== selectedId || locked.current.scope !== scope.kind) locked.current = { id: selectedId, scope: scope.kind, mailboxId: resolved };
+  // 单个邮箱：mailbox_id 来自范围本身，切换邮箱必须跟着变
+  return scope.kind === "mailbox" ? resolved : locked.current.mailboxId;
+}
+
 function DetailColumn({ selectedId, scope, list, onBack }: DetailProps) {
-  const mailboxId = detailMailboxId(scope, listItems(list), selectedId);
+  const resolved = detailMailboxId(scope, listItems(list), selectedId);
+  const waiting = selectedId !== null && waitingForList(scope, resolved, list);
+  const mailboxId = useLockedMailboxId(selectedId, scope, resolved, waiting);
   return (
     <section className="mail-detail-col" aria-label="邮件详情">
       {selectedId === null ? (
         <EmptyState icon={Inbox} title="选择一封邮件" description="在左侧列表里点一封邮件，这里显示它的内容。" />
-      ) : waitingForList(scope, mailboxId, list) ? (
+      ) : waiting ? (
         <span className="skeleton mail-detail-skeleton" role="status" aria-label="正在加载邮件" />
       ) : (
-        <InboxDetail key={`${mailboxId ?? "all"}-${selectedId}`} id={selectedId} mailboxId={mailboxId} onBack={onBack} />
+        <InboxDetail key={selectedId} id={selectedId} mailboxId={mailboxId} onBack={onBack} />
       )}
     </section>
   );

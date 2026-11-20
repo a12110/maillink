@@ -70,6 +70,16 @@ describe("设置表单与 schema 往返", () => {
     expect(GROUP_SPECS.security.toInput({ ...draft, session_idle_hours: "1", session_absolute_days: "365" })).toMatchObject({ ok: true });
   });
 
+  it("安全：会话时长超范围与密码最小长度错误同时返回，不用等下次提交", () => {
+    const draft = GROUP_SPECS.security.toDraft(SAMPLES.security);
+    const result = GROUP_SPECS.security.toInput({ ...draft, session_idle_hours: "0.5", password_min_length: "1" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(Object.keys(result.fields).sort()).toEqual(["password_min_length", "session_idle_hours"]);
+      expect(result.fields["session_idle_hours"]).toBe("不能短于 1 小时");
+    }
+  });
+
   it("站点：名称为空、Logo 不是 https 或 data URI 都被 shared 的 schema 拦下", () => {
     const draft = GROUP_SPECS.site.toDraft(SAMPLES.site);
     const result = GROUP_SPECS.site.toInput({ ...draft, name: "  ", logo: "http://insecure.example.com/a.png" });
