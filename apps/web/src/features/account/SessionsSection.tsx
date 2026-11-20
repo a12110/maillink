@@ -35,7 +35,7 @@ function SessionRow({ session, busy, onRevoke }: { session: MySession; busy: boo
 
 function SessionTable({ items, revokingId, onRevoke }: { items: MySession[]; revokingId: string | null; onRevoke: (s: MySession) => void }) {
   return (
-    <table className="table">
+    <table className="table session-table">
       <colgroup><col /><col className="col-optional" data-w="md" /><col className="col-optional" data-w="sm" /><col className="col-optional" data-w="lg" /><col className="col-secondary" data-w="lg" /><col data-w="md" /></colgroup>
       <thead>
         <tr><th>设备</th><th className="col-optional">IP</th><th className="col-optional">登录方式</th><th className="col-optional">登录时间</th><th className="col-secondary">最近活动</th><th><span className="sr-only">操作</span></th></tr>
@@ -116,11 +116,11 @@ export function SessionsSection() {
         <Button disabled={others.length === 0} onClick={() => ask("others")}>注销其他会话</Button>
       </div>
       <p className="section-lead">这些设备当前保持着你的登录状态。不认识的会话请立即注销并修改密码。</p>
-      <div className="panel table-scope">
+      <div className="table-scope"><div className="panel">
         <SessionsBody data={list.data} error={list.error} isError={list.isError}
           revokingId={revoke.isPending && confirming && confirming !== "others" ? confirming.id : null}
           onRevoke={ask} onRetry={() => void list.refetch()} />
-      </div>
+      </div></div>
       <ConfirmDialog open={confirming !== null} onOpenChange={(open) => !open && setConfirming(null)}
         title={isAll ? "注销其他全部会话？" : "注销这个会话？"}
         consequence={isAll ? `将注销其他 ${others.length} 个设备上的登录，它们需要重新登录。当前设备不受影响。` : "该设备需要重新登录。"}

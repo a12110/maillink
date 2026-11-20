@@ -83,7 +83,7 @@ adminMailboxRoutes.get("/tags", async (c) => {
 function classifyLines(lines: readonly ImportLine[], existing: Map<string, number>): MailboxImportItem[] {
   const seen = new Set<string>();
   return lines.map((line) => {
-    const base = { line: line.line, input: line.input, address: line.address };
+    const base = { line: line.line, input: line.input, address: line.address, tags: line.tags, note: line.note };
     if (line.error !== null || line.address_lc === null) return { ...base, status: "invalid", reason: line.error, id: null };
     const existingId = existing.get(line.address_lc);
     if (existingId !== undefined) return { ...base, status: "duplicate", reason: "already_exists", id: existingId };

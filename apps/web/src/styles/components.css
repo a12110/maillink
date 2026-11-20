@@ -132,6 +132,8 @@
   .audit-table { --table-min-width: var(--table-min-audit); }
   .user-table { --table-min-width: var(--table-min-user); }
   .rule-group-table { --table-min-width: var(--table-min-rule-group); }
+  .oauth-table { --table-min-width: var(--table-min-oauth); }
+  .session-table { --table-min-width: var(--table-min-session); }
   @container (max-width: 520px) {
     /* position: relative 让表头里 .sr-only（绝对定位）的文字也被面板裁剪，否则它会撑出整页横向滚动 */
     .table-scope .panel { position: relative; overflow-x: auto; }

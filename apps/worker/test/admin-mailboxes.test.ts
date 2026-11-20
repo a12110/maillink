@@ -76,6 +76,20 @@ describe("POST /api/admin/mailboxes/import", () => {
     expect(count?.n).toBe(1);
   });
 
+  it("dry_run 逐条带解析出的标签与备注：地址,平台,备注、带引号含逗号的备注、多标签分隔、统一标签合并", async () => {
+    const { body } = await importMailboxes(
+      ['a@example.com,OpenAI,共享号 #12', 'b@example.com,"vip;gold|x","note, with ""comma"""', "c@example.com", "bad,OpenAI,备注", "a@example.com,Other,重复行"].join("\n"),
+      { dry_run: true, tags: ["batch1"] },
+    );
+    expect(body.items.map((item) => [item.status, item.tags, item.note])).toEqual([
+      ["new", ["OpenAI", "batch1"], "共享号 #12"],
+      ["new", ["vip", "gold", "x", "batch1"], 'note, with "comma"'],
+      ["new", ["batch1"], null],
+      ["invalid", [], null],
+      ["duplicate", ["Other", "batch1"], "重复行"],
+    ]);
+  });
+
   it("正式导入：写入地址、备注、标签；大小写不同视为重复；写审计", async () => {
     const { status, body } = await importMailboxes("Alice@Example.com,vip,第一批\nalice@example.com\nbob@example.com", { tags: ["t1"] });
     expect(status).toBe(201);

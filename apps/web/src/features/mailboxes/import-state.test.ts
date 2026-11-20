@@ -7,6 +7,8 @@ import { importReasonLabel } from "./labels";
 
 const item = (line: number, status: MailboxImportItem["status"], reason: MailboxImportItem["reason"] = null): MailboxImportItem => ({
   line,
+  tags: [],
+  note: null,
   input: `a${line}@icloud.com`,
   address: status === "invalid" ? null : `a${line}@icloud.com`,
   status,
