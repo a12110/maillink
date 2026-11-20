@@ -227,13 +227,14 @@ export const shareLinkExportResponseSchema = z.object({
 });
 export type ShareLinkExportResponse = z.infer<typeof shareLinkExportResponseSchema>;
 
-export const LINK_LOG_EVENTS = ["start", "deliver", "download", "denied"] as const;
+/** api_code：一次 API 取码调用，reason 为结果（ok / no_code / pending / view_meta_only）或被拒原因 */
+export const LINK_LOG_EVENTS = ["start", "deliver", "download", "denied", "api_code"] as const;
 
 export const linkLogSchema = z.object({
   id: z.number().int(),
   event: z.enum(LINK_LOG_EVENTS),
   mail_id: z.number().int().nullable(),
-  /** denied 的具体原因（对访问者统一显示"已失效"，这里给管理员看） */
+  /** denied / api_code 的具体原因（对访问者统一显示"已失效"，这里给管理员看） */
   reason: z.string().nullable(),
   ip: z.string().nullable(),
   country: z.string().nullable(),
@@ -251,7 +252,7 @@ export const linkLogListResponseSchema = z.object({ items: z.array(linkLogSchema
 export type LinkLogListResponse = z.infer<typeof linkLogListResponseSchema>;
 
 export const linkVisitorSchema = z.object({
-  /** visitor_hash 前 8 位，仅供辨认 */
+  /** visitor_hash 前 8 位，仅供辨认；API 取码占的设备固定为 "api" */
   visitor: z.string(),
   first_seen_at: z.number().int(),
   last_seen_at: z.number().int(),

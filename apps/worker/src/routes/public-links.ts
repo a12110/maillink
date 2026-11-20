@@ -10,7 +10,6 @@ import {
 } from "@maillink/shared";
 import { z } from "zod";
 import { getVisibleAttachment, getVisibleMailDetail, listVisibleMailsTagged, type DetailOptions } from "../access";
-import { verifyPassword } from "../auth/password";
 import { createMiddleware } from "hono/factory";
 import {
   accessLogStatement,
@@ -23,13 +22,13 @@ import {
   registerVisitor,
   touchVisitorStatement,
 } from "../db/link-activity";
-import { claimPasswordAttempt, passwordIpBucket, releasePasswordAttempt } from "../db/link-password";
 import type { AppEnv } from "../env";
 import { ApiError } from "../errors";
 import { HTTP_CONFLICT, HTTP_OK } from "../http-status";
 import type { MailIdentity } from "../mail-index";
-import { LinkDenied, denial, type DenyReason } from "../links/guard";
-import { deliveryQuota, loadLinkRequest, rejectWith, type LinkRequest } from "../links/request";
+import { LinkDenied, type DenyReason } from "../links/guard";
+import { checkLinkPassword } from "../links/password";
+import { deliveryQuota, loadLinkRequest, rejectExhaustedDeliveries, rejectWith, type LinkRequest } from "../links/request";
 import { loadLinkScope, type LinkScope } from "../links/scope";
 import { buildPublicStatus, findVisibleListItem } from "../links/status";
 import { hashLinkToken } from "../links/token";
@@ -39,9 +38,11 @@ import { enforceTurnstile } from "../turnstile/verify";
 import { lockPresentedMail } from "../render";
 import { parseIdParam, parseJsonBody, parseQuery, parseWith } from "../validate";
 import { attachmentDisposition } from "./content-disposition";
+import { registerApiCodeRoute } from "./public-link-code";
 
 // 公开取件接口 /api/s/:token/*（02 §6，04 取件链接公开页）。
-// 所有 GET 无副作用（不登记设备、不写 first_access_at、不写日志），唯一例外是附件下载成功写 download 日志（派发要求）。
+// 所有 GET 无副作用（不登记设备、不写 first_access_at、不写日志），例外：附件下载成功写 download 日志（派发要求）；
+// API 取码 GET /:token/code 是有意的例外（PLAN"API 取码接口"），见 public-link-code.ts。
 // 写接口（start / reveal）经过全局 CSRF 中间件（同源页面调用）。
 
 export const publicLinkRoutes = new Hono<AppEnv>();
@@ -53,6 +54,8 @@ const handleError: ErrorHandler<AppEnv> = (err, c) => {
   return onError(err, c);
 };
 publicLinkRoutes.onError(handleError);
+// GET /:token/code（API 取码），见 public-link-code.ts
+registerApiCodeRoute(publicLinkRoutes);
 
 /** 公开接口的安全头。由 index.ts 以 app.use("/api/s/*") 挂在 CSRF 之前，CSRF 拒绝等早于路由的错误响应也带上 */
 export const linkSecurityHeaders = createMiddleware<AppEnv>(async (c, next) => {
@@ -76,24 +79,6 @@ publicLinkRoutes.get("/:token", async (c) => {
   const body: LinkPublicStatus = await buildPublicStatus(c.env.APP_DB, req, scope, visitor);
   return c.json(body, HTTP_OK);
 });
-
-/**
- * 口令：PBKDF2 之前先占一个失败名额（链接 + IP 桶、链接全局两层上限），占不到直接锁定，
- * 并发的错口令请求最多只有上限个进入 PBKDF2；口令正确时释放占位。缺口令不计次。
- */
-async function checkPassword(c: Parameters<typeof loadLinkRequest>[0], req: LinkRequest, password: string | undefined): Promise<void> {
-  const hash = req.access.password_hash;
-  if (hash === undefined) return;
-  if (password === undefined) throw denial("password_required");
-  const db = c.env.APP_DB;
-  const claim = await claimPasswordAttempt(db, req.row.id, passwordIpBucket(req.client.ip), req.now);
-  if (!claim.ok) return await rejectWith(c, req, "password_locked", true, { retry_after_at: claim.retryAfter });
-  if (await verifyPassword(c.env, password, hash)) {
-    await releasePasswordAttempt(db, claim.attemptId);
-    return;
-  }
-  await rejectWith(c, req, "bad_password", true);
-}
 
 /**
  * 人机验证：只看链接自己的开关（enforceTurnstile 的 forced）。失败沿用 M6 的错误码原样抛出，并写 denied 日志；
@@ -124,7 +109,7 @@ publicLinkRoutes.post("/:token/start", async (c) => {
     return c.json(await buildPublicStatus(db, { ...req, row: activated }, scope, existing), HTTP_OK);
   }
   await checkTurnstile(c, req, body.turnstile_token);
-  await checkPassword(c, req, body.password);
+  await checkLinkPassword(c, req, body.password, true);
   const value = newVisitorValue();
   const hash = await hashLinkToken(value);
   if (!(await registerVisitor(db, req.row.id, hash, req.access.max_devices ?? null, req.client, req.now))) {
@@ -155,12 +140,7 @@ publicLinkRoutes.get("/:token/mails", async (c) => {
 /** 次数没写进去：已交付过的（不重复计）或者次数满了（区分总数与每日） */
 async function explainRefusedDelivery(c: Parameters<typeof loadLinkRequest>[0], req: LinkRequest, mailId: number, identity: MailIdentity): Promise<void> {
   if (await isMailDelivered(c.env.APP_DB, req.row.id, mailId, identity)) return;
-  const counts = await deliveryCounts(c.env.APP_DB, req.row.id, req.now);
-  if (req.access.max_deliveries_total !== undefined && counts.total >= req.access.max_deliveries_total) {
-    await rejectWith(c, req, "total_limit", true);
-  }
-  const quota = deliveryQuota(req.access, counts);
-  await rejectWith(c, req, "daily_limit", true, { retry_after_at: quota?.daily_resets_at ?? null });
+  await rejectExhaustedDeliveries(c, req, true);
 }
 
 publicLinkRoutes.post("/:token/mails/:id/reveal", async (c) => {

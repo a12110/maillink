@@ -163,7 +163,7 @@ describe("链接表格", () => {
     expires_at: null,
     expire_after_first_access_sec: null,
     effective_expires_at: null,
-    access: { has_password: false, turnstile: false, max_devices: 1, reveal: "auto", ip_allow: [], country_allow: [], poll_interval_sec: 10 },
+    access: { has_password: false, turnstile: false, max_devices: 1, reveal: "auto", ip_allow: [], country_allow: [], poll_interval_sec: 10, api: true },
     anchor_reset_at: null,
     first_access_at: null,
     last_access_at: null,
@@ -183,8 +183,8 @@ describe("链接表格", () => {
 
   it("状态、设备数、24 小时取码数、异常标记与多地址数量", async () => {
     const links = [
-      link({ id: 1, anomalies: ["device_limit_reached", "multi_country"], access: { has_password: false, turnstile: false, max_devices: 1, reveal: "click", ip_allow: [], country_allow: [], poll_interval_sec: 10 } }),
-      link({ id: 2, state: "paused", status: "paused", mailboxes: [{ id: 1, address: "a@x.com", status: "active" }, { id: 2, address: "b@x.com", status: "active" }, { id: 3, address: "c@x.com", status: "active" }], access: { has_password: true, turnstile: false, reveal: "click", ip_allow: [], country_allow: [], poll_interval_sec: 10 } }),
+      link({ id: 1, anomalies: ["device_limit_reached", "multi_country"], access: { has_password: false, turnstile: false, max_devices: 1, reveal: "click", ip_allow: [], country_allow: [], poll_interval_sec: 10, api: true } }),
+      link({ id: 2, state: "paused", status: "paused", mailboxes: [{ id: 1, address: "a@x.com", status: "active" }, { id: 2, address: "b@x.com", status: "active" }, { id: 3, address: "c@x.com", status: "active" }], access: { has_password: true, turnstile: false, reveal: "click", ip_allow: [], country_allow: [], poll_interval_sec: 10, api: true } }),
     ];
     const root = await render(createElement(LinkTable, { ...props, links }));
     const rows = Array.from(root.querySelectorAll("tbody tr"));
@@ -199,7 +199,7 @@ describe("链接表格", () => {
   });
 
   it("24h 取码数：auto 方式不写取码记录，显示“—”并说明，不显示 0；click 方式照常显示数字", async () => {
-    const click = { has_password: false, turnstile: false, reveal: "click" as const, max_deliveries_per_day: 5, ip_allow: [], country_allow: [], poll_interval_sec: 10 };
+    const click = { has_password: false, turnstile: false, reveal: "click" as const, max_deliveries_per_day: 5, ip_allow: [], country_allow: [], poll_interval_sec: 10, api: true };
     const links = [link({ id: 1, deliveries_24h: 0 }), link({ id: 2, deliveries_24h: 0, access: click }), link({ id: 3, deliveries_24h: 4, access: click })];
     const root = await render(createElement(LinkTable, { ...props, links }));
     const cells = Array.from(root.querySelectorAll("tbody tr")).map((row) => row.querySelectorAll("td")[7]);
@@ -211,7 +211,7 @@ describe("链接表格", () => {
   });
 
   it("侧板统计：auto 的 24h 与累计显示“—”并说明，click 显示数字", async () => {
-    const click = { has_password: false, turnstile: false, reveal: "click" as const, ip_allow: [], country_allow: [], poll_interval_sec: 10 };
+    const click = { has_password: false, turnstile: false, reveal: "click" as const, ip_allow: [], country_allow: [], poll_interval_sec: 10, api: true };
     const values = (root: HTMLElement) => Array.from(root.querySelectorAll("dd")).map((dd) => dd.textContent);
     let root = await render(createElement(StatsSection, { link: link({ deliveries_24h: 0, deliveries_total: 0 }) }));
     expect(values(root)).toEqual(["1 / 1", "1", "—", "—", "—"]);

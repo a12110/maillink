@@ -30,11 +30,14 @@ export type DenyReason =
   | "daily_limit"
   | "bad_password"
   | "password_locked"
+  | "password_busy"
   | "password_required"
   | "no_mailbox"
   | "start_required"
   | "turnstile_failed"
-  | "turnstile_unavailable";
+  | "turnstile_unavailable"
+  | "api_disabled"
+  | "turnstile_required";
 
 /** 对外统一成"已失效"的原因（PLAN 裁定：撤销 / 暂停 / 过期 / 总次数用尽；IP 与国家白名单同样不透露） */
 const UNAVAILABLE_REASONS: ReadonlySet<DenyReason> = new Set([
@@ -68,11 +71,14 @@ const SPECS: Record<Exclude<DenyReason, "revoked" | "paused" | "expired" | "expi
   daily_limit: { status: HTTP_TOO_MANY_REQUESTS, code: LINK_PUBLIC_ERRORS.dailyLimit, message: "今日取码次数已用完，请稍后再试" },
   bad_password: { status: HTTP_FORBIDDEN, code: LINK_PUBLIC_ERRORS.passwordInvalid, message: "访问口令不正确" },
   password_locked: { status: HTTP_TOO_MANY_REQUESTS, code: LINK_PUBLIC_ERRORS.passwordLocked, message: "口令错误次数过多，请稍后再试" },
+  password_busy: { status: HTTP_TOO_MANY_REQUESTS, code: LINK_PUBLIC_ERRORS.passwordBusy, message: "同时校验口令的请求太多，请稍后重试" },
   password_required: { status: HTTP_BAD_REQUEST, code: LINK_PUBLIC_ERRORS.passwordRequired, message: "需要输入访问口令" },
   no_mailbox: { status: HTTP_CONFLICT, code: LINK_PUBLIC_ERRORS.noMailbox, message: "这个链接暂无可用的邮箱，请联系链接提供者" },
   start_required: { status: HTTP_UNAUTHORIZED, code: LINK_PUBLIC_ERRORS.startRequired, message: "请先点击\"开始取码\"" },
   turnstile_failed: { status: HTTP_BAD_REQUEST, code: "turnstile_failed", message: "人机验证未通过，请重试" },
   turnstile_unavailable: { status: HTTP_SERVICE_UNAVAILABLE, code: LINK_PUBLIC_ERRORS.turnstileNotConfigured, message: "人机验证暂不可用" },
+  api_disabled: { status: HTTP_FORBIDDEN, code: LINK_PUBLIC_ERRORS.apiDisabled, message: "这个链接不允许通过 API 取码" },
+  turnstile_required: { status: HTTP_FORBIDDEN, code: LINK_PUBLIC_ERRORS.turnstileRequired, message: "这个链接需要人机验证，只能在取件页使用" },
 };
 
 export function denial(reason: DenyReason, extra: Record<string, unknown> = {}): LinkDenied {

@@ -27,7 +27,7 @@ const attemptRows = async () => (await env.APP_DB.prepare("SELECT COUNT(*) AS n 
 const maxAgeOf = (res: Response) => Number(/Max-Age=(\d+)/.exec(res.headers.getSetCookie().find((line) => line.startsWith("mlv_")) ?? "")?.[1]);
 
 describe("口令锁定（必修 1、2）", () => {
-  it("并发 20 次错口令：只有上限个进入 PBKDF2（403），其余直接锁定（429）", async () => {
+  it("并发 20 次错口令：只有进行中上限个进入 PBKDF2（403），其余 429（link_password_busy 或已锁定，迁移 0011）", async () => {
     const { token } = await newLink({ access: { password: "open-sesame" } });
     const results = await Promise.all(Array.from({ length: 20 }, () => start(token, { ip: "198.51.100.1" }, { password: "wrong-pass" })));
     const statuses = results.map((res) => res.status);

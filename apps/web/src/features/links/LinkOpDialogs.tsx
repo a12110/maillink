@@ -6,6 +6,7 @@ import { api } from "../../api/instance";
 import { linkKeys } from "../../api/links-queries";
 import { describeError } from "../../lib/messages";
 import { Button, Callout, ConfirmDialog, ErrorCallout, FormDialog, useToast } from "../../ui";
+import { API_SHARE_WARNING, apiCodeUrlFromLink } from "./api-code";
 import { LinkUrlBox } from "./LinkUrlBox";
 import { MailboxPicker } from "./MailboxPicker";
 import type { PickedMailbox } from "./MailboxPicker";
@@ -38,7 +39,21 @@ export function CopyLinkDialog({ link, onClose }: OpProps) {
     >
       {token.isError ? <ErrorCallout title="取得链接失败" {...describeError(token.error)} /> : null}
       {token.data ? <LinkUrlBox url={token.data.url} autoCopy /> : null}
+      {token.data && link.access.api ? <ApiUrlBox linkUrl={token.data.url} /> : null}
     </FormDialog>
+  );
+}
+
+/** 允许 API 取码时，在完整链接下面给出带完整 token 的接口地址（同样只在这里出现） */
+function ApiUrlBox({ linkUrl }: { linkUrl: string }) {
+  const url = apiCodeUrlFromLink(linkUrl);
+  if (url === null) return null;
+  return (
+    <div className="field">
+      <span className="field-label">API 取码地址</span>
+      <LinkUrlBox url={url} label="完整 API 取码地址" />
+      <p className="field-hint api-warning" role="note">{API_SHARE_WARNING}</p>
+    </div>
   );
 }
 

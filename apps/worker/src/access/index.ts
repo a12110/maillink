@@ -12,5 +12,6 @@ export {
 } from "./policy";
 export { listVisibleMails, listVisibleMailsTagged, type ListVisibleOptions, type TaggedVisibleList } from "./list";
 export type { ParseBudget } from "./scan";
+export { findRecentCodes, type CodeEntry, type RecentCodes } from "./codes";
 export { getVisibleAttachment, getVisibleMailDetail, type DetailOptions, type VisibleAttachment } from "./detail";
 export { testRuleGroup, testRuleGroupTagged, type TaggedTestResult, type TestOptions, type TestResult, type TestTargets } from "./tester";

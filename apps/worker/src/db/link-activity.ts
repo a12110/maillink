@@ -41,7 +41,10 @@ export async function countVisitors(db: D1Database, linkId: number): Promise<num
   return row?.n ?? 0;
 }
 
-/** 设备数未满时登记新设备；满了返回 false（maxDevices 为 null 表示不限） */
+/**
+ * 设备数未满且这台设备尚未登记时登记；没写入返回 false（maxDevices 为 null 表示不限）。
+ * 浏览器访客的哈希是新随机值，false 只可能是满了；API 设备的标识固定，并发的首次调用里只有一个写入，其余不撞主键。
+ */
 export async function registerVisitor(
   db: D1Database,
   linkId: number,
@@ -54,7 +57,8 @@ export async function registerVisitor(
     .prepare(
       `INSERT INTO link_visitors (link_id, visitor_hash, first_seen_at, last_seen_at, ip, country, user_agent)
        SELECT ?1, ?2, ?3, ?3, ?4, ?5, ?6
-       WHERE ?7 IS NULL OR (SELECT COUNT(*) FROM link_visitors WHERE link_id = ?1) < ?7`,
+       WHERE NOT EXISTS (SELECT 1 FROM link_visitors WHERE link_id = ?1 AND visitor_hash = ?2)
+         AND (?7 IS NULL OR (SELECT COUNT(*) FROM link_visitors WHERE link_id = ?1) < ?7)`,
     )
     .bind(linkId, visitorHash, now, client.ip, client.country, client.user_agent, maxDevices)
     .run();

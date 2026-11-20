@@ -73,6 +73,8 @@ const commonFields = {
   /** 允许的国家（request.cf.country）；空 = 不限 */
   country_allow: z.array(countrySchema).max(LINK_ACCESS_LIMITS.countryAllowMax).default([]),
   poll_interval_sec: pollIntervalSchema.default(LINK_ACCESS_LIMITS.pollIntervalDefaultSec),
+  /** 允许用 GET /api/s/:token/code 取码；入参默认开，存量 JSON 缺这个字段按开 */
+  api: z.boolean().default(true),
 };
 
 /** 首尾空白去掉后再检查长度（保存与"开始取码"用同一个 schema，两边口径一致） */

@@ -109,6 +109,23 @@ function TurnstileField({ draft, onChange }: Pick<StepProps, "draft" | "onChange
   );
 }
 
+export const API_TOGGLE_LABEL = "允许 API 取码";
+export const API_TOGGLE_HINT = "脚本可以用链接调接口直接取最新验证码；口令、设备数、取码次数与取件页一样生效（接口占 1 台设备）。开了人机验证的链接接口不可用。";
+
+function ApiField({ draft, onChange }: Pick<StepProps, "draft" | "onChange">) {
+  return (
+    <div className="field">
+      <label className="check-row">
+        <input type="checkbox" checked={draft.api} onChange={(event) => onChange({ api: event.target.checked })} />
+        <span>
+          <b>{API_TOGGLE_LABEL}</b>
+          <span className="field-hint">{API_TOGGLE_HINT}</span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function AccessLists({ draft, errors, onChange }: StepProps) {
   return (
     <fieldset className="form-section">
@@ -151,6 +168,10 @@ export function AccessStep(props: StepProps) {
       <fieldset className="form-section">
         <legend className="section-title">人机验证</legend>
         <TurnstileField draft={draft} onChange={onChange} />
+      </fieldset>
+      <fieldset className="form-section">
+        <legend className="section-title">API 取码</legend>
+        <ApiField draft={draft} onChange={onChange} />
       </fieldset>
     </div>
   );

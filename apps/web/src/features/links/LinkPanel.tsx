@@ -9,6 +9,7 @@ import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { describeError } from "../../lib/messages";
 import { Button, Callout, CloseIconButton, ErrorCallout } from "../../ui";
 import { linkTitle } from "./labels";
+import { ApiSection } from "./PanelApi";
 import { LogsSection } from "./PanelLogs";
 import { PreviewSection } from "./PanelPreview";
 import { AccessSection, OverviewSection, StatsSection } from "./PanelSections";
@@ -82,6 +83,7 @@ export function LinkPanel({ linkId, autoPreview, onAutoPreviewDone, onClose, onA
             <OverviewSection link={link} />
             <ActionsSection link={link} onAction={onAction} onPreview={runPreview} />
             <AccessSection link={link} />
+            <ApiSection link={link} origin={window.location.origin} />
             <StatsSection link={link} />
             <PreviewSection linkId={link.id} autoRun={autoPreview || previewTick > 0} onAutoRunDone={() => { onAutoPreviewDone(); setPreviewTick(0); }} />
             <LogsSection linkId={link.id} />

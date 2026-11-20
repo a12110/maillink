@@ -99,6 +99,14 @@
   .picker-selected { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
   .picker-foot { display: flex; align-items: center; justify-content: space-between; font-size: var(--text-sm); color: var(--color-text-muted); }
 
+  /* API 取码（侧板） */
+  .api-toggle { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); font-size: var(--text-sm); font-weight: var(--weight-strong); cursor: pointer; }
+  .api-block { display: grid; gap: var(--space-1); margin-bottom: var(--space-3); }
+  .api-url { font-family: var(--font-mono); font-size: var(--text-sm); overflow-wrap: anywhere; }
+  .api-warning { margin: 0 0 var(--space-2); color: var(--color-warning); font-weight: var(--weight-strong); }
+  .api-notes { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); }
+  .api-curl { margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--color-surface-sunken); font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-snug); white-space: pre-wrap; word-break: break-all; }
+
   /* 完整链接与导出 */
   .url-box { display: grid; gap: var(--space-1); }
   .url-row { display: flex; gap: var(--space-2); }
