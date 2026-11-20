@@ -1,8 +1,8 @@
 import { Link2, Power, PowerOff, Search, Tag, Tags, Trash2, Upload, UserPlus, X } from "lucide-react";
-import type { MailboxStatus } from "@maillink/shared";
+import type { MailboxStatus, MailboxTagListResponse } from "@maillink/shared";
 import { Button, Select } from "../../ui";
 import { STATUS_LABEL } from "./labels";
-import type { MailboxFilters } from "./useMailboxList";
+import type { LinkFilter, MailboxFilters } from "./useMailboxList";
 
 const TAG_LIST_ID = "mailbox-known-tags";
 
@@ -11,16 +11,23 @@ function toStatus(value: string): MailboxStatus | "" {
   return "";
 }
 
+function toLink(value: string): LinkFilter {
+  if (value === "with" || value === "without") return value;
+  return "";
+}
+
 type ToolbarProps = {
   filters: MailboxFilters;
-  knownTags: readonly string[];
+  tags: MailboxTagListResponse | null;
+  tagsError: { message: string; detail: string } | null;
+  onRetryTags: () => void;
   tagError: string | null;
   onChange: (filters: MailboxFilters) => void;
   onImport: () => void;
 };
 
 /** 默认工具栏：搜索、标签筛选、状态筛选、导入（一屏唯一的主按钮）。选中行后被批量条替换 */
-export function MailboxToolbar({ filters, knownTags, tagError, onChange, onImport }: ToolbarProps) {
+export function MailboxToolbar({ filters, tags, tagsError, onRetryTags, tagError, onChange, onImport }: ToolbarProps) {
   return (
     <div className="toolbar" role="search">
       <div className="search">
@@ -41,12 +48,12 @@ export function MailboxToolbar({ filters, knownTags, tagError, onChange, onImpor
           placeholder="按标签筛选"
           aria-label="标签筛选"
           aria-invalid={tagError ? "true" : undefined}
-          title={tagError ?? "输入标签名；候选来自已加载的地址"}
+          title={tagError ?? (tags?.truncated ? `只列出最常用的 ${tags.items.length} 个标签，其他标签可直接输入` : "输入标签名，或从候选中选择")}
           value={filters.tag}
           onChange={(event) => onChange({ ...filters, tag: event.target.value })}
         />
         <datalist id={TAG_LIST_ID}>
-          {knownTags.map((tag) => <option key={tag} value={tag} />)}
+          {tags?.items.map(({ tag, count }) => <option key={tag} value={tag} label={`${count} 个地址`} />)}
         </datalist>
       </div>
       <Select aria-label="状态筛选" value={filters.status} onChange={(event) => onChange({ ...filters, status: toStatus(event.target.value) })}>
@@ -54,7 +61,19 @@ export function MailboxToolbar({ filters, knownTags, tagError, onChange, onImpor
         <option value="active">{STATUS_LABEL.active}</option>
         <option value="disabled">{STATUS_LABEL.disabled}</option>
       </Select>
+      <Select aria-label="取件链接筛选" value={filters.link} onChange={(event) => onChange({ ...filters, link: toLink(event.target.value) })}>
+        <option value="">取件链接：全部</option>
+        <option value="with">有取件链接</option>
+        <option value="without">无取件链接</option>
+      </Select>
       {tagError ? <span className="field-error">{tagError}</span> : null}
+      {tagsError ? (
+        <span className="field-error" role="alert">
+          标签候选加载失败：{tagsError.message}（{tagsError.detail}）
+          <button type="button" className="link-action" onClick={onRetryTags}>重试</button>
+        </span>
+      ) : null}
+      {tags?.truncated ? <span className="field-hint">只列出最常用的 {tags.items.length} 个标签，可直接输入</span> : null}
       <span className="spacer" />
       <Button variant="primary" onClick={onImport}>
         <Upload />

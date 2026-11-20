@@ -8,6 +8,7 @@ import {
   auditLogListSchema,
   mailboxBatchResponseSchema,
   mailboxImportResponseSchema,
+  mailboxTagListResponseSchema,
   okResponseSchema,
   ruleGroupSaveResponseSchema,
   ruleGroupTestResponseSchema,
@@ -59,6 +60,7 @@ export function createAdminEndpoints({ request }: ApiClient) {
         query: { ...query, has_link: hasLink === undefined ? undefined : String(hasLink) },
         schema: adminMailboxListResponseSchema,
       }),
+    listMailboxTags: () => request({ path: `${MAILBOXES_PATH}/tags`, schema: mailboxTagListResponseSchema }),
     importMailboxes: (body: MailboxImportRequest) =>
       request({ method: "POST", path: `${MAILBOXES_PATH}/import`, body, schema: mailboxImportResponseSchema }),
     patchMailbox: (id: number, body: MailboxPatch) =>

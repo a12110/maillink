@@ -6,7 +6,7 @@ import { describeError } from "../../lib/messages";
 import { SELECT_ALL_LIMIT } from "./batch-state";
 import type { Selection } from "./useMailboxSelection";
 
-type Filters = { q?: string; tag?: string; status?: "active" | "disabled" };
+type Filters = { q?: string; tag?: string; status?: "active" | "disabled"; has_link?: boolean };
 
 /** “选择全部 N 项”：后端没有只返回 id 的接口，按当前筛选逐页取完（总数不超过批量上限才允许） */
 export function useSelectAll(selection: Selection, filters: Filters) {
