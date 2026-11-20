@@ -26,7 +26,7 @@ function pages(total: number, size: number) {
     const start = cursor === undefined ? 0 : Number(cursor);
     const items = Array.from({ length: Math.min(size, total - start) }, (_, i) => box(start + i + 1));
     const next = start + size < total ? String(start + size) : null;
-    return { items, next_cursor: next, total };
+    return { items, next_cursor: next, total, active_count: total, disabled_count: 0 };
   });
 }
 

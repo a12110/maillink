@@ -46,6 +46,7 @@ export function publicConfig(overrides: Partial<PublicConfig> = {}): PublicConfi
     login_methods: ["password"],
     oauth_providers: [],
     turnstile: { enabled: false, site_key: "", scopes: [] },
+    password_min_length: 10,
     ...overrides,
   };
 }

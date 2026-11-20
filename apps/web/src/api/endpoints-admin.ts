@@ -52,8 +52,13 @@ export function createAdminEndpoints({ request }: ApiClient) {
         schema: adminMailDetailSchema,
       }),
 
-    listMailboxes: (query: AdminMailboxListQuery) =>
-      request({ path: MAILBOXES_PATH, query, schema: adminMailboxListResponseSchema }),
+    /** has_link 在查询串里是 "true" / "false"（后端按字符串校验），这里转换，request 的查询类型保持只收字符串与数字 */
+    listMailboxes: ({ has_link: hasLink, ...query }: AdminMailboxListQuery) =>
+      request({
+        path: MAILBOXES_PATH,
+        query: { ...query, has_link: hasLink === undefined ? undefined : String(hasLink) },
+        schema: adminMailboxListResponseSchema,
+      }),
     importMailboxes: (body: MailboxImportRequest) =>
       request({ method: "POST", path: `${MAILBOXES_PATH}/import`, body, schema: mailboxImportResponseSchema }),
     patchMailbox: (id: number, body: MailboxPatch) =>
