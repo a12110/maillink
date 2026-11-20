@@ -1,48 +1,60 @@
-import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { useEffect, useReducer, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { loginRequestSchema } from "@maillink/shared";
-import { isApiError } from "../../api/errors";
 import { api } from "../../api/instance";
-import { sessionQuery } from "../../api/queries";
+import { publicConfigQuery, sessionQuery } from "../../api/queries";
 import { queryClient } from "../../app/query-client";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { fieldErrorsFromZod } from "../../lib/forms";
 import type { FieldErrors } from "../../lib/forms";
 import { describeError } from "../../lib/messages";
-import { Button, Callout, ErrorCallout, TextField } from "../../ui";
+import { browserWebAuthn } from "../../lib/webauthn";
+import type { WebAuthnClient } from "../../lib/webauthn";
+import { Button, ErrorCallout, TextField } from "../../ui";
+import { AlternativeLogins } from "./AlternativeLogins";
+import { INITIAL_LOGIN_STATE, loginReducer } from "./login-flow";
+import type { LoginState } from "./login-flow";
+import { LoginNotices } from "./LoginNotices";
+import { MfaStep } from "./MfaStep";
+import type { OAuthResultSearch } from "./search";
 
 const FIELDS = ["username", "password"] as const;
 type Field = (typeof FIELDS)[number];
 
-function useLogin() {
+const routeApi = getRouteApi("/auth/login");
+
+/** 会话已发出后（密码、第二步、通行密钥通用）：以会话接口为准刷新缓存，再由 `/` 按角色分流 */
+function useFinishLogin() {
   const navigate = useNavigate();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof api.login>[0]) => {
-      await api.login(body);
-      // 以会话接口为准刷新缓存，再由 `/` 按角色分流
-      await queryClient.fetchQuery({ ...sessionQuery(), staleTime: 0 });
-    },
-    onSuccess: () => navigate({ to: "/" }),
-  });
+  return async () => {
+    await queryClient.fetchQuery({ ...sessionQuery(), staleTime: 0 });
+    await navigate({ to: "/" });
+  };
 }
 
-/** 凭据错误统一一句话（后端也不区分原因）；网络与服务器错误分别说明并带错误码 */
-function LoginError({ error }: { error: unknown }) {
-  if (isApiError(error, "invalid_credentials")) {
-    return <Callout tone="danger" title="登录失败">用户名或密码错误。</Callout>;
-  }
-  const { message, detail } = describeError(error);
-  const title = isApiError(error) ? "服务器出错" : "无法连接服务器";
-  return <ErrorCallout title={title} message={message} detail={detail} />;
+/** OAuth 回跳带结果码时，直接进入对应状态（mfa_required 进第二步，其余显示原因） */
+function initialState(search: OAuthResultSearch): LoginState {
+  if (search.oauth === undefined) return INITIAL_LOGIN_STATE;
+  return loginReducer(INITIAL_LOGIN_STATE, { type: "oauth_result", code: search.oauth, provider: search.provider ?? null });
 }
 
-export function LoginPage() {
-  useDocumentTitle("登录");
-  const login = useLogin();
+type PasswordStepProps = { onMfaRequired: () => void; onFailure: (error: unknown) => void; onSuccess: () => Promise<void> };
+
+function PasswordForm({ onMfaRequired, onFailure, onSuccess, pending }: PasswordStepProps & { pending: (value: boolean) => void }) {
   const [values, setValues] = useState<Record<Field, string>>({ username: "", password: "" });
   const [errors, setErrors] = useState<FieldErrors<Field>>({});
+  const login = useMutation({
+    mutationFn: async (body: Parameters<typeof api.login>[0]) => {
+      const result = await api.login(body);
+      if (result.status === "mfa_required") return onMfaRequired();
+      await onSuccess();
+    },
+    onMutate: () => pending(true),
+    onSettled: () => pending(false),
+    onError: onFailure,
+  });
 
   const bind = (name: Field) => ({
     name,
@@ -63,16 +75,61 @@ export function LoginPage() {
   };
 
   return (
+    <form className="auth-form" onSubmit={submit} noValidate>
+      <TextField label="用户名" autoComplete="username" autoFocus {...bind("username")} />
+      <TextField label="密码" type="password" autoComplete="current-password" {...bind("password")} />
+      <Button type="submit" variant="primary" block busy={login.isPending} busyLabel="登录中…">
+        登录
+      </Button>
+    </form>
+  );
+}
+
+export function LoginPage({ webauthn = browserWebAuthn }: { webauthn?: WebAuthnClient }) {
+  useDocumentTitle("登录");
+  const search = routeApi.useSearch();
+  const navigate = useNavigate();
+  const [state, dispatch] = useReducer(loginReducer, search, initialState);
+  const [passwordPending, setPasswordPending] = useState(false);
+  const finishLogin = useFinishLogin();
+  const config = useQuery(publicConfigQuery());
+
+  // 结果码只读一次：清掉地址栏参数，刷新页面不会重复显示旧结果
+  useEffect(() => {
+    if (search.oauth !== undefined || search.provider !== undefined) void navigate({ to: "/login", search: {}, replace: true });
+  }, [navigate, search.oauth, search.provider]);
+
+  const providerName = (slug: string) => config.data?.oauth_providers.find((p) => p.slug === slug)?.name ?? null;
+  const mfa = state.step.kind === "mfa";
+
+  return (
     <>
-      <h1>登录</h1>
-      <form className="auth-form" onSubmit={submit} noValidate>
-        <TextField label="用户名" autoComplete="username" autoFocus {...bind("username")} />
-        <TextField label="密码" type="password" autoComplete="current-password" {...bind("password")} />
-        {login.isError ? <LoginError error={login.error} /> : null}
-        <Button type="submit" variant="primary" block busy={login.isPending} busyLabel="登录中…">
-          登录
-        </Button>
-      </form>
+      <h1>{mfa ? "两步验证" : "登录"}</h1>
+      {mfa ? <p className="auth-lead">密码已通过。再完成一步验证才能登录。</p> : null}
+      <LoginNotices notice={state.notice} providerName={providerName} />
+      {state.step.kind === "mfa" ? (
+        <MfaStep
+          method={state.step.method}
+          onMethodChange={(method) => dispatch({ type: "use_method", method })}
+          onBack={() => dispatch({ type: "back_to_password" })}
+          onSuccess={finishLogin}
+          onFailure={(failure) => dispatch({ type: "mfa_failed", failure })}
+        />
+      ) : (
+        <>
+          <PasswordForm
+            onMfaRequired={() => dispatch({ type: "mfa_required" })}
+            onFailure={(error) => dispatch({ type: "password_failed", error })}
+            onSuccess={finishLogin}
+            pending={setPasswordPending}
+          />
+          {config.data ? (
+            <AlternativeLogins config={config.data} webauthn={webauthn} disabled={passwordPending} onSuccess={finishLogin} />
+          ) : config.isError ? (
+            <ErrorCallout title="没能读取可用的登录方式" {...describeError(config.error)} onRetry={() => void config.refetch()} />
+          ) : null}
+        </>
+      )}
     </>
   );
 }

@@ -3,6 +3,9 @@ import type { RouterHistory } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { AccountPage } from "../features/account/AccountPage";
 import { LoginPage } from "../features/auth/LoginPage";
+import { parseOAuthResultSearch } from "../features/auth/search";
+import { InboxPage } from "../features/inbox/InboxPage";
+import { parseInboxSearch } from "../features/inbox/search";
 import { SetupPage } from "../features/auth/SetupPage";
 import { parseMailsSearch } from "../features/mails/search";
 import { MailsPage } from "../features/mails/MailsPage";
@@ -36,8 +39,9 @@ const setupRoute = createRoute({ getParentRoute: () => authLayout, path: "/setup
 const loginRoute = createRoute({
   getParentRoute: () => authLayout,
   path: "/login",
+  validateSearch: parseOAuthResultSearch,
   beforeLoad: ({ context }) => redirectIfSignedIn(context),
-  component: LoginPage,
+  component: () => <LoginPage />,
 });
 const registerRoute = createRoute({
   getParentRoute: () => authLayout,
@@ -72,9 +76,15 @@ const workspaceLayout = createRoute({
 const inboxRoute = createRoute({
   getParentRoute: () => workspaceLayout,
   path: "/inbox",
-  component: () => <PlaceholderPage title="我的邮件" description="被分配的邮箱与邮件列表需要邮件与授权接口，后端尚未提供，本页暂不显示任何数据。" />,
+  validateSearch: parseInboxSearch,
+  component: InboxPage,
 });
-const accountRoute = createRoute({ getParentRoute: () => workspaceLayout, path: "/account", component: AccountPage });
+const accountRoute = createRoute({
+  getParentRoute: () => workspaceLayout,
+  path: "/account",
+  validateSearch: parseOAuthResultSearch,
+  component: () => <AccountPage />,
+});
 
 // ── /admin/*：需要管理员 ──
 const adminLayout = createRoute({

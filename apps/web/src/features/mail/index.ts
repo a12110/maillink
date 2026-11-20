@@ -1,4 +1,5 @@
 export { AttachmentList } from "./AttachmentList";
+export type { AttachmentItem } from "./AttachmentList";
 export { MailBody } from "./MailBody";
 export { MailHeaderList } from "./MailHeaderList";
 export type { MailHeader } from "./MailHeaderList";

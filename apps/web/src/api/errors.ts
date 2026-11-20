@@ -4,6 +4,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** 响应头 Retry-After（秒）；429 时才有 */
+    readonly retryAfterSec?: number,
   ) {
     super(message);
     this.name = "ApiError";

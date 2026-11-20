@@ -56,12 +56,20 @@ async function readJson(response: Response): Promise<{ ok: true; value: unknown 
   }
 }
 
+/** Retry-After 只认“整数秒”（后端只发这一种）；缺失或不是非负整数就当没有 */
+function parseRetryAfter(response: Response): number | undefined {
+  const raw = response.headers.get("Retry-After");
+  if (raw === null || !/^\d+$/.test(raw.trim())) return undefined;
+  return Number(raw.trim());
+}
+
 /** 错误响应：能解析统一错误体就用它的 code / message，否则明确标成 unexpected_response（如反向代理的 HTML 502） */
 async function toApiError(response: Response): Promise<ApiError> {
   const json = await readJson(response);
   const parsed = json.ok ? errorResponseSchema.safeParse(json.value) : null;
-  if (parsed?.success) return new ApiError(response.status, parsed.data.error.code, parsed.data.error.message);
-  return new ApiError(response.status, "unexpected_response", "服务器返回了无法识别的响应（不是约定的 JSON 错误体）");
+  const retryAfter = parseRetryAfter(response);
+  if (parsed?.success) return new ApiError(response.status, parsed.data.error.code, parsed.data.error.message, retryAfter);
+  return new ApiError(response.status, "unexpected_response", "服务器返回了无法识别的响应（不是约定的 JSON 错误体）", retryAfter);
 }
 
 async function parseSuccess<S extends z.ZodType>(response: Response, spec: RequestSpec<S>): Promise<z.output<S>> {

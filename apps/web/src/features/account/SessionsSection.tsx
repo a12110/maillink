@@ -79,21 +79,21 @@ function SessionsBody({ data, error, isError, revokingId, onRevoke, onRetry }: B
   return <SessionTable items={data.items} revokingId={revokingId} onRevoke={onRevoke} />;
 }
 
-function useRevoke(others: MySession[], onDone: () => void) {
+function useRevoke(onDone: () => void) {
   const queryClient = useQueryClient();
   const toast = useToast();
   return useMutation({
     mutationFn: async (target: MySession | "others") => {
-      // 后端只有单个注销接口，“注销其他会话”逐个调用
-      const targets = target === "others" ? others : [target];
-      await Promise.all(targets.map((s) => api.revokeMySession(s.id)));
-      return targets.length;
+      // “注销其他会话”是一次请求 DELETE /api/me/sessions?scope=others，由服务端一次性处理
+      if (target === "others") return (await api.revokeOtherSessions()).revoked;
+      await api.revokeMySession(target.id);
+      return 1;
     },
     onSuccess: (count) => {
       onDone();
       toast.success(`已注销 ${count} 个会话`);
     },
-    // 批量注销可能只成功一部分（Promise.all 提前拒绝）：无论成败都刷新，列表以服务端为准
+    // 无论成败都刷新，列表以服务端为准
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.mySessions }),
   });
 }
@@ -102,7 +102,7 @@ export function SessionsSection() {
   const list = useQuery(mySessionsQuery());
   const [confirming, setConfirming] = useState<MySession | "others" | null>(null);
   const others = list.data?.items.filter((s) => !s.current) ?? [];
-  const revoke = useRevoke(others, () => setConfirming(null));
+  const revoke = useRevoke(() => setConfirming(null));
   const ask = (target: MySession | "others") => {
     revoke.reset();
     setConfirming(target);

@@ -3,6 +3,11 @@ import { MS_PER_SECOND } from "../constants";
 const EMPTY = "—";
 const PAD_WIDTH = 2;
 
+/** 当前时间（Unix 秒），与后端时间戳同单位 */
+export function nowSeconds(): number {
+  return Math.floor(Date.now() / MS_PER_SECOND);
+}
+
 function pad(value: number): string {
   return String(value).padStart(PAD_WIDTH, "0");
 }
@@ -59,9 +64,16 @@ export function initialOf(name: string): string {
   return Array.from(name)[0]?.toUpperCase() ?? "?";
 }
 
-const AUTH_METHOD_LABEL: Record<string, string> = { password: "密码" };
+const AUTH_METHOD_LABEL: Record<string, string> = {
+  password: "密码",
+  totp: "验证码",
+  recovery: "恢复码",
+  passkey: "通行密钥",
+};
+const OAUTH_METHOD_PREFIX = "oauth:";
 
-/** 登录方式标识 → 中文；M5 加入 totp / passkey / oauth 后在这里补，未知值原样显示而不是吞掉 */
+/** 登录方式标识 → 中文（OAuth 记为 `oauth:<slug>`）；未知值原样显示而不是吞掉 */
 export function describeAuthMethod(method: string): string {
+  if (method.startsWith(OAUTH_METHOD_PREFIX)) return `第三方（${method.slice(OAUTH_METHOD_PREFIX.length)}）`;
   return AUTH_METHOD_LABEL[method] ?? method;
 }

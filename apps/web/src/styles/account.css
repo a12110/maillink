@@ -1,0 +1,78 @@
+/*
+ * UI-4a：登录第二步与替代登录、账号安全（2FA / 恢复码 / 通行密钥 / 第三方账号）、用户侧板授权块。
+ * 只引用语义变量。
+ */
+:root {
+  --qr-size: 176px;
+  --qr-quiet-zone: var(--space-3);
+}
+
+@layer components {
+  /* ── 登录 ── */
+  .auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-4); font-size: var(--text-sm); }
+  .auth-alt { display: grid; gap: var(--space-3); }
+  .auth-divider { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-xs); color: var(--color-text-subtle); }
+  .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--color-border); }
+  .auth-alt .btn { height: var(--control-height-lg); }
+
+  /* ── 账号安全：分块 ── */
+  .security-block { display: grid; gap: var(--space-3); max-width: var(--content-max-width); }
+  /* 分块内的间距由 grid gap 负责，全局 .section-lead 的下边距会叠上去 */
+  .security-block > .section-lead { margin-bottom: 0; }
+  .security-status { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .setup-grid { display: grid; gap: var(--space-4); grid-template-columns: minmax(0, 1fr); align-items: start; }
+  @media (min-width: 640px) { .setup-grid { grid-template-columns: auto minmax(0, 1fr); } }
+  .setup-steps { display: grid; gap: var(--space-4); min-width: 0; }
+  .setup-steps ol { margin: 0; padding-left: var(--space-5); list-style: decimal; display: grid; gap: var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
+
+  /* 二维码：始终黑码白底（color-scheme: light 让 Canvas / CanvasText 在深色主题下也是白 / 黑），扫码器依赖这个对比 */
+  .qr {
+    display: block; width: var(--qr-size); height: var(--qr-size); padding: var(--qr-quiet-zone); box-sizing: content-box;
+    color-scheme: light; background: Canvas; color: CanvasText; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  }
+  .qr path { fill: currentColor; }
+  .secret-box {
+    display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-2) var(--space-3);
+    background: var(--color-surface-sunken); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  }
+  .secret-box code { font-family: var(--font-mono); font-size: var(--text-sm); letter-spacing: 0.06em; overflow-wrap: anywhere; user-select: all; flex: 1 1 12rem; }
+
+  /* 恢复码：只显示一次，用等宽两列网格，方便抄写 */
+  .recovery-panel { display: grid; gap: var(--space-3); padding: var(--space-4); background: var(--color-warning-soft); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+  .recovery-grid {
+    list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-4);
+    font-family: var(--font-mono); font-size: var(--text-base); font-weight: var(--weight-strong); letter-spacing: 0.06em;
+  }
+  .recovery-grid li { user-select: all; }
+  .recovery-panel .form-actions { margin-top: var(--space-1); }
+
+  /* 列表行：通行密钥、第三方账号 */
+  .item-empty { font-size: var(--text-sm); color: var(--color-text-muted); }
+  .item-list { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); }
+  .item-list > li { display: flex; align-items: center; gap: var(--space-3); min-height: var(--control-height-lg); padding: var(--space-2) var(--space-3); flex-wrap: wrap; }
+  .item-list > li + li { border-top: 1px solid var(--color-border); }
+  .item-main { flex: 1 1 14rem; min-width: 0; display: grid; gap: 2px; }
+  .item-main b { overflow-wrap: anywhere; }
+  .item-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+  .item-actions { display: inline-flex; gap: var(--space-1); }
+
+  /* ── 侧板：登录方式 / 授权 ── */
+  .method-list { list-style: none; margin: 0; padding: 0; display: grid; font-size: var(--text-sm); }
+  .method-list > li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--row-height); }
+  .method-label { min-width: 0; overflow-wrap: anywhere; }
+  .method-sub { display: grid; gap: var(--space-1); margin: 0; padding: 0 0 0 var(--space-3); list-style: none; font-size: var(--text-sm); }
+  .method-sub li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  .grant-list { list-style: none; margin: 0; padding: 0; display: grid; font-size: var(--text-sm); }
+  .grant-list > li { display: grid; gap: var(--space-1); padding: var(--space-2) 0; }
+  .grant-list > li + li { border-top: 1px solid var(--color-border); }
+  .grant-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  .grant-address { font-family: var(--font-mono); overflow-wrap: anywhere; min-width: 0; }
+  .grant-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); color: var(--color-text-muted); font-size: var(--text-xs); }
+  .picker-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+  .picker-list > li + li { border-top: 1px solid var(--color-border); }
+  .picker-item { display: flex; align-items: center; gap: var(--space-2); min-height: var(--row-height); padding: 0 var(--space-3); cursor: pointer; font-size: var(--text-sm); }
+  .picker-item:hover { background: var(--color-row-hover); }
+  .picker-item input { margin: 0; }
+  .picker-item .mono { overflow-wrap: anywhere; min-width: 0; }
+  .batch-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: var(--text-xs); max-height: 160px; overflow-y: auto; }
+}
