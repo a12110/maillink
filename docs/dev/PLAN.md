@@ -84,7 +84,7 @@
 - 管理员"全部邮件"列表无总数（同用户列表）。
 - UI-3 提出的后端缺口：收件地址标签清单接口；收件地址列表"有链接/无链接"筛选与启用/停用计数；测试器对不可见邮件不返回发件人与主题；shared 缺 `draft-from-mail` 响应 schema；父页面 CSP（`style-src 'unsafe-inline'`、`img-src data: https:`）与 `Referrer-Policy` 响应头（M7b 加固时统一设）。
 - 取件页路由大小写：TanStack Router 默认不区分大小写，`/S/<token>` 也能打开取件页但拿不到 `_headers` 的 `no-store`/`noindex`；UI-5 合并时给 `/s/$token` 设 `caseSensitive: true`（或 `_headers` 补规则）。
-- M7b-1 新增但前端尚未接线的后端字段（M7b-2 处理）：标签清单接口（收件地址页标签筛选候选）、`has_link` 筛选、测试器不可见邮件的发件人与主题、用户列表 `total`（页头"共 N 个"）；`/inbox`"全部"打开详情时带上列表项自己的 `mailbox_id`。
+- M7b-1 新增但前端尚未接线的后端字段（`total`、测试器、`/inbox` 归 M7b-2a；标签清单与 `has_link` 归 M7b-2b）：标签清单接口（收件地址页标签筛选候选）、`has_link` 筛选、测试器不可见邮件的发件人与主题、用户列表 `total`（页头"共 N 个"）；`/inbox`"全部"打开详情时带上列表项自己的 `mailbox_id`。
 - 用户收件箱"全部"的列表项不带 `mailbox_id`/`view`，前端分不清 `meta_only` 与 `full/text` 的邮件（目前点进去 404 时说明）；M7b 在列表项补 `mailbox_id`。
 
 ## 需要用户提供（不阻塞开发）
@@ -113,11 +113,12 @@
 | UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-3 |
 | UI-4a | 登录两步验证/通行密钥/OAuth、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、我的邮件 `/inbox` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4a |
 | UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4b |
-| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 待验收（`6ca86ff` 交付 → `544e05e` 合入含 UI-3/UI-4a/UI-4b 的 main：Turnstile 统一为 `TurnstileWidget`、收件地址页"生成取件链接"入口、取件页跳过 setup 守卫、`/s/$token` 区分大小写；web 547 + worker 1536 通过；opus-5-5#xhigh `ses_e08a86aafffe8vwiuHxrf4hIIE`） | 执行会话 `ses_e08e993e4ffe95V74xCD1eCriH` |
+| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 修复中（验收 opus-5-5#xhigh `ses_e08a86aafffe8vwiuHxrf4hIIE`"有条件通过"：仅每日次数用尽时误显示"次数已用完，请联系卖家"；`6ca86ff` 交付 → `544e05e` 合入 UI-3/UI-4a/UI-4b → `d488048` 合入 M7b-1（web typecheck 2 处：又一份重复的 `listMailboxes`、测试夹具缺 `password_min_length`）；并入：收件地址页"授权给用户"批量入口、`create_for` 关闭后清理并带地址文本、取件页公开配置请求取舍、骨架屏内联 px 与 stale 文案常量、`device_limit` 状态返回 `max_devices`（授权改 shared/worker）） | 执行会话 `ses_e08e993e4ffe95V74xCD1eCriH` |
 | M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7a |
 | INT-1 | M3b-2 × M6 集成：链接允许 Turnstile、"开始取码"接入 Turnstile、`GET /api/s/:token` 带出品牌/公告/data URI Logo/site key、创建链接用默认值、cron 清理 `link_password_attempts` 与 `auth_flow_tokens` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 INT-1 |
 | M7b-1 | 安全加固（页面 `_headers` 构建时生成含内联脚本哈希的 CSP、API 安全头、管理员强制 2FA 口径收紧）、后端缺口（收件箱列表 `mailbox_id`/`view`、标签清单、有无链接筛选与计数、测试器不可见邮件发件人主题、`draft-from-mail` schema、公开配置 `password_min_length`、用户列表 `total`）、`docs/deploy.md` | opus-5-5#high（含安全加固，按复杂任务） | 通过，已合并（见记录 2026-11-20 M7b-1）；过程：`ac07fb1` 交付 → `75a2a37` 合入 UI-3/UI-4b → `831e0dc` 前端适配 → `016b4a7` 合入 UI-4a → `011c37a` 适配 UI-4a、`/inbox` 改用列表项 `mailbox_id`/`view`；worker 1554 + web 459 通过；`_headers` 含 1 个内联脚本哈希；安全加固 opus-5-5#xhigh `ses_e08b851b9ffewKye8kbyRH6pZr`、缺口与部署文档 opus-5-5#high `ses_e08b826a9ffewKZ8R01m2zsWbU`；执行者另修 UI-3 偶发测试 `ImportDialog.test.ts`（点击后立即断言异步错误，单跑 6 次败 2 次；改为等待提示出现后断言，`e51482d`，主 agent 连跑 5 次全过）；未用迁移号） | 执行会话 `ses_e08e1db45ffe0KGf6OaDUOE0g9` |
-| M7b-2 | 端到端测试（真实浏览器走核心闭环与关键安全路径） | sonnet-5-5#high | 待办（等前端各页合并） | |
+| M7b-2a | 前端收尾：UI-4b 验收 5 条小改；接线用户列表 `total`、测试器不可见邮件发件人/主题、`/inbox`"全部"详情带 `mailbox_id`（不碰 mailboxes/links/pickup，避开 UI-5） | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7b-2a |
+| M7b-2b | 收件地址页接线标签清单与 `has_link` 筛选（UI-5 改过 `MailboxToolbar`/`MailboxTable`/`BatchLayer`，等其合并）；端到端测试（真实浏览器走核心闭环与关键安全路径） | sonnet-5-5#high | 待办（等 UI-5 合并） | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
 ## 记录
@@ -252,7 +253,7 @@
 - 内容：强调色算法只从 shared `theme-contrast` 导入（前端重复实现已删，测试断言 `THEME_GROUNDS` 与 `tokens.css` 一致）；主题读 `/api/public/config.appearance`，首屏 `color-scheme` meta + 最小内联预设脚本；系统设置页 9 组（外观实时预览可撤销、强调色不可达禁止保存、OAuth 提供方含自动发现与回调地址复制、系统状态只读缺列警告）；`TurnstileWidget` 按需加载、加载失败显式报错、token 一次性；注册页（关闭态、Turnstile 拿到 token 前不可提交、site key 为空时禁用不降级）。
 - 主 agent 复跑（合入最新 main 后）：typecheck/lint 三包 Done；web 21 文件 173 用例、worker 70 文件 1536 用例通过；web build 成功。
 - 验收实测：登录页、设置页、未启用 register 范围的注册页均不请求 challenges.cloudflare.com，启用后注册页才加载；Turnstile 失败后控件重置并显示中文错误；secret 留空不提交、不回显、不入存储；外观预览离开即清除内联覆盖；oauth 组不请求 `/api/admin/settings/oauth`。
-- 待 M7b-2 收尾的小项：两个 secret 输入框 `autoComplete` 改 `off`；Logo 读文件前先按 `file.size` 粗筛；默认强调色时可读性提示与 `tokens.css` 的 `accent-text` 值不一致；会话时长提示文案用 shared 常量；注册成功但取会话失败时提示"账号已创建，请去登录"。
+- 待 M7b-2a 收尾的小项：两个 secret 输入框 `autoComplete` 改 `off`；Logo 读文件前先按 `file.size` 粗筛；默认强调色时可读性提示与 `tokens.css` 的 `accent-text` 值不一致；会话时长提示文案用 shared 常量；注册成功但取会话失败时提示"账号已创建，请去登录"。
 
 ### 2026-11-20 UI-3 通过
 
@@ -281,3 +282,12 @@
 - 主 agent 复跑（`4cb5adc`）：typecheck/lint 三包 Done；web 52 文件 459 用例 + node:test 7 通过；worker 75 文件 1557 用例通过；web build 生成 `_headers`（1 个内联哈希）；`wrangler.jsonc` MAIL_DB `migrations_dir` 为 `mail-db-no-migrations`，目录只含 README；deploy.md 的 `APP_SECRET` 写法已改。
 - 安全验收实测（8813 + headless Chrome）：5 个页面安全头齐全，`/_headers` 不外泄；登录页 Turnstile 测试 key 渲染与外部请求不被 CSP 拦；HTML 邮件 srcdoc 与远程图片正常；CDP 虚拟认证器注册与登录通行密钥成功，`publickey-credentials-*` 与 `clipboard-write` 未被 Permissions-Policy 误伤；`/api/*` 各类响应带安全头。
 - 遗留：只登记通行密钥未开 TOTP 的管理员可用单因素会话自行启用 TOTP 进入管理端（"谁能启用 TOTP"的老问题，非本次引入）；停用 OAuth 提供方与清除凭据不做防锁死检查（deploy.md 已写应急办法）；入口 chunk 拆分后首屏多一次顺序加载。
+
+### 2026-11-20 M7b-2a 通过
+
+- 执行：sonnet-5-5#high（`ses_e08a09aa1ffemg7HN0ROyfXMmw`）；验收：opus-5-5#high（`ses_e08946d2dfferdJm2VnMOsp8D7`），"有条件通过"，修复由主 agent 机械核对后合并。
+- 过程：`fbd4cfb` 交付 → `ae84f03` 验收修复。只改 `apps/web/src/`。
+- 内容：设置页 secret 框（原已 `new-password`/`off`，补测试）；Logo 读文件前按 `SITE_LOGO_MAX_LENGTH × 3/4` 预检、读后按长度复查；默认强调色可读性提示按 tokens 的 `accent-text` 计算（测试读 `tokens.css` 防漂移）；会话时长文案与客户端校验由 shared 常量生成，范围错误与 schema 错误合并返回；注册成功但取会话失败提示"账号已创建，请前往登录"；用户页"共 N 个用户"（占位数据/出错时不显示）；测试器不可见邮件显示管理员视角发件人/主题；`/inbox`"全部"详情与附件带列表项 `mailbox_id`（同一选中邮件首次解析后锁定）；用户表表头改两行，`.table th`（除 `.col-check`）超长省略。
+- 验收首轮必修：切换筛选时 `keepPreviousData` 致页头短暂显示旧总数；注册后取会话失败分支缺测试（执行者首轮汇报称已补、实际未写入文件，修复轮补上，主 agent 已在文件中核对两条用例存在）。
+- 主 agent 复跑（`ae84f03`）：typecheck/lint 三包 Done；web 54 文件 479 + node:test 7、worker 75 文件 1557 通过；web build 成功；看 `users-1440-fix.png` 表头不再重叠。
+- 遗留：`register-created-390` 截图实为"用户名已被使用"表单（同布局，风险低）；`.table th` 截断规则合入 UI-5 后需看一眼链接表表头。
