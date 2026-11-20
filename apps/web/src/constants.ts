@@ -25,3 +25,27 @@ export const DESKTOP_MIN_WIDTH_PX = 1024;
 export const DESKTOP_MEDIA_QUERY = `(min-width: ${DESKTOP_MIN_WIDTH_PX}px)`;
 
 export const MS_PER_SECOND = 1000;
+
+// ── 取件页 ──
+/** 无任何操作多久后暂停自动刷新（给“继续刷新”） */
+export const PICKUP_IDLE_PAUSE_MS = 5 * 60 * MS_PER_SECOND;
+/** 新邮件卡片上“刚收到”标签保留多久（DESIGN.md：4s） */
+export const PICKUP_FRESH_TAG_MS = 4000;
+/** 验证码收到超过多久标“可能已过期”（DESIGN.md：10 分钟） */
+export const PICKUP_STALE_CODE_SEC = 600;
+/** code_only 视图里“更早收到的”最多显示几条 */
+export const PICKUP_OLDER_CODES_SHOWN = 5;
+/** 新邮件到达时的可选震动时长 */
+export const PICKUP_VIBRATE_MS = 30;
+/** 取件页倒计时与相对时间的刷新频率 */
+export const PICKUP_TICK_MS = 1000;
+
+// ── 取件链接管理 ──
+/** 管理端取件链接列表每页条数（1440×900 一屏 16 行 + 表尾） */
+export const LINKS_PAGE_SIZE = 16;
+/** 侧板访问日志每次加载的条数 */
+export const LINK_LOGS_PAGE_SIZE = 20;
+/** 创建对话框里收件地址选择器每页条数 */
+export const MAILBOX_PICKER_PAGE_SIZE = 30;
+/** 链接预览一次最多看多少封邮件（后端默认 20，上限 100） */
+export const LINK_PREVIEW_MAILS = 30;

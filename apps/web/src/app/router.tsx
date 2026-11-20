@@ -3,13 +3,15 @@ import type { RouterHistory } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { AccountPage } from "../features/account/AccountPage";
 import { LoginPage } from "../features/auth/LoginPage";
+import { PickupPage } from "../features/pickup/PickupPage";
 import { SetupPage } from "../features/auth/SetupPage";
+import { LinksPage } from "../features/links/LinksPage";
+import { parseLinksSearch } from "../features/links/search";
 import { parseMailsSearch } from "../features/mails/search";
 import { MailsPage } from "../features/mails/MailsPage";
 import { MailsRouteError } from "../features/mails/MailsRouteError";
 import { UsersPage } from "../features/users/UsersPage";
 import { AuthShell } from "../shell/AuthShell";
-import { PickupShell } from "../shell/PickupShell";
 import { PlaceholderPage } from "../shell/PlaceholderPage";
 import { NotFoundPage, RouteErrorPage } from "../shell/StatusPages";
 import { WorkspaceShell } from "../shell/WorkspaceShell";
@@ -50,17 +52,12 @@ const registerRoute = createRoute({
   ),
 });
 
-// ── 取件页外壳（页面在 M3b 之后实现） ──
-const pickupRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/s/$token",
-  component: () => (
-    <PickupShell>
-      <h1 className="page-title">取件页</h1>
-      <p className="auth-lead">取件页将在后续里程碑实现，本页暂不显示任何邮件内容。</p>
-    </PickupShell>
-  ),
-});
+// ── 取件页外壳 ──
+function PickupRoute() {
+  const { token } = pickupRoute.useParams();
+  return <PickupPage key={token} token={token} />;
+}
+const pickupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/s/$token", component: PickupRoute });
 
 // ── 工作区外壳：需要登录 ──
 const workspaceLayout = createRoute({
@@ -91,6 +88,12 @@ const adminIndexRoute = createRoute({
   },
 });
 const usersRoute = createRoute({ getParentRoute: () => adminLayout, path: "/users", component: UsersPage });
+const linksRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/links",
+  validateSearch: parseLinksSearch,
+  component: LinksPage,
+});
 const mailsRoute = createRoute({
   getParentRoute: () => adminLayout,
   path: "/mails",
@@ -117,7 +120,6 @@ const settingsIndexRoute = createRoute({
 
 const adminPlaceholders = [
   placeholder("/mailboxes", "收件地址", "收件地址的导入与管理将随邮件后端（M2）提供，本页暂不显示任何数据。"),
-  placeholder("/links", "取件链接", "取件链接的创建与管理将在后续里程碑实现，本页暂不显示任何数据。"),
   placeholder("/rule-groups", "规则组", "规则组列表与编辑器将随规则引擎（M3a）提供，本页暂不显示任何数据。"),
   placeholder("/rule-groups/$id", "规则组编辑", "规则组编辑与测试器将在后续里程碑实现，本页暂不显示任何数据。"),
   placeholder("/settings/$group", "系统设置", "系统设置接口将在 M6 提供，本页暂不显示任何数据。"),
@@ -131,7 +133,7 @@ const routeTree = rootRoute.addChildren([
   workspaceLayout.addChildren([
     inboxRoute,
     accountRoute,
-    adminLayout.addChildren([adminIndexRoute, usersRoute, mailsRoute, settingsIndexRoute, ...adminPlaceholders]),
+    adminLayout.addChildren([adminIndexRoute, usersRoute, mailsRoute, linksRoute, settingsIndexRoute, ...adminPlaceholders]),
   ]),
 ]);
 

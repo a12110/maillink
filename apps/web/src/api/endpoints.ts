@@ -27,6 +27,7 @@ import type {
 import { HTTP_UNAUTHORIZED } from "./client";
 import type { ApiClient } from "./client";
 import { ApiError } from "./errors";
+import { createLinkEndpoints } from "./links-endpoints";
 
 function userPath(id: number, suffix = ""): string {
   return `/api/admin/users/${id}${suffix}`;
@@ -87,6 +88,8 @@ export function createEndpoints(client: ApiClient) {
     /** raw=true 时响应多一个 raw 字段（邮件原文） */
     getAdminMail: (id: number, raw: boolean) =>
       request({ path: adminMailPath(id), query: { raw: raw ? 1 : undefined }, schema: adminMailDetailSchema }),
+
+    ...createLinkEndpoints(client),
   };
 }
 
