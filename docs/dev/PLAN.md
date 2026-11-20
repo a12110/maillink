@@ -100,7 +100,7 @@
 | M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 通过，已合并 | 见记录 2026-11-20 M3b-2 |
 | M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M4 |
 | M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M5 |
-| M6 | 系统设置、外观、注册、Turnstile（后端） | sonnet-5-5#high | 修复中（验收"有条件通过"：`requirementFor` 的 pickup 判断让链接 `access.turnstile` 失效；并入 hostname/action 校验、会话过期时间、防锁死查询合并；评审会话 `ses_e091de33cffeL3cyVMwpnPPecd`；执行者提交 `42dd6f8`，已合入含 M4 的 main 为 `89f963f`，合并后 worker 1403 + web 111 通过） | 执行会话 `ses_e0931a6edffeIdfcs1y2apCnZW` |
+| M6 | 系统设置、外观、注册、Turnstile（后端） | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M6 |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
 | UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 进行中（worktree `ui3-mailboxes-rulegroups`，分支 `ui3`，基于 `5375ffa`，端口 8804） | 执行会话 `ses_e09313850ffe7INAHx6EaIz0kU` |
@@ -218,3 +218,12 @@
 - 主 agent 复跑（`88b487d`）：typecheck/lint 三包 Done；worker 60 文件 1355 用例、web 111 用例通过。
 - 复验证据：并发 20 次错口令只 5 次进入 PBKDF2、15 次 429；40 个 IP 并发错后新 IP 正确口令也 429、已登记设备 start 200；同一 /64 换地址仍锁、相邻 /64 不受影响；被拒 POST 在限流器全拒时 0 条日志、放行时每请求只调一次限流器；首轮已确认 7 种 410 逐字节相同、设备与取码并发不超限（P2/P3a/P3b）、GET 无副作用、AAD 绑 `token_hash` 安全、rotate 原子、预览无副作用。
 - 遗留：`link_password_attempts` 过期行待 M7b cron 清理；按链接口令上限可被用来挡新设备（有意取舍）；POST 与 GET 在 `total_limit` 与撤销之间的限流消耗差异（影响极小）。
+
+### 2026-11-20 M6 通过
+
+- 执行：sonnet-5-5#high（`ses_e0931a6edffeIdfcs1y2apCnZW`）；验收：opus-5-5#high（`ses_e091de33cffeL3cyVMwpnPPecd`），"有条件通过"，1 项必修：`turnstile/verify.ts` 的 `requirementFor` 让取件页忽略链接自己的 `access.turnstile`（系统范围含 pickup 时未开验证的链接也被要求校验，前端不加载控件会一律 400）。
+- 修复由主 agent 直接核对（可机械验证）：`requirementFor` 现为 pickup 只看 `forced`、forced 时要求系统启用 + 范围含 pickup + 两把密钥，否则 503；login/register 只看系统设置。新增 hostname（`PUBLIC_ORIGIN` 主机名）与 action（= scope）校验；`/api/auth/session` 的 `expires_at` 取 `min(expires_at, created_at + 当前绝对时长)`；`anyAdminCanLogIn` 合并为一条 `EXISTS`。相关 10 个 Turnstile 用例通过。
+- 主 agent 复跑（`d5556a9`）：typecheck/lint 三包 Done；worker 62 文件 1411 用例、web 111 用例通过。
+- 验收确认：secret 独立 HKDF 用途 + AAD 加密、GET 只回 `secret_set`、审计不含 secret；公开配置是白名单；siteverify POST 表单、5 s 超时、16 KB 上限、`redirect: manual`；未配置 503、token 无效 400、不可达 503，均不放行；登录顺序 限流 → 登录方式 → Turnstile → 哈希；`login_methods_lockout` 与 `admin_2fa_lockout` 规则完整；会话时长"取较早者"与 cron 清理一致。
+- 前端对接：Turnstile 控件 `action` 只能是 `login` / `register` / `pickup`；`PUBLIC_ORIGIN` 主机名须与控件所在域名一致。
+- 遗留：管理员强制 2FA 判定口径收紧（M7b）；取件页 Turnstile 与"开始取码"接线、`pickup_notice`/`show_brand`/data URI Logo 带入 `GET /api/s/:token`、链接保存时允许 `turnstile=true`（系统已配置时）——M3b-2 与 M6 都合并后由集成任务完成；前端强调色改用 shared `theme-contrast`（UI-4b）。
