@@ -56,13 +56,14 @@ describe("/api/admin/* 访问控制", () => {
 describe("公开接口", () => {
   beforeEach(resetApp);
 
-  it("GET /api/public/config：默认值（站点名、关闭注册、仅密码登录），免登录", async () => {
+  it("GET /api/public/config：默认值（站点名、关闭注册、密码与通行密钥；没有提供方时不列 oauth），免登录", async () => {
     const res = await api("/api/public/config");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       site_name: "MailLink",
       registration_enabled: false,
-      login_methods: ["password"],
+      login_methods: ["password", "passkey"],
+      oauth_providers: [],
     });
   });
 
@@ -73,7 +74,8 @@ describe("公开接口", () => {
     expect(await (await api("/api/public/config")).json()).toEqual({
       site_name: "我的站点",
       registration_enabled: true,
-      login_methods: ["password"],
+      login_methods: ["password", "passkey"],
+      oauth_providers: [],
     });
   });
 });

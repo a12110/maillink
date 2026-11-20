@@ -86,6 +86,7 @@ function toAuthContext(row: SessionWithUser): AuthContext {
     session: {
       idHash: row.id_hash,
       authMethods: row.auth_methods === "" ? [] : row.auth_methods.split(","),
+      createdAt: row.created_at,
       expiresAt: row.expires_at,
     },
   };

@@ -4,6 +4,7 @@ import { requireAdmin } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
 import { adminMailRoutes } from "./routes/admin-mails";
+import { adminOAuthProviderRoutes } from "./routes/admin-oauth-providers";
 import { adminSystemRoutes } from "./routes/admin-system";
 import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
@@ -28,6 +29,7 @@ app.route("/api/me", meRoutes);
 app.route("/api/admin/users", adminUserRoutes);
 app.route("/api/admin/system", adminSystemRoutes);
 app.route("/api/admin/mails", adminMailRoutes);
+app.route("/api/admin/oauth-providers", adminOAuthProviderRoutes);
 
 export default {
   fetch: app.fetch,
