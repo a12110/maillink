@@ -28,6 +28,8 @@ export const AUDIT_ACTIONS = {
   passkeyRename: "auth.passkey_rename",
   passkeyRemove: "auth.passkey_remove",
   passkeyCounterRollback: "auth.passkey_counter_rollback",
+  /** 用户发起 OAuth 绑定（已通过再确认、即将跳转提供方）；完成与被拒分别是 identity_link / identity_link_rejected */
+  identityLinkStart: "auth.identity_link_start",
   identityLink: "auth.identity_link",
   identityLinkRejected: "auth.identity_link_rejected",
   identityUnlink: "auth.identity_unlink",

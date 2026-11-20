@@ -323,7 +323,7 @@ export const RATE_LIMIT_PURPOSES = {
   mfaIp: "mfa:ip",
   passkeyIp: "passkey:ip",
   oauthIp: "oauth:ip",
-  /** 再确认类：改密码、2FA 管理、重新生成恢复码，都要求验证旧密码或一次性码，可被拿来猜 */
+  /** 再确认类：改密码、2FA 管理、重新生成恢复码、发起 OAuth 绑定，都要求验证旧密码或一次性码，可被拿来猜 */
   reauthIp: "reauth:ip",
   /** 通行密钥管理（注册、改名、删除） */
   passkeyManageIp: "passkey-manage:ip",
@@ -367,6 +367,9 @@ export const RATE_LIMITED_ROUTES: ReadonlyArray<{
   { method: "POST", path: "/api/auth/mfa/*", purpose: RATE_LIMIT_PURPOSES.mfaIp },
   { method: "POST", path: "/api/auth/passkey/*", purpose: RATE_LIMIT_PURPOSES.passkeyIp },
   { method: "GET", path: "/api/auth/oauth/*", purpose: RATE_LIMIT_PURPOSES.oauthIp },
+  // 发起绑定（POST /api/auth/oauth/:slug/link）要校验当前密码或验证码：与其他再确认接口共用 reauth:ip，
+  // 不占 OAuth 登录跳转的 oauth:ip 名额，猜密码的请求也不能借登录流程的名额绕开
+  { method: "POST", path: "/api/auth/oauth/*", purpose: RATE_LIMIT_PURPOSES.reauthIp },
   { method: "POST", path: "/api/me/password", purpose: RATE_LIMIT_PURPOSES.reauthIp },
   { method: "POST", path: "/api/me/totp/*", purpose: RATE_LIMIT_PURPOSES.reauthIp },
   { method: "DELETE", path: "/api/me/totp/*", purpose: RATE_LIMIT_PURPOSES.reauthIp },

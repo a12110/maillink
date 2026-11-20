@@ -13,4 +13,4 @@ export {
   resetMailSchemaCache,
 } from "./schema-probe";
 export { formatD1Utc, parseD1Utc } from "./time";
-export type { AdminMailFilters, AdminMailScope, MailCandidate, RawMailResult } from "./types";
+export type { AdminMailFilters, AdminMailScope, MailCandidate, MailDbBinding, RawMailResult } from "./types";

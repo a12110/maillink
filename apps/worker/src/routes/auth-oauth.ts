@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "zod";
-import { OAUTH_SLUG_MAX_LENGTH, OAUTH_SLUG_PATTERN } from "@maillink/shared";
-import type { OAuthResultCode } from "@maillink/shared";
+import { OAUTH_SLUG_MAX_LENGTH, OAUTH_SLUG_PATTERN, oauthLinkStartRequestSchema } from "@maillink/shared";
+import type { OAuthLinkStartResponse, OAuthResultCode } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { loginMethodEnabled } from "../auth/login-method-gate";
 import { resolveOAuthOutcome } from "../auth/oauth-link";
@@ -10,14 +10,20 @@ import { OAuthFlowError, authorizationUrl, exchangeCode, fetchProfile, pkceChall
 import { callbackUrl, openClientSecret } from "../auth/oauth/provider";
 import { startFlowState, takeFlowState } from "../auth/oauth/state";
 import type { OAuthFlowState, OAuthMode } from "../auth/oauth/state";
-import { authenticate } from "../auth/session";
+import { reauthenticate } from "../auth/reauth";
 import { nowSec } from "../clock";
 import { findProviderById, findProviderBySlug } from "../db/oauth-providers";
 import type { OAuthProviderRow } from "../db/oauth-providers";
+import { findUserById } from "../db/users";
 import type { AppEnv } from "../env";
-import { ApiError } from "../errors";
+import { ApiError, notFoundError } from "../errors";
+import { HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from "../http-status";
+import { requireUser } from "../middleware/auth";
+import { parseJsonBody } from "../validate";
 
-// GET /api/auth/oauth/:slug/start?mode=login|link → 302 到提供方；
+// GET /api/auth/oauth/:slug/start?mode=login → 302 到提供方（只用于登录）；
+// POST /api/auth/oauth/:slug/link → 绑定：经全局 CSRF 检查、要求再确认，返回 { authorize_url }，前端整页跳转（FIN-A）。
+//   绑定不能用 GET：跨站导航就能替已登录用户发起，而 OAuth 登录默认不要求本地 2FA，被绑上的身份等于绕过 2FA 的钥匙。
 // GET /api/auth/oauth/:slug/callback → 302 回前端固定路径并带结果码（login 回 /login，link 回 /account，
 // 查询参数 oauth=<结果码>&provider=<slug>）。令牌与授权码从不出现在回前端的 URL 里。
 
@@ -51,33 +57,59 @@ async function usableProvider(c: Context<AppEnv>, slug: string): Promise<OAuthPr
   return provider;
 }
 
-async function sessionUserId(c: Context<AppEnv>): Promise<number | null> {
-  try {
-    return (await authenticate(c)).user.id;
-  } catch (error) {
-    if (error instanceof ApiError) return null;
-    throw error;
-  }
-}
-
-authOAuthRoutes.get("/:slug/start", async (c) => {
-  const slug = c.req.param("slug");
-  const mode = modeSchema.parse(c.req.query("mode"));
-  const provider = await usableProvider(c, slug);
-  if (!provider) return redirectResult(c, mode, "provider_unavailable", null);
-
-  const userId = mode === "link" ? await sessionUserId(c) : null;
-  if (mode === "link" && userId === null) return redirectResult(c, mode, "link_requires_login", provider.slug);
-
-  const flow = await startFlowState(c, { providerId: provider.id, slug: provider.slug, oidc: provider.kind === "oidc", mode, userId });
-  const location = authorizationUrl(provider, {
+/** 生成流程状态（写进加密 Cookie）并给出提供方授权地址 */
+async function beginFlow(c: Context<AppEnv>, provider: OAuthProviderRow, binding: { userId: number; sessionHash: string } | null): Promise<string> {
+  const mode: OAuthMode = binding === null ? "login" : "link";
+  const flow = await startFlowState(c, {
+    providerId: provider.id,
+    slug: provider.slug,
+    oidc: provider.kind === "oidc",
+    mode,
+    userId: binding?.userId ?? null,
+    sessionHash: binding?.sessionHash ?? null,
+  });
+  return authorizationUrl(provider, {
     redirectUri: callbackUrl(c.env, provider.slug),
     state: flow.st,
     nonce: flow.nn,
     codeChallenge: await pkceChallenge(flow.cv),
   });
+}
+
+authOAuthRoutes.get("/:slug/start", async (c) => {
+  if (modeSchema.parse(c.req.query("mode")) === "link") {
+    throw new ApiError(HTTP_BAD_REQUEST, "oauth_link_requires_post", "绑定第三方账号请在“账号安全”页发起");
+  }
+  const provider = await usableProvider(c, c.req.param("slug"));
+  if (!provider) return redirectResult(c, "login", "provider_unavailable", null);
+  const location = await beginFlow(c, provider, null);
   c.header("Cache-Control", "no-store");
   return c.redirect(location, 302);
+});
+
+/**
+ * 发起绑定：已登录 + 再确认（口径同添加通行密钥：当前密码或 TOTP；没有密码的账号凭最近登录）。
+ * state 绑定到当前用户与会话（流程 Cookie 的 uid / sh），回调时会话必须仍是这一个。
+ */
+authOAuthRoutes.post("/:slug/link", requireUser, async (c) => {
+  const body = await parseJsonBody(c, oauthLinkStartRequestSchema);
+  const provider = await usableProvider(c, c.req.param("slug"));
+  if (!provider) throw new ApiError(HTTP_NOT_FOUND, "provider_unavailable", "这个第三方登录方式不存在或已停用");
+  const { user, session } = c.var.auth;
+  const row = await findUserById(c.env.APP_DB, user.id);
+  if (!row) throw notFoundError("用户不存在");
+  await reauthenticate(c, row, body, { purpose: "oauth_link", allowRecentSession: true });
+
+  const authorizeUrl = await beginFlow(c, provider, { userId: user.id, sessionHash: session.idHash });
+  await recordAudit(c, {
+    action: AUDIT_ACTIONS.identityLinkStart,
+    actorUserId: user.id,
+    targetType: "user",
+    targetId: user.id,
+    detail: { provider: provider.slug },
+  });
+  const response: OAuthLinkStartResponse = { authorize_url: authorizeUrl };
+  return c.json(response);
 });
 
 /** 发起之后管理员可能停用了提供方或关掉了 oauth 登录：回调时重新检查，不放行 */

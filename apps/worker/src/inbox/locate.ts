@@ -1,6 +1,6 @@
 import type { EffectiveGrantRow } from "../db/grants";
 import { notFoundError } from "../errors";
-import { expandAddressForms, getCandidateById, type MailCandidate } from "../mail-source";
+import { expandAddressForms, getCandidateById, type MailCandidate, type MailDbBinding } from "../mail-source";
 
 // 详情与附件：由邮件定位到"这封邮件属于当前用户的哪个授权"。
 // 选择：mailbox_id（收件地址 id）可选。给了就只在该地址的授权里找；没给就按邮件自己的收件地址在用户的有效授权里定位。
@@ -16,7 +16,7 @@ function recipientOf(candidate: MailCandidate): string {
 }
 
 export async function locateGrantForMail(
-  mailDb: D1Database,
+  source: MailDbBinding,
   grants: readonly EffectiveGrantRow[],
   mailId: number,
   mailboxId: number | undefined,
@@ -26,7 +26,7 @@ export async function locateGrantForMail(
     if (!grant) throw hidden();
     return grant;
   }
-  const candidate = await getCandidateById(mailDb, mailId);
+  const candidate = await getCandidateById(source.MAIL_DB, mailId);
   if (!candidate) throw hidden();
   const recipient = recipientOf(candidate);
   const grant = grants.find((row) => expandAddressForms([row.address]).includes(recipient));

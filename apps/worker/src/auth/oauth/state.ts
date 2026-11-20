@@ -11,7 +11,8 @@ import { FlowTokenError, decryptToken, encryptToken } from "../signed-token";
 
 // OAuth 流程状态：10 分钟有效的加密 Cookie oauth_flow（AES-GCM，AAD = cookie:oauth_flow）。
 // 内容 { typ, jti, exp, pid: 提供方 id, slug, st: state, nn: nonce(仅 oidc), cv: PKCE code_verifier,
-//        mode: login|link, uid: link 模式下发起的用户 id }。回调时无论成败都立即清除，jti 一次性消费。
+//        mode: login|link, uid: link 模式下发起的用户 id, sh: link 模式下发起时的会话 idHash }。
+// 回调时无论成败都立即清除，jti 一次性消费；link 模式的回调要求当前会话与 uid、sh 都一致（auth/oauth-link.ts）。
 
 const TYP = "oauth_flow";
 
@@ -26,6 +27,7 @@ const flowSchema = z.object({
   cv: z.string().min(1),
   mode: z.enum(["login", "link"]),
   uid: z.number().int().positive().nullable(),
+  sh: z.string().min(1).nullable(),
 });
 export type OAuthFlowState = z.infer<typeof flowSchema>;
 export type OAuthMode = OAuthFlowState["mode"];
@@ -36,7 +38,7 @@ function randomToken(): string {
 
 export async function startFlowState(
   c: Context<AppEnv>,
-  input: { providerId: number; slug: string; oidc: boolean; mode: OAuthMode; userId: number | null },
+  input: { providerId: number; slug: string; oidc: boolean; mode: OAuthMode; userId: number | null; sessionHash: string | null },
 ): Promise<OAuthFlowState> {
   const state: OAuthFlowState = {
     typ: TYP,
@@ -49,6 +51,7 @@ export async function startFlowState(
     cv: randomToken(),
     mode: input.mode,
     uid: input.userId,
+    sh: input.sessionHash,
   };
   setFlowCookie(c, FLOW_COOKIES.oauthFlow, await encryptToken(c.env, state));
   return state;

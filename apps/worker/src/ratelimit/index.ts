@@ -6,7 +6,7 @@ import {
   RATE_LIMIT_KEY_PART_MAX_LENGTH,
   RATE_LIMIT_NO_IP_PART,
 } from "../constants";
-import type { RateLimitPurpose } from "../constants";
+import type { RateLimitPurpose, RateLimiterBindingName } from "../constants";
 import type { AppEnv } from "../env";
 import { ApiError } from "../errors";
 import { HTTP_SERVICE_UNAVAILABLE, HTTP_TOO_MANY_REQUESTS } from "../http-status";
@@ -37,13 +37,27 @@ export function rateLimitKey(purpose: RateLimitPurpose, ...parts: readonly strin
  *   await enforceRateLimit(c, RATE_LIMIT_PURPOSES.link, tokenHash, requestIp(c));
  * 注意：每次调用都会消耗一次配额，包括之后被其他检查拒绝的请求，这正是想要的。
  */
+/** 按名字取限流 binding：逐个写出，不对 env 做计算属性访问（MAIL_DB 守卫禁止 env[k]） */
+function limiterBinding(env: AppEnv["Bindings"], name: RateLimiterBindingName): RateLimit | undefined {
+  switch (name) {
+    case "RATE_LIMITER":
+      return env.RATE_LIMITER;
+    case "LINK_RATE_LIMITER":
+      return env.LINK_RATE_LIMITER;
+    default: {
+      const unhandled: never = name;
+      throw new Error(`未知的限流 binding：${String(unhandled)}`);
+    }
+  }
+}
+
 export async function enforceRateLimit(
   c: Context<AppEnv>,
   purpose: RateLimitPurpose,
   ...parts: readonly string[]
 ): Promise<void> {
   const bindingName = RATE_LIMIT_BINDING_BY_PURPOSE[purpose];
-  const limiter = c.env[bindingName];
+  const limiter = limiterBinding(c.env, bindingName);
   if (!limiter) {
     throw new ApiError(
       HTTP_SERVICE_UNAVAILABLE,

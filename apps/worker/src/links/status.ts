@@ -1,9 +1,9 @@
 import type { LinkPageState, LinkPublicStatus, PresentedMail } from "@maillink/shared";
 import type { AccessScope } from "../access";
-import { listVisibleMails } from "../access";
+import { listVisibleMailsTagged } from "../access";
 import { ApiError, notFoundError } from "../errors";
 import { HTTP_SERVICE_UNAVAILABLE } from "../http-status";
-import type { MailIndexDbs } from "../mail-index";
+import type { MailIdentity, MailIndexDbs } from "../mail-index";
 import { maskAddress } from "../render";
 import { loadPickupSettings } from "./pickup-settings";
 import type { LinkRequest } from "./request";
@@ -59,11 +59,21 @@ export async function buildPublicStatus(db: D1Database, req: LinkRequest, scope:
  * reveal 前判定某封邮件对本链接可见：用列表同一个函数，以 after_id = id − 1 增量求值，结果里必须有这封。
  * 这样地址归属、时间下界、规则、max_mails 都与访问者看到的列表同一口径，没有第二套逻辑。
  * 这封还没解析到（partial）时返回 503 让前端稍后重试，不当作不可见。
+ * 同时给出这封的邮件身份，取码记录据此区分"同一封"与"复用了 id 的新邮件"。
  */
-export async function findVisibleListItem(dbs: MailIndexDbs, scope: AccessScope, mailId: number, now: number): Promise<PresentedMail> {
-  const result = await listVisibleMails(dbs, scope, { afterId: mailId - 1, now });
+export async function findVisibleListItem(
+  dbs: MailIndexDbs,
+  scope: AccessScope,
+  mailId: number,
+  now: number,
+): Promise<{ mail: PresentedMail; identity: MailIdentity }> {
+  const { response: result, identities } = await listVisibleMailsTagged(dbs, scope, { afterId: mailId - 1, now });
   const item = result.items.find((mail) => mail.id === mailId);
-  if (item !== undefined) return item;
+  if (item !== undefined) {
+    const identity = identities.get(mailId);
+    if (identity === undefined) throw new Error(`mail ${mailId}: 列表里有这封却没有邮件身份`);
+    return { mail: item, identity };
+  }
   if (result.partial) throw new ApiError(HTTP_SERVICE_UNAVAILABLE, "mail_not_ready", "邮件还在处理，请稍后重试");
   throw notFoundError("邮件不存在");
 }

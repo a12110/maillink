@@ -3,6 +3,7 @@ import type { HealthResponse, MailSchemaProbe } from "@maillink/shared";
 import type { AppEnv, Bindings } from "../env";
 import { getLastRun } from "../db/cron-state";
 import { getMailSchema } from "../mail-source";
+import type { MailDbBinding } from "../mail-source";
 import { HTTP_OK, HTTP_SERVICE_UNAVAILABLE } from "../http-status";
 
 function describeError(error: unknown): string {
@@ -19,11 +20,11 @@ async function checkAppDb(db: D1Database): Promise<HealthResponse["app_db"]> {
   }
 }
 
-async function checkMailDb(db: D1Database): Promise<HealthResponse["mail_db"]> {
+/** probeMail：调用方把 MAIL_DB 直接交给 mail-source 的探测函数（MAIL_DB 不经过本文件的其他函数） */
+async function checkMailDb(probeMail: () => Promise<MailSchemaProbe>): Promise<HealthResponse["mail_db"]> {
   let probe: MailSchemaProbe;
   try {
-    // 健康检查总是重探并刷新缓存（01 §3.1）
-    probe = await getMailSchema(db, { refresh: true });
+    probe = await probeMail();
   } catch (error) {
     console.error("health check: MAIL_DB 探测失败", error);
     return { ok: false, error: describeError(error), probe: null };
@@ -36,8 +37,9 @@ async function checkMailDb(db: D1Database): Promise<HealthResponse["mail_db"]> {
 }
 
 /** 健康检查：两个库的探测、限流绑定状态与 cron 上次运行。health 接口与系统设置的"系统状态"共用 */
-export async function buildHealth(env: Pick<Bindings, "APP_DB" | "MAIL_DB" | "RATE_LIMITER" | "LINK_RATE_LIMITER">): Promise<HealthResponse> {
-  const [appDb, mailDb] = await Promise.all([checkAppDb(env.APP_DB), checkMailDb(env.MAIL_DB)]);
+export async function buildHealth(env: Pick<Bindings, "APP_DB" | "RATE_LIMITER" | "LINK_RATE_LIMITER"> & MailDbBinding): Promise<HealthResponse> {
+  // 健康检查总是重探并刷新缓存（01 §3.1）
+  const [appDb, mailDb] = await Promise.all([checkAppDb(env.APP_DB), checkMailDb(() => getMailSchema(env.MAIL_DB, { refresh: true }))]);
   // ok 只反映两个库；cron 失败与限流未配置作为状态字段展示，由管理员处理
   const cron = appDb.ok
     ? { prewarm: await getLastRun(env.APP_DB, "prewarm"), cleanup: await getLastRun(env.APP_DB, "cleanup") }

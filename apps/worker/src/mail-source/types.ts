@@ -14,6 +14,12 @@ export type MailCandidate = {
   received_at: number;
 };
 
+/**
+ * 携带 MAIL_DB 绑定的对象（通常就是 c.env）。mail-source 之外的代码只把 `x.MAIL_DB` 直接交给 mail-source 的函数，
+ * 自己的类型用这个名字声明，不在别处写 MAIL_DB（scripts/mail-db-guard.ts 守卫）。
+ */
+export type MailDbBinding = { MAIL_DB: D1Database };
+
 /** 取 raw 的单封结果。失败（两列都空、gzip 损坏）不抛异常，由调用方把这封标成解析失败 */
 export type RawMailResult =
   | {

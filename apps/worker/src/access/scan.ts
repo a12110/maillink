@@ -11,7 +11,15 @@ import { evaluateIndexed } from "./policy";
 // 遇到 pending 立即停：它之后的邮件都不算处理过，游标与 after_id 只能停在它前面，保证不漏。
 
 /** recipient 为候选的收件地址（全小写），用户收件箱"全部"据此把邮件对回授权 */
-export type VisibleEntry = { mail_id: number; received_at: number; recipient: string; facts: MailFacts; evaluation: RuleEvaluation };
+export type VisibleEntry = {
+  mail_id: number;
+  /** 与 received_at、recipient 一起构成邮件身份（mail-index/identity.ts） */
+  message_id: string | null;
+  received_at: number;
+  recipient: string;
+  facts: MailFacts;
+  evaluation: RuleEvaluation;
+};
 
 /** 取下一批候选：afterCursor 为上一批最后一封的 id（首批为 null），返回按扫描方向排好序的候选 */
 export type FetchBatch = (afterCursor: number | null, limit: number) => Promise<MailCandidate[]>;
@@ -98,6 +106,7 @@ async function processBatch(
     if (!evaluation.visible) continue;
     state.visible.push({
       mail_id: candidate.id,
+      message_id: candidate.message_id,
       received_at: candidate.received_at,
       recipient: candidate.recipient,
       facts: item.facts,

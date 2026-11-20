@@ -1,8 +1,8 @@
 import type { ExtractedValues, PresentedMail } from "@maillink/shared";
 import { notFoundError } from "../errors";
-import type { MailIndexDbs } from "../mail-index";
+import { mailIdentity, sameMailIdentity, type MailIdentity, type MailIndexDbs } from "../mail-index";
 import { MailParseError, parseMail, parseMime, visibleAttachments, type ParsedMail } from "../mail-parse";
-import { expandAddressForms, getCandidateById, getRawBatch, type MailCandidate } from "../mail-source";
+import { expandAddressForms, getCandidateById, getRawBatch, type MailCandidate, type RawMailResult } from "../mail-source";
 import { HtmlSanitizeError, presentDetail, viewHasDetail } from "../render";
 import { evaluate, isWithinWindow, type CompiledPresentation, type CompiledRuleGroup } from "../rules";
 import { effectivePolicy, type AccessScope } from "./policy";
@@ -15,6 +15,12 @@ export type DetailOptions = {
   now: number;
   /** 只对管理员作用域生效：?remote_images=allow；链接与授权一律按规则组配置 */
   remoteImages?: "block" | "allow";
+  /**
+   * 调用方附加的放行条件，拿 MAIL_DB 里当前这封的身份判定（取件链接 click 模式："这封已交付给本链接"）；返回 false 同样 404。
+   * 候选与原文是两次查询：取完原文后会再按身份核对一次候选（resolveVisibleMail），两次之间 id 被新邮件复用同样 404，
+   * 所以放行判定与渲染的内容一定是同一封。
+   */
+  gate?: (mail: MailIdentity) => Promise<boolean>;
 };
 
 type VisibleMail = {
@@ -65,11 +71,30 @@ async function locateCandidate(dbs: MailIndexDbs, scope: AccessScope, mailId: nu
   return candidate;
 }
 
-async function resolveVisibleMail(dbs: MailIndexDbs, scope: AccessScope, mailId: number, now: number): Promise<VisibleMail> {
-  const { compiled, lowerBound } = effectivePolicy(scope, now);
-  const candidate = await locateCandidate(dbs, scope, mailId, lowerBound);
-  const raw = (await getRawBatch(dbs.MAIL_DB, [mailId]))[0];
+type RawMail = Extract<RawMailResult, { ok: true }>;
+
+/**
+ * 取原文。原文与候选不是同一条查询：两次之间 id 可能被新邮件复用，所以取完再按身份核对一次候选，
+ * 对不上（或已删除）就按不可见处理——否则 gate 判的是旧邮件、渲染的却是新邮件。
+ */
+async function rawOfSameMail(dbs: MailIndexDbs, candidate: MailCandidate): Promise<RawMail> {
+  const raw = (await getRawBatch(dbs.MAIL_DB, [candidate.id]))[0];
   if (!raw?.ok) throw hidden();
+  const recheck = await getCandidateById(dbs.MAIL_DB, candidate.id);
+  if (!recheck || !sameMailIdentity(recheck, candidate)) throw hidden();
+  return raw;
+}
+
+async function resolveVisibleMail(
+  dbs: MailIndexDbs,
+  scope: AccessScope,
+  mailId: number,
+  options: Pick<DetailOptions, "now" | "gate">,
+): Promise<VisibleMail> {
+  const { compiled, lowerBound } = effectivePolicy(scope, options.now);
+  const candidate = await locateCandidate(dbs, scope, mailId, lowerBound);
+  if (options.gate !== undefined && !(await options.gate(mailIdentity(candidate)))) throw hidden();
+  const raw = await rawOfSameMail(dbs, candidate);
   const parsed = await parseForDetail(candidate, raw.raw, raw.metadata);
   if (parsed === null) throw hidden();
   const evaluation = evaluate(
@@ -94,7 +119,7 @@ export async function getVisibleMailDetail(
   mailId: number,
   options: DetailOptions,
 ): Promise<PresentedMail> {
-  const { compiled, parsed, extracted } = await resolveVisibleMail(dbs, scope, mailId, options.now);
+  const { compiled, parsed, extracted } = await resolveVisibleMail(dbs, scope, mailId, options);
   const presentation = detailPresentation(scope, compiled, options);
   const content = { text: parsed.display_body, html: parsed.html };
   try {
@@ -115,9 +140,9 @@ export async function getVisibleAttachment(
   scope: AccessScope,
   mailId: number,
   index: number,
-  options: { now: number },
+  options: Pick<DetailOptions, "now" | "gate">,
 ): Promise<VisibleAttachment> {
-  const { compiled, raw } = await resolveVisibleMail(dbs, scope, mailId, options.now);
+  const { compiled, raw } = await resolveVisibleMail(dbs, scope, mailId, options);
   if (compiled.config.present.attachments !== "download") throw hidden();
   const attachment = visibleAttachments(await parseMime(raw))[index];
   if (!attachment) throw notFoundError("附件不存在");

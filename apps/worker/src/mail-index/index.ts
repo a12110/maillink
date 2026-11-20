@@ -3,13 +3,15 @@ import { rowCodeSource, rowToFacts } from "../mail-parse";
 import type { CodeSource, MailFacts, MailIndexRow } from "../mail-parse";
 import { parseMail, MailParseError } from "../mail-parse";
 import { getRawBatch } from "../mail-source";
-import type { MailCandidate } from "../mail-source";
+import type { MailCandidate, MailDbBinding, RawMailResult } from "../mail-source";
 import { nowSec } from "../clock";
+import { sameMailIdentity } from "./identity";
 import { buildFailedRow, buildOkRow, findIndexRows, upsertIndexRows } from "./rows";
 
 export { findIndexRows } from "./rows";
+export { mailIdentity, sameMailIdentity, type MailIdentity } from "./identity";
 
-export type MailIndexDbs = { APP_DB: D1Database; MAIL_DB: D1Database };
+export type MailIndexDbs = { APP_DB: D1Database } & MailDbBinding;
 
 /**
  * 一封候选邮件在索引里的状态。调用方必须先判 status 再用内容：
@@ -31,19 +33,14 @@ export type GetOrBuildResult = {
   attempted: number;
 };
 
-/** 索引行可直接使用：message_id、received_at、recipient 与候选一致，且解析器版本是当前版本（01 §4.2） */
+/** 索引行可直接使用：邮件身份（message_id、received_at、recipient）与候选一致，且解析器版本是当前版本（01 §4.2） */
 export function isFresh(row: MailIndexRow, candidate: MailCandidate): boolean {
-  return (
-    row.parser_version === PARSER_VERSION &&
-    row.message_id === candidate.message_id &&
-    row.received_at === candidate.received_at &&
-    row.recipient === candidate.recipient
-  );
+  return row.parser_version === PARSER_VERSION && sameMailIdentity(row, candidate);
 }
 
-/** 取原文、解析，生成要写回索引的行。MAIL_DB 里已不存在的邮件不产生行 */
-async function buildRows(mailDb: D1Database, candidates: readonly MailCandidate[], now: number): Promise<MailIndexRow[]> {
-  const raws = new Map((await getRawBatch(mailDb, candidates.map((c) => c.id))).map((raw) => [raw.id, raw]));
+/** 解析取回的原文，生成要写回索引的行。MAIL_DB 里已不存在的邮件（不在 rawResults 里）不产生行 */
+async function buildRows(rawResults: readonly RawMailResult[], candidates: readonly MailCandidate[], now: number): Promise<MailIndexRow[]> {
+  const raws = new Map(rawResults.map((raw) => [raw.id, raw]));
   const rows: MailIndexRow[] = [];
   for (const candidate of candidates) {
     const raw = raws.get(candidate.id);
@@ -86,7 +83,8 @@ export async function getOrBuild(
     return !row || !isFresh(row, candidate);
   });
   const toBuild = stale.slice(0, options.maxParse ?? MAX_PARSE_PER_REQUEST);
-  const built = await buildRows(dbs.MAIL_DB, toBuild, nowSec());
+  const rawResults = await getRawBatch(dbs.MAIL_DB, toBuild.map((candidate) => candidate.id));
+  const built = await buildRows(rawResults, toBuild, nowSec());
   await upsertIndexRows(dbs.APP_DB, built);
 
   const builtById = new Map(built.map((row) => [row.mail_id, row]));
