@@ -38,7 +38,8 @@ for (const routes of [meMailboxRoutes, meMailRoutes]) {
 }
 
 const UNAVAILABLE_MAILBOX = (grant: EffectiveGrantRow): MyMailbox => ({
-  id: grant.id,
+  grant_id: grant.id,
+  mailbox_id: grant.mailbox_id,
   address: null,
   label: null,
   recipient: null,
@@ -53,7 +54,8 @@ function toMyMailbox(grant: EffectiveGrantRow, compiled: CompiledRuleGroup | nul
   const { recipient, view } = compiled.config.present;
   const shown = recipient === "full" ? grant.address : recipient === "masked" ? maskAddress(grant.address) : null;
   return {
-    id: grant.id,
+    grant_id: grant.id,
+    mailbox_id: grant.mailbox_id,
     address: shown,
     label: recipient === "full" ? grant.label : null,
     recipient,
@@ -75,8 +77,9 @@ meMailboxRoutes.get("/", async (c) => {
 });
 
 /**
- * 列表。授权的"首次访问"在用户第一次请求该授权的邮件列表时写入（"全部"覆盖的有效授权一并写入），
- * 先写再读，first_access 锚点据此计算时间下界。详情与附件不写。
+ * 列表。授权的"首次访问"在用户第一次请求该授权的邮件列表时写入（"全部"覆盖的有效授权一并写入）。
+ * 先用写入前的授权构造作用域并取到结果，成功之后才写库：422 / 503 / 404 的失败请求不写。
+ * 写入前 first_access_at 为 null，时间下界按 now 计算，与稍后写入的值（同一个 now）一致。详情与附件不写。
  * 为什么对授权可以这样做、取件链接却不行：授权必须是已登录的本人才能读，第一次列表就是本人第一次真的看；
  * 取件链接是持链接即可访问的凭据，打开页面可能是 IM 链接预览、爬虫或买家之外的人，所以链接的首次访问
  * 要等"开始取码"这个明确动作（02 §3.1、§6），不能由一次 GET 触发。
@@ -86,16 +89,17 @@ meMailRoutes.get("/", async (c) => {
   const db = c.env.APP_DB;
   const { id: userId } = c.var.auth.user;
   const now = nowSec();
-  await markGrantsFirstAccess(db, userId, query.mailbox ?? null, now);
   const grants = await listEffectiveGrantRows(db, userId, now);
-  return c.json(await listMyMails(c.env, grants, { mailbox: query.mailbox, cursor: query.cursor, afterId: query.after_id, now }), HTTP_OK);
+  const body = await listMyMails(c.env, grants, { mailboxId: query.mailbox_id, cursor: query.cursor, afterId: query.after_id, now });
+  await markGrantsFirstAccess(db, userId, query.mailbox_id ?? null, now);
+  return c.json(body, HTTP_OK);
 });
 
 /** 定位授权并构造作用域；之后的详情 / 附件判定都在这个作用域里重走完整流水线 */
 async function scopeForMail(c: Context<AppEnv>, mailId: number, now: number): Promise<AccessScope> {
-  const { mailbox } = parseWith(myMailDetailQuerySchema, { mailbox: c.req.query("mailbox") });
+  const { mailbox_id: mailboxId } = parseWith(myMailDetailQuerySchema, { mailbox_id: c.req.query("mailbox_id") });
   const grants = await listEffectiveGrantRows(c.env.APP_DB, c.var.auth.user.id, now);
-  return singleScope(await locateGrantForMail(c.env.MAIL_DB, grants, mailId, mailbox));
+  return singleScope(await locateGrantForMail(c.env.MAIL_DB, grants, mailId, mailboxId));
 }
 
 meMailRoutes.get("/:id", async (c) => {

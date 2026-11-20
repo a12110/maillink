@@ -56,7 +56,8 @@ describe("批量授权", () => {
     const rows = await auditRows("grant.batch");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ actor_user_id: adminId, target_type: "grant" });
-    expect(JSON.parse(rows[0]?.detail ?? "{}")).toMatchObject({ on_conflict: "skip", rule_group_id: group, summary: { created: 4 } });
+    expect(JSON.parse(rows[0]?.detail ?? "{}")).toMatchObject({ on_conflict: "skip", rule_group_id: group, created: expect.arrayContaining([{ user_id: alice, mailbox_id: boxA }]) });
+    expect(JSON.parse(rows[0]?.detail ?? "{}").created).toHaveLength(4);
   });
 
   it("rule_group_id 必须显式给出；null = 完整访问", async () => {
@@ -177,6 +178,15 @@ describe("查询、修改、删除", () => {
     const audit = await auditRows("grant.update");
     expect(audit).toHaveLength(2);
     expect(JSON.parse(audit[0]?.detail ?? "{}")).toMatchObject({ before: { rule_group_id: group, expires_at: oldExpiry }, patch: { rule_group_id: other } });
+  });
+
+  it("换规则组沿用原 first_access_at（单条 PATCH 与批量 update 都不重置）", async () => {
+    const other = await insertRuleGroup("g2");
+    const id = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group, firstAccessAt: 123 });
+    await api(`/api/admin/grants/${id}`, { method: "PATCH", cookie, json: { rule_group_id: other } });
+    expect((await grantRow(id))?.first_access_at).toBe(123);
+    await batch({ user_ids: [alice], mailbox_ids: [boxA], rule_group_id: group, on_conflict: "update" });
+    expect(await grantRow(id)).toEqual({ first_access_at: 123, rule_group_id: group });
   });
 
   it("PATCH 校验：空请求 400、规则组无效 400、过去的过期时间 400、不存在 404", async () => {

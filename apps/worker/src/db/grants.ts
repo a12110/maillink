@@ -92,45 +92,50 @@ export type GrantTarget = { user_id: number; mailbox_id: number };
 export type GrantSettings = { rule_group_id: number | null; expires_at: number | null };
 
 /**
- * 新增授权：(user_id, mailbox_id) 已存在的跳过（并发批量授权不报错），RETURNING 只返回本语句真正插入的行。
- * 返回 "user_id:mailbox_id" → 新 id。
+ * 新增授权的语句：(user_id, mailbox_id) 已存在的跳过（并发批量授权不报错），RETURNING 只返回本语句真正插入的行。
+ * 用 readInserted 读取执行结果。
  */
-export async function insertGrants(
+export function insertGrantsStatement(
   db: D1Database,
   targets: readonly GrantTarget[],
   settings: GrantSettings,
   actorId: number,
   now: number,
-): Promise<Map<string, number>> {
-  if (targets.length === 0) return new Map();
+): D1PreparedStatement {
   const pairs = JSON.stringify(targets.map((target) => [target.user_id, target.mailbox_id]));
-  const { results } = await db
+  return db
     .prepare(
       `INSERT INTO user_mailbox_grants (user_id, mailbox_id, rule_group_id, expires_at, created_by, created_at)
        SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), ?2, ?3, ?4, ?5 FROM json_each(?1) WHERE true
        ON CONFLICT(user_id, mailbox_id) DO NOTHING
        RETURNING id, user_id, mailbox_id`,
     )
-    .bind(pairs, settings.rule_group_id, settings.expires_at, actorId, now)
-    .all<{ id: number; user_id: number; mailbox_id: number }>();
-  return new Map(results.map((row) => [pairKey(row.user_id, row.mailbox_id), row.id]));
+    .bind(pairs, settings.rule_group_id, settings.expires_at, actorId, now);
+}
+
+/** insertGrantsStatement 的结果 → "user_id:mailbox_id" → 新 id */
+export function readInserted(result: D1Result<unknown> | undefined): Map<string, number> {
+  const rows = (result?.results ?? []) as Array<{ id: number; user_id: number; mailbox_id: number }>;
+  return new Map(rows.map((row) => [pairKey(row.user_id, row.mailbox_id), row.id]));
 }
 
 export function pairKey(userId: number, mailboxId: number): string {
   return `${userId}:${mailboxId}`;
 }
 
-/** 批量改规则组与过期时间；返回实际更新的授权 id */
-export async function updateGrants(db: D1Database, ids: readonly number[], settings: GrantSettings): Promise<number[]> {
-  if (ids.length === 0) return [];
-  const { results } = await db
+/** 批量改规则组与过期时间的语句。只改这两列，first_access_at 与 created_at 沿用（换规则组不重置时间锚点）。用 readUpdated 读取结果 */
+export function updateGrantsStatement(db: D1Database, ids: readonly number[], settings: GrantSettings): D1PreparedStatement {
+  return db
     .prepare("UPDATE user_mailbox_grants SET rule_group_id = ?2, expires_at = ?3 WHERE id IN (SELECT value FROM json_each(?1)) RETURNING id")
-    .bind(JSON.stringify(ids), settings.rule_group_id, settings.expires_at)
-    .all<{ id: number }>();
-  return results.map((row) => row.id);
+    .bind(JSON.stringify(ids), settings.rule_group_id, settings.expires_at);
 }
 
-/** 单条修改，只改给出的字段（null 是有意义的值：完整访问 / 永不过期）。返回是否找到该行 */
+/** updateGrantsStatement 的结果 → 实际更新的授权 id */
+export function readUpdated(result: D1Result<unknown> | undefined): number[] {
+  return ((result?.results ?? []) as Array<{ id: number }>).map((row) => row.id);
+}
+
+/** 单条修改，只改给出的字段（first_access_at 沿用，不重置）（null 是有意义的值：完整访问 / 永不过期）。返回是否找到该行 */
 export async function patchGrant(db: D1Database, id: number, patch: Partial<GrantSettings>): Promise<boolean> {
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -187,16 +192,17 @@ export async function listEffectiveGrantRows(db: D1Database, userId: number, now
 
 /**
  * 写入授权的首次访问时间（只写一次：`first_access_at IS NULL` 才更新，并发请求不会互相覆盖）。
- * grantId 为 null 时处理该用户全部有效授权（"全部"列表覆盖了它们）。无效授权不写。
+ * mailboxId 为 null 时处理该用户全部有效授权（"全部"列表覆盖了它们），否则只处理该收件地址的授权。无效授权不写。
+ * 换规则组（updateGrants / patchGrant）不碰 first_access_at：锚点沿用，不重置。
  */
-export async function markGrantsFirstAccess(db: D1Database, userId: number, grantId: number | null, now: number): Promise<void> {
+export async function markGrantsFirstAccess(db: D1Database, userId: number, mailboxId: number | null, now: number): Promise<void> {
   await db
     .prepare(
       `UPDATE user_mailbox_grants AS g SET first_access_at = ?2
-       WHERE g.first_access_at IS NULL AND (?3 IS NULL OR g.id = ?3)
+       WHERE g.first_access_at IS NULL AND (?3 IS NULL OR g.mailbox_id = ?3)
          AND EXISTS (SELECT 1 FROM mailboxes m WHERE m.id = g.mailbox_id AND m.status = 'active')
          AND g.user_id = ?1 AND (g.expires_at IS NULL OR g.expires_at > ?2)`,
     )
-    .bind(userId, now, grantId)
+    .bind(userId, now, mailboxId)
     .run();
 }

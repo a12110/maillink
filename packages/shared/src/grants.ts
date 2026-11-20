@@ -111,12 +111,15 @@ export type GrantBatchResponse = z.infer<typeof grantBatchResponseSchema>;
 export const MY_MAILBOX_RECIPIENT_MODES = ["full", "masked", "hidden"] as const;
 
 /**
- * 当前用户的一个有效授权。`id` 是授权 id，前端用它切换邮箱（`/api/me/mails?mailbox=<id>`），不是收件地址 id。
+ * 当前用户的一个有效授权。前端用 `mailbox_id`（收件地址 id，只是数字，不泄露地址）切换邮箱：
+ * `/api/me/mails?mailbox_id=<mailbox_id>`；同一用户对同一地址最多一条授权，所以它足以唯一定位授权。
+ * `grant_id` 是授权自己的 id，仅作列表 key 与展示用。
  * recipient 为 hidden 时 address 与 label 都是 null，不暴露真实地址；规则组配置失效（available=false）时
- * 无从得知呈现设置，同样只给 id。
+ * 无从得知呈现设置，同样 address 为 null。
  */
 export const myMailboxSchema = z.object({
-  id: z.number().int(),
+  grant_id: z.number().int(),
+  mailbox_id: z.number().int(),
   address: z.string().nullable(),
   label: z.string().nullable(),
   recipient: z.enum(MY_MAILBOX_RECIPIENT_MODES).nullable(),
@@ -135,8 +138,8 @@ export type MyMailboxListResponse = z.infer<typeof myMailboxListResponseSchema>;
 
 export const myMailListQuerySchema = z
   .object({
-    /** 授权 id；不给 = "全部" */
-    mailbox: z.coerce.number().int().positive().optional(),
+    /** 收件地址 id；不给 = "全部" */
+    mailbox_id: z.coerce.number().int().positive().optional(),
     cursor: cursorSchema.optional(),
     after_id: z.coerce.number().int().min(0).optional(),
   })
@@ -147,6 +150,6 @@ export const myMailListQuerySchema = z
 export type MyMailListQuery = z.infer<typeof myMailListQuerySchema>;
 
 export const myMailDetailQuerySchema = z.object({
-  /** 授权 id；不给时按邮件的收件地址在当前用户的有效授权里定位 */
-  mailbox: z.coerce.number().int().positive().optional(),
+  /** 收件地址 id；不给时按邮件自己的收件地址在当前用户的有效授权里定位 */
+  mailbox_id: z.coerce.number().int().positive().optional(),
 });

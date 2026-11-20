@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import {
   adminGrantListQuerySchema,
   grantBatchRequestSchema,
@@ -11,6 +12,7 @@ import {
 } from "@maillink/shared";
 import { compileStoredPolicy } from "../access";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
+import { clientIp } from "../auth/session";
 import { nowSec } from "../clock";
 import {
   deleteGrant,
@@ -18,14 +20,17 @@ import {
   findGrantRow,
   findGrantsForPairs,
   findUserRoles,
-  insertGrants,
+  insertGrantsStatement,
   listGrantRows,
   pairKey,
   patchGrant,
-  updateGrants,
+  readInserted,
+  readUpdated,
+  updateGrantsStatement,
   type GrantRow,
   type GrantSettings,
 } from "../db/grants";
+import { auditLogStatement } from "../db/audit-statement";
 import { findRuleGroupRow } from "../db/rule-groups";
 import type { AppEnv } from "../env";
 import { ApiError, notFoundError } from "../errors";
@@ -134,6 +139,49 @@ function summarize(results: readonly GrantBatchResult[]): GrantBatchResponse["su
   return { created: count("created"), updated: count("updated"), skipped: count("skipped"), failed: count("failed") };
 }
 
+type WriteContext = { settings: GrantSettings; actorId: number; now: number; onConflict: "skip" | "update" };
+
+/**
+ * 新增、更新与审计放进同一个 db.batch（同一事务）：不会出现"授权已改、审计没写"。
+ * 审计按计划记录（新增的授权 id 要写入之后才知道，所以记 user_id / mailbox_id）；
+ * 并发抢先写入这类极少见的竞态，以响应里的逐条结果为准。没有任何要写的内容时不写库也不写审计。
+ */
+async function writeBatch(
+  c: Context<AppEnv>,
+  plan: Plan,
+  ctx: WriteContext,
+): Promise<{ inserted: Map<string, number>; updatedIds: Set<number> }> {
+  const db = c.env.APP_DB;
+  if (plan.create.length === 0 && plan.update.length === 0) return { inserted: new Map(), updatedIds: new Set() };
+  const statements: D1PreparedStatement[] = [];
+  const insertIndex = plan.create.length > 0 ? statements.push(insertGrantsStatement(db, plan.create, ctx.settings, ctx.actorId, ctx.now)) - 1 : -1;
+  const updateIndex = plan.update.length > 0 ? statements.push(updateGrantsStatement(db, plan.update.map((row) => row.id), ctx.settings)) - 1 : -1;
+  statements.push(
+    auditLogStatement(db, {
+      actor_user_id: ctx.actorId,
+      action: AUDIT_ACTIONS.grantBatch,
+      target_type: "grant",
+      target_id: null,
+      detail: JSON.stringify({
+        on_conflict: ctx.onConflict,
+        ...ctx.settings,
+        created: plan.create,
+        // 更新留下旧值
+        updated: plan.update.map((row) => ({
+          id: row.id,
+          user_id: row.user_id,
+          mailbox_id: row.mailbox_id,
+          before: { rule_group_id: row.rule_group_id, expires_at: row.expires_at },
+        })),
+      }),
+      ip: clientIp(c),
+      created_at: ctx.now,
+    }),
+  );
+  const results = await db.batch(statements);
+  return { inserted: readInserted(results[insertIndex]), updatedIds: new Set(readUpdated(results[updateIndex])) };
+}
+
 adminGrantRoutes.post("/batch", async (c) => {
   const db = c.env.APP_DB;
   const body = await parseJsonBody(c, grantBatchRequestSchema);
@@ -154,28 +202,9 @@ adminGrantRoutes.post("/batch", async (c) => {
 
   const plan = planBatch({ userIds, mailboxIds, users, mailboxes, existing, settings, onConflict: body.on_conflict });
   const actorId = c.get("auth").user.id;
-  const inserted = await insertGrants(db, plan.create, settings, actorId, now);
-  const updatedIds = new Set(await updateGrants(db, plan.update.map((row) => row.id), settings));
+  const { inserted, updatedIds } = await writeBatch(c, plan, { settings, actorId, now, onConflict: body.on_conflict });
   reconcile(plan, inserted, updatedIds);
-
   const summary = summarize(plan.results);
-  if (summary.created + summary.updated > 0) {
-    await recordAudit(c, {
-      action: AUDIT_ACTIONS.grantBatch,
-      actorUserId: actorId,
-      targetType: "grant",
-      detail: {
-        on_conflict: body.on_conflict,
-        ...settings,
-        summary,
-        created: plan.results.filter((r) => r.status === "created").map((r) => ({ id: r.grant_id, user_id: r.user_id, mailbox_id: r.mailbox_id })),
-        // 更新留下旧值
-        updated: plan.update
-          .filter((row) => updatedIds.has(row.id))
-          .map((row) => ({ id: row.id, user_id: row.user_id, mailbox_id: row.mailbox_id, before: { rule_group_id: row.rule_group_id, expires_at: row.expires_at } })),
-      },
-    });
-  }
   const response: GrantBatchResponse = { summary, results: plan.results };
   return c.json(response, HTTP_OK);
 });

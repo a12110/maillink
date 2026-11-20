@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { MyMailboxListResponse, PresentedMail, VisibleMailListResponse } from "@maillink/shared";
 import { nowSec } from "../src/clock";
+import { ME_ALL_MAX_SCOPES } from "../src/constants";
 import { baseConfig, putMail } from "./access-helpers";
 import { api, createSessionCookie, createUser, resetApp } from "./helpers";
 import {
@@ -62,7 +63,7 @@ describe("GET /api/me/mailboxes", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const body = (await res.json()) as MyMailboxListResponse;
     expect(body.items).toEqual([
-      { id: mine, address: A, label: null, recipient: "full", view: "full", expires_at: null, available: true },
+      { grant_id: mine, mailbox_id: boxA, address: A, label: null, recipient: "full", view: "full", expires_at: null, available: true },
     ]);
   });
 
@@ -72,8 +73,8 @@ describe("GET /api/me/mailboxes", () => {
     await insertGrant({ userId: alice, mailboxId: disabled });
     const live = await insertGrant({ userId: alice, mailboxId: boxB, expiresAt: nowSec() + 600 });
     const list = async () => ((await (await api("/api/me/mailboxes", { cookie: aliceCookie })).json()) as MyMailboxListResponse).items;
-    expect((await list()).map((item) => item.id)).toEqual([live]);
-    await api(`/api/me/mails?mailbox=${live}`, { cookie: aliceCookie });
+    expect((await list()).map((item) => item.grant_id)).toEqual([live]);
+    await api(`/api/me/mails?mailbox_id=${boxB}`, { cookie: aliceCookie });
     await deleteGrantRow(live);
     expect(await list()).toEqual([]);
   });
@@ -86,8 +87,8 @@ describe("GET /api/me/mailboxes", () => {
     const g2 = await insertGrant({ userId: alice, mailboxId: boxB, ruleGroupId: hidden });
     const body = (await (await api("/api/me/mailboxes", { cookie: aliceCookie })).json()) as MyMailboxListResponse;
     expect(body.items).toEqual([
-      { id: g1, address: "***@example.com", label: null, recipient: "masked", view: "text", expires_at: null, available: true },
-      { id: g2, address: null, label: null, recipient: "hidden", view: "meta_only", expires_at: null, available: true },
+      { grant_id: g1, mailbox_id: boxA, address: "***@example.com", label: null, recipient: "masked", view: "text", expires_at: null, available: true },
+      { grant_id: g2, mailbox_id: boxB, address: null, label: null, recipient: "hidden", view: "meta_only", expires_at: null, available: true },
     ]);
     expect(JSON.stringify(body)).not.toContain(B);
   });
@@ -96,7 +97,7 @@ describe("GET /api/me/mailboxes", () => {
     const broken = await insertRuleGroup("broken", { schema_version: 9 });
     const id = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: broken });
     const body = (await (await api("/api/me/mailboxes", { cookie: aliceCookie })).json()) as MyMailboxListResponse;
-    expect(body.items).toEqual([{ id, address: null, label: null, recipient: null, view: null, expires_at: null, available: false }]);
+    expect(body.items).toEqual([{ grant_id: id, mailbox_id: boxA, address: null, label: null, recipient: null, view: null, expires_at: null, available: false }]);
   });
 });
 
@@ -104,12 +105,12 @@ describe("指定授权的邮件列表与详情", () => {
   it("只看到该授权地址的邮件；Cache-Control: no-store", async () => {
     const inA = await putMail({ address: A, subject: "in A" });
     await putMail({ address: B, subject: "in B" });
-    const g = await insertGrant({ userId: alice, mailboxId: boxA });
-    const { status, res, body } = await mails(aliceCookie, `?mailbox=${g}`);
+    await insertGrant({ userId: alice, mailboxId: boxA });
+    const { status, res, body } = await mails(aliceCookie, `?mailbox_id=${boxA}`);
     expect(status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     expect(ids(body)).toEqual([inA]);
-    const d = await detail(aliceCookie, inA, `?mailbox=${g}`);
+    const d = await detail(aliceCookie, inA, `?mailbox_id=${boxA}`);
     expect(d.status).toBe(200);
     expect(d.res.headers.get("Cache-Control")).toBe("no-store");
     expect(d.body).toMatchObject({ id: inA, subject: "in A" });
@@ -129,9 +130,9 @@ describe("指定授权的邮件列表与详情", () => {
     const spam = await putMail({ address: A, subject: "spam offer" });
     const denyGroup = await insertRuleGroup("deny", denySubjectConfig("spam"));
     const g = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: denyGroup });
-    expect(ids((await mails(aliceCookie, `?mailbox=${g}`)).body)).toEqual([ok]);
+    expect(ids((await mails(aliceCookie, `?mailbox_id=${boxA}`)).body)).toEqual([ok]);
     expect((await detail(aliceCookie, spam)).status).toBe(404);
-    expect((await detail(aliceCookie, spam, `?mailbox=${g}`)).status).toBe(404);
+    expect((await detail(aliceCookie, spam, `?mailbox_id=${boxA}`)).status).toBe(404);
 
     const allowGroup = await insertRuleGroup("allow", allowSubjectConfig("offer"));
     await setGrantRuleGroup(g, allowGroup);
@@ -147,8 +148,8 @@ describe("指定授权的邮件列表与详情", () => {
       "code-only",
       baseConfig({ present: { view: "code_only", snippet: false, sender: "hidden", recipient: "hidden", attachments: "hidden" } }),
     );
-    const g = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group });
-    const list = await mails(aliceCookie, `?mailbox=${g}`);
+    await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group });
+    const list = await mails(aliceCookie, `?mailbox_id=${boxA}`);
     expect(list.body.items).toHaveLength(1);
     expect(list.body.items[0]).toMatchObject({ id, code: "482913" });
     expect(list.body.items[0]).not.toHaveProperty("subject");
@@ -160,7 +161,7 @@ describe("指定授权的邮件列表与详情", () => {
     const id = await putMail({ address: A, attachment: { name: "note.txt", content: "attached text" } });
     const downloadable = await insertRuleGroup("dl", baseConfig({ present: { attachments: "download" } }));
     const g = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: downloadable });
-    const ok = await api(`/api/me/mails/${id}/attachments/0?mailbox=${g}`, { cookie: aliceCookie });
+    const ok = await api(`/api/me/mails/${id}/attachments/0?mailbox_id=${boxA}`, { cookie: aliceCookie });
     expect(ok.status).toBe(200);
     expect(new TextDecoder().decode(await ok.arrayBuffer())).toContain("attached text");
     expect(ok.headers.get("Content-Type")).toBe("application/octet-stream");
@@ -175,10 +176,10 @@ describe("指定授权的邮件列表与详情", () => {
   });
 
   it("参数校验：mailbox 非数字、cursor 与 after_id 同时给 → 400", async () => {
-    expect((await mails(aliceCookie, "?mailbox=abc")).status).toBe(400);
+    expect((await mails(aliceCookie, "?mailbox_id=abc")).status).toBe(400);
     expect((await mails(aliceCookie, "?cursor=5&after_id=3")).status).toBe(400);
     expect((await mails(aliceCookie, "?cursor=0")).status).toBe(400);
-    expect((await detail(aliceCookie, 1, "?mailbox=x")).status).toBe(400);
+    expect((await detail(aliceCookie, 1, "?mailbox_id=x")).status).toBe(400);
   });
 });
 
@@ -187,21 +188,21 @@ describe("越权与不可见授权一律 404", () => {
     const mineMail = await putMail({ address: A, subject: "alice mail" });
     const bobsMail = await putMail({ address: B, subject: "bob mail" });
     const unassigned = await putMail({ address: "nobody@example.com", subject: "no grant" });
-    const gAlice = await insertGrant({ userId: alice, mailboxId: boxA });
-    const gBob = await insertGrant({ userId: bob, mailboxId: boxB });
+    await insertGrant({ userId: alice, mailboxId: boxA });
+    await insertGrant({ userId: bob, mailboxId: boxB });
 
-    expect((await mails(aliceCookie, `?mailbox=${gBob}`)).status).toBe(404);
-    expect((await detail(aliceCookie, bobsMail, `?mailbox=${gBob}`)).status).toBe(404);
-    expect((await detail(aliceCookie, mineMail, `?mailbox=${gBob}`)).status).toBe(404);
-    expect((await detail(aliceCookie, bobsMail, `?mailbox=${gAlice}`)).status).toBe(404);
+    expect((await mails(aliceCookie, `?mailbox_id=${boxB}`)).status).toBe(404);
+    expect((await detail(aliceCookie, bobsMail, `?mailbox_id=${boxB}`)).status).toBe(404);
+    expect((await detail(aliceCookie, mineMail, `?mailbox_id=${boxB}`)).status).toBe(404);
+    expect((await detail(aliceCookie, bobsMail, `?mailbox_id=${boxA}`)).status).toBe(404);
     expect((await detail(aliceCookie, bobsMail)).status).toBe(404);
     expect((await detail(aliceCookie, unassigned)).status).toBe(404);
     expect((await detail(aliceCookie, 999_999)).status).toBe(404);
     expect((await api(`/api/me/mails/${bobsMail}/attachments/0`, { cookie: aliceCookie })).status).toBe(404);
     expect((await detail(aliceCookie, mineMail)).status).toBe(200);
     // 响应不区分"没有这个授权"和"不是你的授权"
-    const missing = await mails(aliceCookie, "?mailbox=99999");
-    const foreign = await mails(aliceCookie, `?mailbox=${gBob}`);
+    const missing = await mails(aliceCookie, "?mailbox_id=99999");
+    const foreign = await mails(aliceCookie, `?mailbox_id=${boxB}`);
     expect(missing.body).toEqual(foreign.body);
   });
 
@@ -211,21 +212,21 @@ describe("越权与不可见授权一律 404", () => {
     expect((await detail(aliceCookie, id)).status).toBe(200);
 
     await setGrantExpiry(expired, nowSec() - 1);
-    expect((await mails(aliceCookie, `?mailbox=${expired}`)).status).toBe(404);
+    expect((await mails(aliceCookie, `?mailbox_id=${boxA}`)).status).toBe(404);
     expect((await detail(aliceCookie, id)).status).toBe(404);
-    expect((await detail(aliceCookie, id, `?mailbox=${expired}`)).status).toBe(404);
+    expect((await detail(aliceCookie, id, `?mailbox_id=${boxA}`)).status).toBe(404);
     expect((await mails(aliceCookie)).body.items).toEqual([]);
 
     await setGrantExpiry(expired, null);
     expect((await detail(aliceCookie, id)).status).toBe(200);
     await setMailboxStatus(boxA, "disabled");
-    expect((await mails(aliceCookie, `?mailbox=${expired}`)).status).toBe(404);
+    expect((await mails(aliceCookie, `?mailbox_id=${boxA}`)).status).toBe(404);
     expect((await detail(aliceCookie, id)).status).toBe(404);
 
     await setMailboxStatus(boxA, "active");
     expect((await detail(aliceCookie, id)).status).toBe(200);
     await deleteGrantRow(expired);
-    expect((await mails(aliceCookie, `?mailbox=${expired}`)).status).toBe(404);
+    expect((await mails(aliceCookie, `?mailbox_id=${boxA}`)).status).toBe(404);
     expect((await detail(aliceCookie, id)).status).toBe(404);
   });
 
@@ -234,8 +235,8 @@ describe("越权与不可见授权一律 404", () => {
     await putMail({ address: B, subject: "hidden by invalid group" });
     const broken = await insertRuleGroup("broken", { schema_version: 9 });
     await insertGrant({ userId: alice, mailboxId: boxA });
-    const bad = await insertGrant({ userId: alice, mailboxId: boxB, ruleGroupId: broken });
-    const single = await mails(aliceCookie, `?mailbox=${bad}`);
+    await insertGrant({ userId: alice, mailboxId: boxB, ruleGroupId: broken });
+    const single = await mails(aliceCookie, `?mailbox_id=${boxB}`);
     expect(single.status).toBe(503);
     expect(single.body.error.code).toBe("rule_group_unsupported_version");
     expect(ids((await mails(aliceCookie)).body)).toEqual([mine]);
@@ -250,16 +251,16 @@ describe("授权的 first_access 锚点", () => {
     const group = await firstAccessGroup();
     const g = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group });
     const old = await putMail({ address: A, subject: "before access", ageSec: 3600 });
-    await detail(aliceCookie, old, `?mailbox=${g}`);
+    await detail(aliceCookie, old, `?mailbox_id=${boxA}`);
     expect((await grantRow(g))?.first_access_at).toBeNull();
 
     const before = nowSec();
-    expect(ids((await mails(aliceCookie, `?mailbox=${g}`)).body)).toEqual([]);
+    expect(ids((await mails(aliceCookie, `?mailbox_id=${boxA}`)).body)).toEqual([]);
     const written = (await grantRow(g))?.first_access_at ?? 0;
     expect(written).toBeGreaterThanOrEqual(before);
 
     const fresh = await putMail({ address: A, subject: "after access" });
-    expect(ids((await mails(aliceCookie, `?mailbox=${g}`)).body)).toEqual([fresh]);
+    expect(ids((await mails(aliceCookie, `?mailbox_id=${boxA}`)).body)).toEqual([fresh]);
     expect((await grantRow(g))?.first_access_at).toBe(written);
     expect((await detail(aliceCookie, old)).status).toBe(404);
     expect((await detail(aliceCookie, fresh)).status).toBe(200);
@@ -269,7 +270,7 @@ describe("授权的 first_access 锚点", () => {
     const group = await firstAccessGroup();
     const g = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group });
     const expired = await insertGrant({ userId: alice, mailboxId: boxB, ruleGroupId: group, expiresAt: nowSec() - 5 });
-    await mails(bobCookie, `?mailbox=${g}`);
+    await mails(bobCookie, `?mailbox_id=${boxA}`);
     await mails(bobCookie);
     expect((await grantRow(g))?.first_access_at).toBeNull();
     await mails(aliceCookie);
@@ -277,12 +278,35 @@ describe("授权的 first_access 锚点", () => {
     expect((await grantRow(expired))?.first_access_at).toBeNull();
   });
 
+  it("失败的请求不写入：指定授权 503（规则组失效）、别人的地址 404、\"全部\"超上限 422", async () => {
+    const group = await firstAccessGroup();
+    const broken = await insertRuleGroup("broken", { schema_version: 9 });
+    const ok = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group });
+    const bad = await insertGrant({ userId: alice, mailboxId: boxB, ruleGroupId: broken });
+    expect((await mails(aliceCookie, `?mailbox_id=${boxB}`)).status).toBe(503);
+    expect((await mails(aliceCookie, "?mailbox_id=99999")).status).toBe(404);
+    expect((await grantRow(ok))?.first_access_at).toBeNull();
+    expect((await grantRow(bad))?.first_access_at).toBeNull();
+
+    const grants: number[] = [];
+    for (let i = 0; i <= ME_ALL_MAX_SCOPES; i += 1) {
+      const box = await insertMailbox(`many${i}@example.com`);
+      grants.push(await insertGrant({ userId: bob, mailboxId: box, ruleGroupId: await insertRuleGroup(`many${i}`, baseConfig({ time: { since: { type: "first_access" } } })) }));
+    }
+    expect((await mails(bobCookie)).status).toBe(422);
+    for (const id of grants) expect((await grantRow(id))?.first_access_at, `grant ${id}`).toBeNull();
+
+    // 成功的请求照常写入
+    expect((await mails(aliceCookie, `?mailbox_id=${boxA}`)).status).toBe(200);
+    expect((await grantRow(ok))?.first_access_at).not.toBeNull();
+  });
+
   it("subject_created：授权创建之前的邮件看不到（授权创建时间是锚点）", async () => {
     const group = await insertRuleGroup("created", baseConfig({ time: { since: { type: "subject_created" } } }));
     const before = await putMail({ address: A, subject: "from previous owner", ageSec: 3600 });
-    const g = await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group, createdAt: nowSec() - 60 });
+    await insertGrant({ userId: alice, mailboxId: boxA, ruleGroupId: group, createdAt: nowSec() - 60 });
     const after = await putMail({ address: A, subject: "after grant", ageSec: 10 });
-    expect(ids((await mails(aliceCookie, `?mailbox=${g}`)).body)).toEqual([after]);
+    expect(ids((await mails(aliceCookie, `?mailbox_id=${boxA}`)).body)).toEqual([after]);
     expect((await detail(aliceCookie, before)).status).toBe(404);
   });
 });

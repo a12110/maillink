@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { VisibleMailListResponse } from "@maillink/shared";
 import { nowSec } from "../src/clock";
-import { LIST_PAGE_SIZE, ME_ALL_MAX_SCOPES, SCAN_CAP_PER_REQUEST } from "../src/constants";
-import { baseConfig, putMail } from "./access-helpers";
+import { LIST_PAGE_SIZE, MAX_PARSE_PER_REQUEST, ME_ALL_MAX_SCOPES, SCAN_CAP_PER_REQUEST } from "../src/constants";
+import { baseConfig, mailIndexIds, putMail } from "./access-helpers";
 import { api, createSessionCookie, createUser, resetApp } from "./helpers";
 import { denySubjectConfig, grantRow, insertGrant, insertMailbox, insertRuleGroup } from "./grants-helpers";
 
@@ -140,7 +140,7 @@ describe("多规则组、含 partial 的分页不漏不重", () => {
     const [boxA, boxC] = [await insertMailbox("a@example.com"), await insertMailbox("c@example.com")];
     const capped = await insertRuleGroup("capped", baseConfig({ limits: { max_mails: 3 } }));
     await insertGrant({ userId: alice, mailboxId: boxA });
-    const cGrant = await insertGrant({ userId: alice, mailboxId: boxC, ruleGroupId: capped });
+    await insertGrant({ userId: alice, mailboxId: boxC, ruleGroupId: capped });
     const aIds: number[] = [];
     const cIds: number[] = [];
     for (let i = 0; i < 25; i += 1) {
@@ -153,7 +153,7 @@ describe("多规则组、含 partial 的分页不漏不重", () => {
     expect(pages.flat()).toEqual(expected);
     // C 最新的 3 封交错在 A 的最新邮件之间，第 1 页就含有一部分，其余在第 2 页
     expect(pages).toHaveLength(2);
-    const single = await settled(`?mailbox=${cGrant}`);
+    const single = await settled(`?mailbox_id=${boxC}`);
     expect(single.items.map((item) => item.id)).toEqual(cIds.slice(-3).toReversed());
   });
 
@@ -172,15 +172,34 @@ describe("多规则组、含 partial 的分页不漏不重", () => {
   });
 });
 
+describe("工作量上界", () => {
+  it('"全部"跨作用域一次请求的现场解析量与单个作用域相同（MAX_PARSE_PER_REQUEST），其余 partial 等重取', async () => {
+    const [boxA, boxB] = [await insertMailbox("a@example.com"), await insertMailbox("b@example.com")];
+    const deny = await insertRuleGroup("deny-spam", denySubjectConfig(SPAM));
+    await insertGrant({ userId: alice, mailboxId: boxA });
+    await insertGrant({ userId: alice, mailboxId: boxB, ruleGroupId: deny });
+    for (let i = 0; i < 15; i += 1) {
+      await putMail({ address: "a@example.com", subject: `a${i}` });
+      await putMail({ address: "b@example.com", subject: `b${i}` });
+    }
+    const { body } = await fetchMails("");
+    expect(body.partial).toBe(true);
+    expect(await mailIndexIds()).toHaveLength(MAX_PARSE_PER_REQUEST);
+    // 重取直到解析完，结果仍然完整
+    const done = await walk();
+    expect(done.flat()).toHaveLength(30);
+  });
+});
+
 describe("其他行为", () => {
   it("没有任何有效授权：空列表；只有一个授权：与指定该授权完全一致", async () => {
     expect(await settled("")).toEqual({ items: [], next_cursor: null, partial: false, next_after_id: null });
     const box = await insertMailbox("a@example.com");
-    const grant = await insertGrant({ userId: alice, mailboxId: box });
+    await insertGrant({ userId: alice, mailboxId: box });
     const id = await putMail({ address: "a@example.com", subject: "only" });
     const all = await settled("");
     expect(all.items.map((item) => item.id)).toEqual([id]);
-    expect(all).toEqual(await settled(`?mailbox=${grant}`));
+    expect(all).toEqual(await settled(`?mailbox_id=${box}`));
   });
 
   it('"全部"请求为覆盖到的有效授权一并写入 first_access_at（过期的不写）', async () => {
