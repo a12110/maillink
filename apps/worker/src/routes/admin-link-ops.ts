@@ -6,6 +6,7 @@ import {
   shareLinkExportSchema,
   shareLinkRebindSchema,
   shareLinkResetSchema,
+  shareLinkRotateSchema,
   type LinkPreviewResponse,
   type ShareLinkBatchResponse,
   type ShareLinkExportResponse,
@@ -24,7 +25,7 @@ import { HTTP_BAD_REQUEST, HTTP_OK } from "../http-status";
 import { loadAdminLink, requireMailboxes, requireRuleGroupId } from "../links/admin-service";
 import { renderTemplate, toCsv, validateTemplate, type ExportRow } from "../links/export";
 import { linkAnchors } from "../links/scope";
-import { createLinkToken, decryptLinkToken, linkUrl } from "../links/token";
+import { createLinkToken, decryptLinkToken, linkTokenKey, linkUrl } from "../links/token";
 import { toAdminLink } from "../links/view";
 import { computeTimeLowerBound } from "../rules";
 import { parseIdParam, parseJsonBody, parseQuery } from "../validate";
@@ -50,16 +51,17 @@ adminLinkOpsRoutes.post("/:id/rotate", async (c) => {
   const db = c.env.APP_DB;
   const id = parseIdParam(c);
   const now = nowSec();
+  const { reset_devices: resetDevices } = await parseJsonBody(c, shareLinkRotateSchema);
   const row = await requireLinkRow(db, id, now);
-  const fresh = await createLinkToken(c.env);
+  const fresh = await createLinkToken(await linkTokenKey(c.env));
   const { token, ...columns } = fresh;
-  if (!(await replaceToken(db, id, columns, now))) throw notFoundError("取件链接不存在");
+  if (!(await replaceToken(db, id, columns, now, resetDevices))) throw notFoundError("取件链接不存在");
   await recordAudit(c, {
     action: AUDIT_ACTIONS.linkTokenRotate,
     actorUserId: actorOf(c),
     targetType: "share_link",
     targetId: id,
-    detail: { old_token_hint: row.token_hint, new_token_hint: columns.token_hint },
+    detail: { old_token_hint: row.token_hint, new_token_hint: columns.token_hint, reset_devices: resetDevices },
   });
   const body: ShareLinkRotateResponse = { token, url: linkUrl(c.env, token), link: await loadAdminLink(db, id, now) };
   return c.json(body, HTTP_OK);
@@ -142,12 +144,8 @@ adminLinkOpsRoutes.post("/batch", async (c) => {
   const db = c.env.APP_DB;
   const body = await parseJsonBody(c, shareLinkBatchSchema);
   const now = nowSec();
-  let action: BatchAction;
-  if (body.action === "extend") action = { action: "extend", extend_sec: body.extend_sec as number };
-  else if (body.action === "set_rule_group") {
-    await requireRuleGroupId(db, body.rule_group_id as number);
-    action = { action: "set_rule_group", rule_group_id: body.rule_group_id as number };
-  } else action = { action: body.action };
+  const { ids: _ids, ...action } = body;
+  if (action.action === "set_rule_group") await requireRuleGroupId(db, action.rule_group_id);
   const changed = await applyBatchAction(db, body.ids, action, now);
   const failed = body.ids.filter((id) => !changed.has(id));
   const statuses = failed.length > 0 ? await findLinkStatuses(db, failed) : new Map();
@@ -174,11 +172,12 @@ adminLinkOpsRoutes.post("/export", async (c) => {
   if (missing.length > 0) throw new ApiError(HTTP_BAD_REQUEST, "link_not_found", `取件链接不存在：${missing.join(", ")}`);
   const mailboxes = await listLinkMailboxes(db, body.ids);
   const byId = new Map(rows.map((row) => [row.id, row]));
+  const key = await linkTokenKey(c.env);
   const exportRows: ExportRow[] = [];
   for (const id of body.ids) {
     const row = byId.get(id) as ShareLinkStatsRow;
     const own = mailboxes.filter((mailbox) => mailbox.link_id === id);
-    const token = await decryptLinkToken(c.env, row.token_enc, row.token_hash);
+    const token = await decryptLinkToken(key, row.token_enc, row.token_hash);
     exportRows.push({
       address: own.map((mailbox) => mailbox.address).join(";"),
       note: own.map((mailbox) => mailbox.note ?? "").filter((note) => note !== "").join(";"),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseCidr } from "./ip-cidr";
+import { normalizeCidrText } from "./ip-cidr";
 
 // 取件链接的访问约束（02 §6 C 层），存于 share_links.access。
 // 三种形态：接口入参（明文口令 password）、库里存储（password_hash）、管理端展示（has_password，不含哈希）。
@@ -44,7 +44,8 @@ const cidrSchema = z
   .trim()
   .min(1)
   .max(LINK_ACCESS_LIMITS.cidrMaxLength)
-  .refine((value) => parseCidr(value) !== null, "不是合法的 IPv4 / IPv6 地址或 CIDR");
+  .refine((value) => normalizeCidrText(value) !== null, "不是合法的 IPv4 / IPv6 地址或 CIDR（IPv4 映射地址的前缀须 ≥ 96）")
+  .transform((value) => normalizeCidrText(value) as string);
 
 const countrySchema = z
   .string()
@@ -77,8 +78,10 @@ const commonFields = {
     .default(LINK_ACCESS_LIMITS.pollIntervalDefaultSec),
 };
 
+/** 首尾空白去掉后再检查长度（保存与"开始取码"用同一个 schema，两边口径一致） */
 export const linkPasswordSchema = z
   .string()
+  .trim()
   .min(LINK_ACCESS_LIMITS.passwordMinLength)
   .max(LINK_ACCESS_LIMITS.passwordMaxLength);
 

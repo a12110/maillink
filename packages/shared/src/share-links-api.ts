@@ -172,6 +172,12 @@ const resetFlags = {
   reset_deliveries: z.boolean().default(false),
 };
 
+export const shareLinkRotateSchema = z.strictObject({
+  /** 同时清空已登记的设备（链接外泄时用） */
+  reset_devices: z.boolean().default(false),
+});
+export type ShareLinkRotate = z.input<typeof shareLinkRotateSchema>;
+
 export const shareLinkRebindSchema = z.strictObject({
   mailbox_ids: uniqueIds(SHARE_LINK_LIMITS.mailboxesPerLink),
   ...resetFlags,
@@ -183,20 +189,16 @@ export const shareLinkResetSchema = z
   .refine((body) => body.reset_anchor || body.reset_devices || body.reset_deliveries, "至少选择一项重置");
 export type ShareLinkReset = z.input<typeof shareLinkResetSchema>;
 
-export const shareLinkBatchSchema = z
-  .strictObject({
-    ids: uniqueIds(SHARE_LINK_LIMITS.batchMaxIds),
-    action: z.enum(SHARE_LINK_BATCH_ACTIONS),
-    /** action=extend：在当前截止时间（已过期的从现在算）上延长的秒数 */
-    extend_sec: durationSchema.optional(),
-    /** action=set_rule_group */
-    rule_group_id: idSchema.optional(),
-  })
-  .refine((body) => body.action !== "extend" || body.extend_sec !== undefined, { message: "extend 需要 extend_sec", path: ["extend_sec"] })
-  .refine((body) => body.action !== "set_rule_group" || body.rule_group_id !== undefined, {
-    message: "set_rule_group 需要 rule_group_id",
-    path: ["rule_group_id"],
-  });
+const batchIds = uniqueIds(SHARE_LINK_LIMITS.batchMaxIds);
+
+export const shareLinkBatchSchema = z.discriminatedUnion("action", [
+  z.strictObject({ ids: batchIds, action: z.literal("pause") }),
+  z.strictObject({ ids: batchIds, action: z.literal("resume") }),
+  z.strictObject({ ids: batchIds, action: z.literal("revoke") }),
+  /** 在当前截止时间（已过期的从现在算）上延长的秒数 */
+  z.strictObject({ ids: batchIds, action: z.literal("extend"), extend_sec: durationSchema }),
+  z.strictObject({ ids: batchIds, action: z.literal("set_rule_group"), rule_group_id: idSchema }),
+]);
 export type ShareLinkBatch = z.input<typeof shareLinkBatchSchema>;
 
 export const shareLinkBatchResponseSchema = z.object({

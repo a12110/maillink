@@ -3,8 +3,9 @@ import { ApiError } from "../errors";
 import { HTTP_BAD_REQUEST } from "../http-status";
 
 // 链接导出（06 §8）：CSV（address,note,link）或按行模板（如 `{address}----{link}`）。
-// CSV 注入防护：任何以 = + - @ 或制表符、回车开头的值前面加一个单引号，表格软件不会把它当公式。
-// 模板模式同样处理每个代入值，并把值里的换行换成空格（一行一个链接，不能被值撑成多行）。
+// CSV 注入防护：任何以 = + - @ 或制表符、回车开头的单元格前面加一个单引号，表格软件不会把它当公式。
+// 模板模式不做公式中和：它的输出是贴进发卡平台卡密库存的纯文本行，不是表格；加前缀反而会把 `-foo@x.com`
+// 这类以 - 开头的合法地址改坏、让卡密不可用。只把值里的换行换成空格（一行一个链接，不能被值撑成多行）。
 
 export type ExportRow = Record<(typeof SHARE_LINK_TEMPLATE_VARIABLES)[number], string>;
 
@@ -47,7 +48,7 @@ export function validateTemplate(template: string): void {
 export function renderTemplate(template: string, rows: readonly ExportRow[]): string {
   validateTemplate(template);
   const lines = rows.map((row) =>
-    template.replace(VARIABLE, (_match, name: string) => neutralizeFormula(row[name as keyof ExportRow].replace(LINE_BREAKS, " "))),
+    template.replace(VARIABLE, (_match, name: string) => row[name as keyof ExportRow].replace(LINE_BREAKS, " ")),
   );
   return `${lines.join("\n")}\n`;
 }

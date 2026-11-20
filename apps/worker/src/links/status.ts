@@ -19,7 +19,9 @@ async function pageState(db: D1Database, req: LinkRequest, scope: LinkScope, vis
   return dailyExhausted ? "daily_limit" : "active";
 }
 
-function displayMailboxes(scope: LinkScope): string[] {
+/** 设了口令的链接在本浏览器通过口令（登记为设备）之前不给收件地址，只给数量 */
+function displayMailboxes(scope: LinkScope, req: LinkRequest, visitor: VisitorState): string[] {
+  if (req.access.password_hash !== undefined && !visitor.registered) return [];
   const mode = scope.compiled.config.present.recipient;
   if (mode === "hidden") return [];
   return mode === "masked" ? scope.scope.addresses.map(maskAddress) : [...scope.scope.addresses];
@@ -39,7 +41,7 @@ export async function buildPublicStatus(db: D1Database, req: LinkRequest, scope:
     reveal: access.reveal,
     deliveries: quota,
     poll_interval_sec: access.poll_interval_sec,
-    mailboxes: displayMailboxes(scope),
+    mailboxes: displayMailboxes(scope, req, visitor),
     mailbox_count: scope.mailboxCount,
     recipient_display: scope.compiled.config.present.recipient,
     expires_at: effectiveExpiresAt(row),

@@ -76,7 +76,9 @@ describe("POST /start", () => {
     const res = await start(token);
     expect(res.status).toBe(200);
     expect(await res.json<LinkPublicStatus>()).toMatchObject({ state: "active", activated: true, visitor_registered: true });
-    const line = res.headers.getSetCookie().find((value) => value.startsWith(`mlv_${id}=`)) ?? "";
+    const line = res.headers.getSetCookie().find((value) => value.startsWith("mlv_")) ?? "";
+    expect(line).not.toContain(`mlv_${id}=`);
+    expect(line).toMatch(/^mlv_[A-Za-z0-9_-]{16}=/);
     expect(line).toMatch(/HttpOnly/);
     expect(line).toMatch(/Secure/);
     expect(line).toMatch(/SameSite=Lax/);

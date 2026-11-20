@@ -27,18 +27,6 @@ export async function insertAccessLog(db: D1Database, entry: LinkLogEntry): Prom
   await accessLogStatement(db, entry).run();
 }
 
-/** 链接 + IP 在窗口内的口令错误次数（IP 未知时按"未知"这一组计，同样受限） */
-export async function countPasswordFailures(db: D1Database, linkId: number, ip: string | null, since: number): Promise<{ count: number; oldest: number | null }> {
-  const row = await db
-    .prepare(
-      `SELECT COUNT(*) AS count, MIN(created_at) AS oldest FROM link_access_logs
-       WHERE link_id = ?1 AND created_at > ?2 AND event = 'denied' AND reason = 'bad_password' AND ip IS ?3`,
-    )
-    .bind(linkId, since, ip)
-    .first<{ count: number; oldest: number | null }>();
-  return row ?? { count: 0, oldest: null };
-}
-
 export async function visitorExists(db: D1Database, linkId: number, visitorHash: string): Promise<boolean> {
   const row = await db
     .prepare("SELECT 1 AS found FROM link_visitors WHERE link_id = ? AND visitor_hash = ?")

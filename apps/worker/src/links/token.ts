@@ -36,29 +36,26 @@ function fromBase64Url(text: string): Uint8Array {
   return fromBase64(standard.padEnd(Math.ceil(standard.length / BASE64_BLOCK) * BASE64_BLOCK, "="));
 }
 
-async function tokenKey(env: TokenEnv, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", await deriveKey(env, KEY_PURPOSES.linkToken), "AES-GCM", false, [usage]);
+/** 每个请求派生一次 AES-GCM 密钥，批量创建 / 导出时复用（不要每个 token 跑一次 HKDF） */
+export async function linkTokenKey(env: TokenEnv): Promise<CryptoKey> {
+  return crypto.subtle.importKey("raw", await deriveKey(env, KEY_PURPOSES.linkToken), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-async function encryptToken(env: TokenEnv, token: string, tokenHash: string): Promise<string> {
+async function encryptToken(key: CryptoKey, token: string, tokenHash: string): Promise<string> {
   const iv = randomBytes(LINK_TOKEN_IV_BYTES);
-  const sealed = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv, additionalData: utf8(`${AAD_PREFIX}${tokenHash}`) },
-    await tokenKey(env, "encrypt"),
-    utf8(token),
-  );
+  const sealed = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: utf8(`${AAD_PREFIX}${tokenHash}`) }, key, utf8(token));
   return [FORMAT_VERSION, toBase64Url(iv), toBase64Url(new Uint8Array(sealed))].join(".");
 }
 
 /** 解密并核对哈希；格式、密钥或数据任何一处不对都抛错（数据损坏或密钥被换，不能静默返回） */
-export async function decryptLinkToken(env: TokenEnv, tokenEnc: string, tokenHash: string): Promise<string> {
+export async function decryptLinkToken(key: CryptoKey, tokenEnc: string, tokenHash: string): Promise<string> {
   const [version, ivText, sealedText, ...rest] = tokenEnc.split(".");
   if (version !== FORMAT_VERSION || ivText === undefined || sealedText === undefined || rest.length > 0) {
     throw new Error("token_enc 格式无法识别");
   }
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: fromBase64Url(ivText), additionalData: utf8(`${AAD_PREFIX}${tokenHash}`) },
-    await tokenKey(env, "decrypt"),
+    key,
     fromBase64Url(sealedText),
   );
   const token = new TextDecoder().decode(plain);
@@ -66,13 +63,13 @@ export async function decryptLinkToken(env: TokenEnv, tokenEnc: string, tokenHas
   return token;
 }
 
-export async function createLinkToken(env: TokenEnv): Promise<NewLinkToken> {
+export async function createLinkToken(key: CryptoKey): Promise<NewLinkToken> {
   const token = toBase64Url(randomBytes(LINK_TOKEN_BYTES));
   const tokenHash = await hashLinkToken(token);
   return {
     token,
     token_hash: tokenHash,
-    token_enc: await encryptToken(env, token, tokenHash),
+    token_enc: await encryptToken(key, token, tokenHash),
     token_hint: token.slice(0, LINK_TOKEN_HINT_LENGTH),
   };
 }

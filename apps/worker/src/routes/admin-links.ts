@@ -15,7 +15,7 @@ import type { z } from "zod";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { nowSec } from "../clock";
 import { listAccessLogs } from "../db/link-activity";
-import { deleteShareLink, insertShareLinks, updateShareLink, type NewShareLink, type ShareLinkWrite } from "../db/share-link-writes";
+import { deleteShareLink, insertShareLinks, updateShareLink, type NewShareLinkRow, type ShareLinkWrite } from "../db/share-link-writes";
 import { findShareLinkStats, listLinkMailboxes, listShareLinkRows, type ShareLinkStatsRow } from "../db/share-links";
 import type { AppEnv } from "../env";
 import { ApiError, notFoundError } from "../errors";
@@ -30,7 +30,7 @@ import {
   requireMailboxes,
   requireRuleGroupId,
 } from "../links/admin-service";
-import { createLinkToken, decryptLinkToken, linkUrl } from "../links/token";
+import { createLinkToken, decryptLinkToken, linkTokenKey, linkUrl } from "../links/token";
 import { toAdminLink } from "../links/view";
 import { parseIdParam, parseJsonBody, parseQuery } from "../validate";
 
@@ -80,13 +80,14 @@ adminLinkRoutes.post("/", async (c) => {
     access: JSON.stringify(access),
   };
   const groups = groupMailboxes(body.mode, body.mailbox_ids);
-  const tokens = await Promise.all(groups.map(() => createLinkToken(c.env)));
-  const links: NewShareLink[] = groups.map((mailboxIds, index) => {
+  const key = await linkTokenKey(c.env);
+  const tokens = await Promise.all(groups.map(() => createLinkToken(key)));
+  const rows: NewShareLinkRow[] = groups.map((mailboxIds, index) => {
     const { token: _token, ...columns } = tokens[index] as (typeof tokens)[number];
-    return { ...base, ...columns, mailbox_ids: mailboxIds };
+    return { ...columns, mailbox_ids: mailboxIds };
   });
   const actorId = c.get("auth").user.id;
-  const ids = await insertShareLinks(db, links, actorId, now);
+  const ids = await insertShareLinks(db, base, rows, actorId, now);
   await recordAudit(c, {
     action: AUDIT_ACTIONS.linkCreate,
     actorUserId: actorId,
@@ -142,7 +143,12 @@ adminLinkRoutes.patch("/:id", async (c) => {
   const now = nowSec();
   const row = await requireLinkRow(db, id, now);
   const fields = await buildUpdate(c.env, row, body);
-  if (!(await updateShareLink(db, id, fields, now))) throw notFoundError("取件链接不存在");
+  if (!(await updateShareLink(db, id, fields, now))) {
+    // 条件更新没命中：要么链接已被删除，要么与并发撤销竞争输了（撤销是终态）
+    const current = await findShareLinkStats(db, id, now);
+    if (current?.status === "revoked") throw new ApiError(HTTP_CONFLICT, "link_revoked", "链接已撤销，不能再恢复；请新建链接");
+    throw notFoundError("取件链接不存在");
+  }
   const revoked = row.status !== "revoked" && body.status === "revoked";
   const access = fields.access === undefined ? undefined : auditAccess(parseStoredAccess(fields.access));
   await recordAudit(c, {
@@ -174,7 +180,7 @@ adminLinkRoutes.delete("/:id", async (c) => {
 adminLinkRoutes.get("/:id/token", async (c) => {
   const id = parseIdParam(c);
   const row = await requireLinkRow(c.env.APP_DB, id, nowSec());
-  const token = await decryptLinkToken(c.env, row.token_enc, row.token_hash);
+  const token = await decryptLinkToken(await linkTokenKey(c.env), row.token_enc, row.token_hash);
   await recordAudit(c, {
     action: AUDIT_ACTIONS.linkTokenView,
     actorUserId: c.get("auth").user.id,

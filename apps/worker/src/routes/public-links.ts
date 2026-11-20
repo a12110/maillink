@@ -11,10 +11,9 @@ import {
 import { z } from "zod";
 import { getVisibleAttachment, getVisibleMailDetail, listVisibleMails } from "../access";
 import { verifyPassword } from "../auth/password";
-import { LINK_PASSWORD_FAILURE_WINDOW_SEC, LINK_PASSWORD_MAX_FAILURES } from "../constants";
+import { createMiddleware } from "hono/factory";
 import {
   accessLogStatement,
-  countPasswordFailures,
   deliveredMailIds,
   deliveryCounts,
   insertAccessLog,
@@ -23,6 +22,7 @@ import {
   registerVisitor,
   touchVisitorStatement,
 } from "../db/link-activity";
+import { claimPasswordAttempt, passwordIpBucket, releasePasswordAttempt } from "../db/link-password";
 import type { AppEnv } from "../env";
 import { ApiError, notFoundError } from "../errors";
 import { HTTP_CONFLICT, HTTP_OK } from "../http-status";
@@ -51,7 +51,8 @@ const handleError: ErrorHandler<AppEnv> = (err, c) => {
 };
 publicLinkRoutes.onError(handleError);
 
-publicLinkRoutes.use("*", async (c, next) => {
+/** 公开接口的安全头。由 index.ts 以 app.use("/api/s/*") 挂在 CSRF 之前，CSRF 拒绝等早于路由的错误响应也带上 */
+export const linkSecurityHeaders = createMiddleware<AppEnv>(async (c, next) => {
   await next();
   c.header("Cache-Control", "no-store");
   c.header("Referrer-Policy", "no-referrer");
@@ -73,17 +74,22 @@ publicLinkRoutes.get("/:token", async (c) => {
   return c.json(body, HTTP_OK);
 });
 
-/** 口令：错误次数按链接 + IP 计，满了锁到窗口滚过；缺口令不计次 */
+/**
+ * 口令：PBKDF2 之前先占一个失败名额（链接 + IP 桶、链接全局两层上限），占不到直接锁定，
+ * 并发的错口令请求最多只有上限个进入 PBKDF2；口令正确时释放占位。缺口令不计次。
+ */
 async function checkPassword(c: Parameters<typeof loadLinkRequest>[0], req: LinkRequest, password: string | undefined): Promise<void> {
   const hash = req.access.password_hash;
   if (hash === undefined) return;
   if (password === undefined) throw denial("password_required");
-  const failures = await countPasswordFailures(c.env.APP_DB, req.row.id, req.client.ip, req.now - LINK_PASSWORD_FAILURE_WINDOW_SEC);
-  if (failures.count >= LINK_PASSWORD_MAX_FAILURES) {
-    const retryAfter = (failures.oldest ?? req.now) + LINK_PASSWORD_FAILURE_WINDOW_SEC;
-    await rejectWith(c, req, "password_locked", true, { retry_after_at: retryAfter });
+  const db = c.env.APP_DB;
+  const claim = await claimPasswordAttempt(db, req.row.id, passwordIpBucket(req.client.ip), req.now);
+  if (!claim.ok) return await rejectWith(c, req, "password_locked", true, { retry_after_at: claim.retryAfter });
+  if (await verifyPassword(c.env, password, hash)) {
+    await releasePasswordAttempt(db, claim.attemptId);
+    return;
   }
-  if (!(await verifyPassword(c.env, password, hash))) await rejectWith(c, req, "bad_password", true);
+  await rejectWith(c, req, "bad_password", true);
 }
 
 publicLinkRoutes.post("/:token/start", async (c) => {
@@ -94,9 +100,11 @@ publicLinkRoutes.post("/:token/start", async (c) => {
   if (req.access.turnstile) await rejectWith(c, req, "turnstile_unavailable", true);
   const scope = await requireMailboxScope(c, req, true);
   const existing = await identifyVisitor(c, req.row.id);
-  if (existing.registered && existing.hash !== null) {
+  if (existing.registered && existing.hash !== null && existing.value !== null) {
     await db.batch([touchVisitorStatement(db, req.row.id, existing.hash, req.client, req.now), markLinkAccessStatement(db, req.row.id, req.now, true)]);
-    return c.json(await buildPublicStatus(db, { ...req, row: { ...req.row, first_access_at: req.row.first_access_at ?? req.now } }, scope, existing), HTTP_OK);
+    const activated = { ...req.row, first_access_at: req.row.first_access_at ?? req.now };
+    await issueVisitorCookie(c, activated, existing.value, req.now);
+    return c.json(await buildPublicStatus(db, { ...req, row: activated }, scope, existing), HTTP_OK);
   }
   await checkPassword(c, req, body.password);
   const value = newVisitorValue();
@@ -109,8 +117,8 @@ publicLinkRoutes.post("/:token/start", async (c) => {
     accessLogStatement(db, { link_id: req.row.id, event: "start", mail_id: null, reason: null, created_at: req.now, ...req.client }),
   ]);
   const row = { ...req.row, first_access_at: req.row.first_access_at ?? req.now };
-  issueVisitorCookie(c, row, value, req.now);
-  return c.json(await buildPublicStatus(db, { ...req, row }, scope, { hash, registered: true }), HTTP_OK);
+  await issueVisitorCookie(c, row, value, req.now);
+  return c.json(await buildPublicStatus(db, { ...req, row }, scope, { hash, value, registered: true }), HTTP_OK);
 });
 
 publicLinkRoutes.get("/:token/mails", async (c) => {
@@ -147,7 +155,8 @@ publicLinkRoutes.post("/:token/mails/:id/reveal", async (c) => {
     throw new ApiError(HTTP_CONFLICT, LINK_PUBLIC_ERRORS.revealNotApplicable, "这个链接的邮件会自动显示，不需要点击取码");
   }
   const scope = await requireMailboxScope(c, req, true);
-  const visitorHash = await requireVisitor(c, req);
+  const visitor = await requireVisitor(c, req);
+  const visitorHash = visitor.hash;
   const mail = await findVisibleListItem(c.env, scope.scope, mailId, req.now);
   const db = c.env.APP_DB;
   const limits = { total: req.access.max_deliveries_total ?? null, daily: req.access.max_deliveries_per_day ?? null };
@@ -161,6 +170,7 @@ publicLinkRoutes.post("/:token/mails/:id/reveal", async (c) => {
   } else {
     await explainRefusedDelivery(c, req, mailId);
   }
+  await issueVisitorCookie(c, req.row, visitor.value, req.now);
   const counts = req.counts === null ? null : await deliveryCounts(db, req.row.id, req.now);
   const body: LinkRevealResponse = { mail, counted, deliveries: deliveryQuota(req.access, counts) };
   return c.json(body, HTTP_OK);

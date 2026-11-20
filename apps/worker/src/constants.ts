@@ -171,6 +171,21 @@ export const LINK_DELIVERY_WINDOW_SEC = SECONDS_PER_DAY;
 export const LINK_PASSWORD_MAX_FAILURES = 5;
 export const LINK_PASSWORD_FAILURE_WINDOW_SEC = 15 * 60;
 
+/** 按链接的全局上限：同一链接在窗口内累计这么多次口令错误后，对所有新设备锁定（已登记设备 start 时不再要口令） */
+export const LINK_PASSWORD_MAX_FAILURES_PER_LINK = 20;
+
+/** 口令错误按 IP 计数时 IPv6 合并到的网段字节数：8 字节 = /64（一个用户通常拿到整个 /64） */
+export const LINK_PASSWORD_IPV6_BUCKET_BYTES = 8;
+
+/** 拿不到来源 IP 时共用的计数桶 */
+export const LINK_PASSWORD_UNKNOWN_IP_BUCKET = "unknown";
+
+/** 访客 Cookie 名里 HMAC(链接 id) 的 base64url 字符数（16 字符 = 96 位，不可枚举、不暴露自增 id） */
+export const LINK_VISITOR_COOKIE_NAME_CHARS = 16;
+
+/** 批量创建链接时单个 JSON 参数的字节上限（D1 单个值上限 2 MB，留一半余量）；超出说明调用方没控制好批量大小，直接报错 */
+export const LINK_INSERT_PAYLOAD_MAX_BYTES = 1_000_000;
+
 /**
  * 链接列表的异常标记（06 §7"设备数、国家数异常的行做标记"）：
  *   - device_limit_reached：设了 max_devices 且已登记设备数达到上限；

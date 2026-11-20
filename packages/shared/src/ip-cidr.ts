@@ -106,3 +106,19 @@ export function cidrContains(cidr: ParsedCidr, ip: ParsedIp): boolean {
   const mask = (BYTE_MAX << (BITS_PER_BYTE - restBits)) & BYTE_MAX;
   return ((cidr.bytes[fullBytes] ?? 0) & mask) === ((ip.bytes[fullBytes] ?? 0) & mask);
 }
+
+const MAPPED_PREFIX_BITS = MAPPED_PREFIX.length * BITS_PER_BYTE;
+
+/**
+ * 保存用的规范写法：`::ffff:a.b.c.d/n`（IPv4 映射）转成 IPv4 CIDR `a.b.c.d/(n−96)`，
+ * 因为运行时会把映射地址还原成 IPv4 再匹配，存成 IPv6 形式永远匹配不上；前缀 < 96 的映射写法跨出了映射段，拒绝。
+ * 其余合法写法原样（去首尾空白）；非法返回 null。
+ */
+export function normalizeCidrText(text: string): string | null {
+  const cidr = parseCidr(text);
+  if (cidr === null) return null;
+  const unmapped = unmapIpv4(cidr);
+  if (unmapped.version === cidr.version) return text.trim();
+  if (cidr.prefix < MAPPED_PREFIX_BITS) return null;
+  return `${unmapped.bytes.join(".")}/${cidr.prefix - MAPPED_PREFIX_BITS}`;
+}

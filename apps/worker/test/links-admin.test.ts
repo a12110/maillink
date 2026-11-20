@@ -11,7 +11,7 @@ import {
 } from "@maillink/shared";
 import { sha256Hex } from "../src/auth/crypto";
 import { LINK_POLL_MIN_SEC, MAX_MAILBOXES_PER_LINK } from "../src/constants";
-import { decryptLinkToken } from "../src/links/token";
+import { decryptLinkToken, linkTokenKey } from "../src/links/token";
 import { adminSession, api, auditRows, resetApp } from "./helpers";
 import { createLink, createLinks, createRuleGroup, importMailboxes, linkRow, type ErrorBody } from "./link-helpers";
 
@@ -55,7 +55,7 @@ describe("POST /api/admin/links", () => {
       const row = await linkRow(item.link.id);
       expect(row.token_hash).toBe(await sha256Hex(item.token));
       expect(String(row.token_enc)).not.toContain(item.token);
-      expect(await decryptLinkToken(env, String(row.token_enc), String(row.token_hash))).toBe(item.token);
+      expect(await decryptLinkToken(await linkTokenKey(env), String(row.token_enc), String(row.token_hash))).toBe(item.token);
     }
     const list = await (await api("/api/admin/links", { cookie })).text();
     for (const item of created.items) expect(list).not.toContain(item.token);
@@ -111,6 +111,7 @@ describe("POST /api/admin/links", () => {
       access: { ip_allow: ["10.0.0.0/8", "2001:db8::/32", "::ffff:192.0.2.1"], country_allow: ["us", "CN"] },
     });
     expect(ok.items[0]?.link.access.country_allow).toEqual(["US", "CN"]);
+    expect(ok.items[0]?.link.access.ip_allow).toEqual(["10.0.0.0/8", "2001:db8::/32", "192.0.2.1/32"]);
   });
 
   it("收件地址或规则组不存在：400", async () => {
@@ -234,10 +235,14 @@ describe("POST /api/admin/links/export", () => {
     expect(await auditRows("link.export")).toHaveLength(1);
   });
 
-  it("行模板：变量白名单、值里的换行与公式前缀被中和", async () => {
+  it("行模板：变量白名单、值里的换行换成空格；不加公式前缀（-foo@x.com 不被改坏）", async () => {
+    const dash = (await importMailboxes(cookie, ["-foo@x.com"])).get("-foo@x.com") as number;
+    const dashLink = await createLink(cookie, { mailbox_ids: [dash], rule_group_id: groupId });
+    const dashRes = await api("/api/admin/links/export", { cookie, json: { ids: [dashLink.id], format: "template", template: "{address}----{link}" } });
+    expect((await dashRes.json<ShareLinkExportResponse>()).content).toBe(`-foo@x.com----${env.PUBLIC_ORIGIN}/s/${dashLink.token}\n`);
     const { id, token } = await createLink(cookie, { mailbox_ids: [box("b@example.com")], rule_group_id: groupId, order_ref: "@cmd\nx" });
     const res = await api("/api/admin/links/export", { cookie, json: { ids: [id], format: "template", template: "{address}----{link}----{order_ref}" } });
-    expect((await res.json<ShareLinkExportResponse>()).content).toBe(`b@example.com----${env.PUBLIC_ORIGIN}/s/${token}----'@cmd x\n`);
+    expect((await res.json<ShareLinkExportResponse>()).content).toBe(`b@example.com----${env.PUBLIC_ORIGIN}/s/${token}----@cmd x\n`);
     const bad = await api("/api/admin/links/export", { cookie, json: { ids: [id], format: "template", template: "{address}:{token}" } });
     expect(await errorOf(bad)).toEqual({ status: 400, code: "template_invalid" });
     const multiline = await api("/api/admin/links/export", { cookie, json: { ids: [id], format: "template", template: "{address}\n{link}" } });
