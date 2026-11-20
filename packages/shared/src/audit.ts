@@ -6,7 +6,9 @@ const AUDIT_ACTION_MAX_LENGTH = 64;
 const AUDIT_TARGET_TYPE_MAX_LENGTH = 32;
 const AUDIT_TARGET_ID_MAX_LENGTH = 64;
 
-const unixSeconds = z.coerce.number().int().nonnegative();
+/** 纯数字且最多 15 位（远小于 2^53）；不用 coerce，否则空串会被当成 0 */
+const digits = z.string().regex(/^\d{1,15}$/, "必须是不超过 15 位的非负整数");
+const unixSeconds = digits.transform(Number);
 
 /** GET /api/admin/audit-logs 的查询参数；时间范围为 Unix 秒，含边界 */
 export const auditLogListQuerySchema = z
@@ -17,7 +19,7 @@ export const auditLogListQuerySchema = z
     target_id: z.string().trim().min(1).max(AUDIT_TARGET_ID_MAX_LENGTH).optional(),
     since: unixSeconds.optional(),
     until: unixSeconds.optional(),
-    cursor: z.string().regex(/^\d+$/, "cursor 无效").optional(),
+    cursor: z.string().regex(/^\d{1,15}$/, "cursor 无效").optional(),
     limit: z.coerce.number().int().min(1).max(LIST_PAGE_SIZE_MAX).optional(),
   })
   .refine((query) => query.since === undefined || query.until === undefined || query.since <= query.until, {

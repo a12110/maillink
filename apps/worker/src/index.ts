@@ -5,7 +5,7 @@ import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
 import { rateLimitByIp, rateLimitLogin } from "./middleware/rate-limit";
 import { runScheduled } from "./cron";
-import { RATE_LIMIT_PURPOSES } from "./constants";
+import { RATE_LIMITED_ROUTES } from "./constants";
 import { adminAuditRoutes } from "./routes/admin-audit";
 import { adminMailRoutes } from "./routes/admin-mails";
 import { adminSystemRoutes } from "./routes/admin-system";
@@ -22,12 +22,10 @@ app.notFound(notFound);
 
 // 写操作的 CSRF 检查对所有 /api/* 生效（04 约定）
 app.use("/api/*", csrfProtection);
-// 限流（01 §2）：按路径挂在这里，不改各路由文件。必须在 csrf 之后、路由之前
-app.on("POST", "/api/auth/login", rateLimitLogin);
-app.on("POST", "/api/setup", rateLimitByIp(RATE_LIMIT_PURPOSES.setupIp));
-app.on("POST", "/api/auth/mfa/*", rateLimitByIp(RATE_LIMIT_PURPOSES.mfaIp));
-app.on("POST", "/api/auth/passkey/*", rateLimitByIp(RATE_LIMIT_PURPOSES.passkeyIp));
-app.on("GET", "/api/auth/oauth/*", rateLimitByIp(RATE_LIMIT_PURPOSES.oauthIp));
+// 限流（01 §2）：按 constants.ts 的 RATE_LIMITED_ROUTES 清单挂在这里，不改各路由文件。必须在 csrf 之后、路由之前
+for (const route of RATE_LIMITED_ROUTES) {
+  app.on(route.method, route.path, route.usernameKeyed ? rateLimitLogin : rateLimitByIp(route.purpose));
+}
 // /api/admin/* 全部要求管理员
 app.use("/api/admin/*", requireAdmin);
 

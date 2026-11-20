@@ -23,5 +23,7 @@ export type CronStatus = z.infer<typeof cronStatusSchema>;
 export const rateLimitStatusSchema = z.object({
   /** RATE_LIMITER 绑定是否存在；false 时登录等受保护接口返回 503 rate_limiter_not_configured */
   configured: z.boolean(),
+  /** LINK_RATE_LIMITER（取件链接）绑定是否存在；false 时取件链接接口返回 503 */
+  link_configured: z.boolean(),
 });
 export type RateLimitStatus = z.infer<typeof rateLimitStatusSchema>;

@@ -28,7 +28,6 @@ setupRoutes.post("/", async (c) => {
   if (!expectedToken) {
     throw new ApiError(HTTP_SERVICE_UNAVAILABLE, "setup_token_not_configured", "服务端未配置 SETUP_TOKEN，无法初始化");
   }
-  // TODO(M7): 初始化尝试按 IP 限流（RATE_LIMITER 未配置时要显式报错，不静默放行）
   if (!(await timingSafeEqualStrings(body.setup_token, expectedToken))) {
     throw new ApiError(HTTP_FORBIDDEN, "invalid_setup_token", "初始化令牌错误");
   }

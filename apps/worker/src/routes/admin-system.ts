@@ -48,7 +48,10 @@ adminSystemRoutes.get("/health", async (c) => {
     ok: appDb.ok && mailDb.ok,
     app_db: appDb,
     mail_db: mailDb,
-    rate_limit: { configured: c.env.RATE_LIMITER !== undefined },
+    rate_limit: {
+      configured: c.env.RATE_LIMITER !== undefined,
+      link_configured: c.env.LINK_RATE_LIMITER !== undefined,
+    },
     cron,
   };
   // 不健康时返回 503，让监控与前端都能直接感知；响应体结构不变

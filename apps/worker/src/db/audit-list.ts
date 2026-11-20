@@ -1,4 +1,5 @@
 import type { AuditLog, AuditLogList, AuditLogListQuery } from "@maillink/shared";
+import { redactSensitive } from "../audit-redact";
 import { LIST_PAGE_SIZE } from "../constants";
 
 // 审计日志列表（只读）。执行者用户名取自 users 的 LEFT JOIN：用户被删后为 null，日志本身保留。
@@ -32,9 +33,9 @@ function buildFilter(query: AuditLogListQuery): { where: string; params: unknown
   return { where: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "", params };
 }
 
-/** detail 在库里是 JSON 文本；解析失败说明数据被改坏，抛出而不是返回残缺内容 */
+/** detail 在库里是 JSON 文本；解析失败说明数据被改坏，抛出而不是返回残缺内容。返回前剔除敏感键 */
 function toAuditLog(row: AuditListRow): AuditLog {
-  return { ...row, detail: row.detail === null ? null : (JSON.parse(row.detail) as unknown) };
+  return { ...row, detail: row.detail === null ? null : redactSensitive(JSON.parse(row.detail) as unknown) };
 }
 
 export async function listAuditLogs(db: D1Database, query: AuditLogListQuery): Promise<AuditLogList> {

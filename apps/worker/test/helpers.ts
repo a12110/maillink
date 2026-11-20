@@ -148,7 +148,7 @@ export async function api(path: string, options: ApiOptions = {}): Promise<Respo
   const method = options.method ?? (options.json === undefined ? "GET" : "POST");
   const init: RequestInit = { method, headers: buildHeaders(method, options) };
   if (options.json !== undefined) init.body = JSON.stringify(options.json);
-  return await app.request(path, init, { ...env, RATE_LIMITER: ALLOW_ALL_RATE_LIMITER, ...options.bindings });
+  return await app.request(path, init, { ...env, RATE_LIMITER: ALLOW_ALL_RATE_LIMITER, LINK_RATE_LIMITER: ALLOW_ALL_RATE_LIMITER, ...options.bindings });
 }
 
 /** 从响应的 Set-Cookie 里取 sid 的完整 Set-Cookie 行 */

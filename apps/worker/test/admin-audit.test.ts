@@ -92,11 +92,32 @@ describe("GET /api/admin/audit-logs", () => {
   });
 
   it("非法参数：400 validation_error", async () => {
-    for (const query of ["?since=abc", "?limit=0", "?limit=101", "?cursor=x", "?since=10&until=5", "?actor_user_id=0", "?action="]) {
+    for (const query of ["?since=", "?until=", "?since=-1", "?since=1.5", "?cursor=", "?cursor=1234567890123456", "?since=abc", "?limit=0", "?limit=101", "?cursor=x", "?since=10&until=5", "?actor_user_id=0", "?action="]) {
       const res = await api(`${PATH}${query}`, { cookie });
       expect(res.status, query).toBe(400);
       expect(((await res.json()) as { error: { code: string } }).error.code).toBe("validation_error");
     }
+  });
+
+  it("兜底脱敏：detail 里的敏感键（任意嵌套、大小写不敏感）被剔除，其余原样保留", async () => {
+    await seed([
+      {
+        action: "x.test",
+        at: 1,
+        detail: {
+          username: "dave",
+          Password: "p1",
+          nested: { api_token: "t1", keep: 1, list: [{ RecoveryCodes: ["a"], ok: true }, "plain"] },
+          totp_code: "123456",
+          client_secret: "s1",
+          reason: "bad_password",
+        },
+      },
+    ]);
+    const item = (await list()).items[0];
+    expect(item?.detail).toEqual({ username: "dave", nested: { keep: 1, list: [{ ok: true }, "plain"] }, reason: "bad_password" });
+    const text = JSON.stringify(item);
+    for (const secret of ["p1", "t1", "123456", "s1"]) expect(text).not.toContain(`"${secret}"`);
   });
 
   it("真实写入方的日志不含密码与令牌", async () => {
