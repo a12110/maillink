@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { expandJsonStrings, hasAuditFilters, toAuditQuery } from "./audit-state";
-import { actionLabel, targetLabel } from "./labels";
+import { actionLabel, reasonLabel, targetLabel } from "./labels";
 import type { AuditFilterDraft } from "./AuditFilters";
 
 const NONE: AuditFilterDraft = { action: "", actor: "", since: "", until: "" };
@@ -35,9 +35,23 @@ describe("文案", () => {
   it("已知动作与目标翻成中文，未知的原样显示", () => {
     expect(actionLabel("rule_group.update")).toBe("修改规则组");
     expect(actionLabel("future.action")).toBe("future.action");
+    expect(actionLabel("auth.identity_link_start")).toBe("发起关联外部身份");
+    expect(actionLabel("auth.identity_link_rejected")).toBe("拒绝关联外部身份");
     expect(targetLabel("rule_group", "7")).toBe("规则组 #7");
     expect(targetLabel("mailbox", null)).toBe("收件地址");
     expect(targetLabel("weird", "1")).toBe("weird #1");
     expect(targetLabel(null, null)).toBeNull();
+  });
+});
+
+describe("拒绝原因文案", () => {
+  it("关联外部身份被拒的原因翻成中文；未知原因原样；没有 reason 或不是字符串返回 null", () => {
+    expect(reasonLabel({ provider: "github", reason: "session_mismatch" })).toBe("回调时已不是发起绑定的那个登录会话");
+    expect(reasonLabel({ reason: "bound_to_other_user" })).toBe("该外部身份已绑定其他用户");
+    expect(reasonLabel({ reason: "token_invalid" })).toBe("提供方返回的令牌校验失败");
+    expect(reasonLabel({ reason: "future_reason" })).toBe("future_reason");
+    expect(reasonLabel({ provider: "github" })).toBeNull();
+    expect(reasonLabel({ reason: 3 })).toBeNull();
+    expect(reasonLabel(null)).toBeNull();
   });
 });

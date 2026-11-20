@@ -17,6 +17,7 @@ export const AUDIT_ACTION_LABEL: Readonly<Record<string, string>> = {
   "auth.passkey_rename": "重命名通行密钥",
   "auth.passkey_remove": "删除通行密钥",
   "auth.passkey_counter_rollback": "通行密钥计数回退",
+  "auth.identity_link_start": "发起关联外部身份",
   "auth.identity_link": "关联外部身份",
   "auth.identity_link_rejected": "拒绝关联外部身份",
   "auth.identity_unlink": "解除外部身份",
@@ -51,6 +52,21 @@ export const AUDIT_TARGET_LABEL: Readonly<Record<string, string>> = {
   rule_group: "规则组",
   mailbox: "收件地址",
 };
+
+/** 关联外部身份被拒（auth.identity_link_rejected）时 detail.reason 的取值 → 中文。未登记的原样显示 */
+export const AUDIT_REASON_LABEL: Readonly<Record<string, string>> = {
+  session_mismatch: "回调时已不是发起绑定的那个登录会话",
+  bound_to_other_user: "该外部身份已绑定其他用户",
+  exchange_failed: "向提供方换取令牌失败",
+  token_invalid: "提供方返回的令牌校验失败",
+  profile_invalid: "提供方返回的用户资料无效",
+};
+
+/** detail 里的 reason：字符串才翻译，其余（缺失、非字符串）返回 null */
+export function reasonLabel(detail: unknown): string | null {
+  if (typeof detail !== "object" || detail === null || !("reason" in detail) || typeof detail.reason !== "string") return null;
+  return AUDIT_REASON_LABEL[detail.reason] ?? detail.reason;
+}
 
 export function actionLabel(action: string): string {
   return AUDIT_ACTION_LABEL[action] ?? action;

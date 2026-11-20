@@ -5,7 +5,7 @@ import type { AuditLog } from "@maillink/shared";
 import { formatFullDateTime } from "../../lib/format";
 import { SkeletonRows, Tag } from "../../ui";
 import { expandJsonStrings } from "./audit-state";
-import { actionLabel, targetLabel } from "./labels";
+import { actionLabel, reasonLabel, targetLabel } from "./labels";
 
 const SKELETON_ROWS = 8;
 const COLUMN_COUNT = 6;
@@ -26,9 +26,11 @@ function Target({ log }: { log: AuditLog }) {
 }
 
 function DetailRow({ log }: { log: AuditLog }) {
+  const reason = reasonLabel(log.detail);
   return (
     <tr className="audit-detail-row">
       <td colSpan={COLUMN_COUNT}>
+        {reason === null ? null : <p className="field-hint">原因：{reason}</p>}
         <pre className="audit-detail" tabIndex={0} aria-label={`日志 ${log.id} 的详情 JSON`}>{JSON.stringify(expandJsonStrings(log.detail), null, 2)}</pre>
       </td>
     </tr>
