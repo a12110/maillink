@@ -24,6 +24,7 @@
 | `gzip-blob.eml` | 与开启 `ENABLE_MAIL_GZIP` 时一致：gzip 后放 `raw_blob`，`raw` 为空 | `raw_blob` |
 | `malformed.eml` | 没有邮件头的畸形原文，解析必须失败（`parse_status='failed'`） | `raw` |
 | `build-large-mail.ts` | 生成正文超过 32 KB 的邮件（体积大，不放静态文件），种子与测试共用 | `raw_blob`（gzip） |
+| `risky-code-mails.ts` | 分类器样本（只给单测用）：最终验收的 13 封带验证码高危邮件、补充的多语言高危邮件、各语言普通登录码邮件 | 不进种子 |
 
 种子脚本另外生成一行"原文丢失"的记录（`raw` 与 `raw_blob` 都为空），用来演示"两列都空要明确报错"。
 

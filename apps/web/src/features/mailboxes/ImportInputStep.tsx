@@ -16,7 +16,7 @@ type Props = {
   onPreview: () => void;
 };
 
-const FORMAT_HINT = `每行一个地址，可带备注与标签：地址[,备注[,标签]]（逗号或制表符分隔，标签用空白、; 或 | 分隔）。首行是 address / 地址 表头时自动跳过。一次最多 ${MAILBOX_LIMITS.importMaxLines} 行。`;
+const FORMAT_HINT = `每行一个地址，可带平台与备注：地址[,平台[,备注]]（逗号或制表符分隔）。平台列会成为该地址的标签，多个用空白、; 或 | 分隔；备注含逗号时用双引号括起。首行是 address / 地址 表头时自动跳过。一次最多 ${MAILBOX_LIMITS.importMaxLines} 行。`;
 
 function tagError(tag: string): string | undefined {
   const parsed = mailboxTagSchema.safeParse(tag);
@@ -58,7 +58,7 @@ export function ImportInputStep({ value, onChange, busy, error, onCancel, onPrev
         mono
         rows={8}
         spellCheck={false}
-        placeholder={"alias_one@icloud.com,OpenAI 共享号 #12,OpenAI 共享\nalias_two@icloud.com"}
+        placeholder={"alias_one@icloud.com,OpenAI,共享号 #12\nalias_two@icloud.com,Steam\nalias_three@icloud.com"}
         value={value.content}
         onChange={(event) => onChange({ ...value, content: event.target.value })}
         error={localError ?? readError ?? undefined}

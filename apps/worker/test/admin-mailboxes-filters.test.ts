@@ -54,7 +54,7 @@ describe("GET /api/admin/mailboxes/tags", () => {
   it("按使用次数降序、同次数按标签名；只给管理员", async () => {
     const res0 = await api("/api/admin/mailboxes/import", {
       cookie,
-      json: { content: "a@example.com,,vip gold\nb@example.com,,gold\nc@example.com,,gold beta" },
+      json: { content: "a@example.com,vip gold\nb@example.com,gold\nc@example.com,gold beta" },
     });
     expect(res0.status).toBe(201);
     const res = await api("/api/admin/mailboxes/tags", { cookie });
