@@ -16,6 +16,13 @@ export function formatDateTime(unixSec: number | null, now: Date = new Date()): 
   return `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** Unix 秒 → 本地完整时间 `YYYY-MM-DD HH:mm:ss`（详情页用） */
+export function formatFullDateTime(unixSec: number): string {
+  const d = new Date(unixSec * MS_PER_SECOND);
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 const BROWSERS: ReadonlyArray<readonly [RegExp, string]> = [
   [/Edg(e|A|iOS)?\//, "Edge"],
   [/OPR\/|Opera/, "Opera"],
