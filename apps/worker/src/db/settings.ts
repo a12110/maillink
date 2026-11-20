@@ -9,7 +9,9 @@ import { ACCESS_LOG_RETENTION_DAYS_DEFAULT, AUDIT_LOG_RETENTION_DAYS_DEFAULT } f
 export const SETTING_DEFINITIONS = {
   "site.name": { schema: z.string().min(1), default: "MailLink" },
   "registration.enabled": { schema: z.boolean(), default: false },
-  "auth.login_methods": { schema: z.array(loginMethodSchema).min(1), default: ["password"] },
+  "auth.login_methods": { schema: z.array(loginMethodSchema).min(1), default: ["password", "passkey", "oauth"] },
+  // D7：OAuth 登录后是否仍要求本地 2FA（只对已启用 TOTP 的用户生效），默认不要求；写入接口属于 M6
+  "auth.oauth_require_2fa": { schema: z.boolean(), default: false },
   "logs.access_retention_days": { schema: z.number().int().min(1), default: ACCESS_LOG_RETENTION_DAYS_DEFAULT },
   "logs.audit_retention_days": { schema: z.number().int().min(1), default: AUDIT_LOG_RETENTION_DAYS_DEFAULT },
 } satisfies Record<string, { schema: z.ZodType; default: unknown }>;

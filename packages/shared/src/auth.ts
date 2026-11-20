@@ -33,16 +33,26 @@ export type UserRole = z.infer<typeof userRoleSchema>;
 export const userStatusSchema = z.enum(["active", "disabled"]);
 export type UserStatus = z.infer<typeof userStatusSchema>;
 
-/** 登录方式标识，对应 public config 的 login_methods */
-export const loginMethodSchema = z.enum(["password"]);
+/** 登录方式标识，对应 public config 的 login_methods 与系统设置 auth.login_methods */
+export const loginMethodSchema = z.enum(["password", "passkey", "oauth"]);
 export type LoginMethod = z.infer<typeof loginMethodSchema>;
 
 // ---- 公开 ----
+
+/** 登录页上展示的 OAuth 提供方：只有 slug、名称、图标 */
+export const publicOAuthProviderSchema = z.object({
+  slug: z.string(),
+  name: z.string(),
+  icon: z.string().nullable(),
+});
+export type PublicOAuthProvider = z.infer<typeof publicOAuthProviderSchema>;
 
 export const publicConfigSchema = z.object({
   site_name: z.string(),
   registration_enabled: z.boolean(),
   login_methods: z.array(loginMethodSchema),
+  /** 已启用的提供方，按 sort 排序；login_methods 不含 oauth 时为空 */
+  oauth_providers: z.array(publicOAuthProviderSchema),
 });
 export type PublicConfig = z.infer<typeof publicConfigSchema>;
 
@@ -64,8 +74,23 @@ export const loginRequestSchema = z.object({
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 
-/** M5 加入 TOTP 后这里会扩成 `ok | mfa_required` 的联合 */
-export const loginResponseSchema = z.object({ status: z.literal("ok") });
+/** 二次验证可用的方式 */
+export const mfaMethodSchema = z.enum(["totp", "recovery"]);
+export type MfaMethod = z.infer<typeof mfaMethodSchema>;
+
+/**
+ * 密码登录结果：`ok` 已发会话；`mfa_required` 未发会话，改发 5 分钟有效的 `pending_auth` Cookie，
+ * 前端接着调用 `/api/auth/mfa/totp` 或 `/api/auth/mfa/recovery`。
+ */
+export const loginResponseSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ok") }),
+  z.object({
+    status: z.literal("mfa_required"),
+    methods: z.array(mfaMethodSchema),
+    /** pending_auth 的过期时间（Unix 秒） */
+    expires_at: z.number().int(),
+  }),
+]);
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 
 export const sessionUserSchema = z.object({

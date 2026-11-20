@@ -5,21 +5,27 @@ import {
   adminUserListQuerySchema,
   adminUserPatchSchema,
 } from "@maillink/shared";
-import type { AdminUser, OkResponse } from "@maillink/shared";
+import type { AdminUser, AdminUserDetail, OkResponse } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { hashPassword } from "../auth/password";
 import { nowSec } from "../clock";
 import { findAdminUser, listAdminUsers } from "../db/admin-users";
+import { listUserIdentities } from "../db/identities";
+import { listUserPasskeys } from "../db/passkeys";
 import { deleteUserSessions } from "../db/sessions";
 import { deleteUser, findUserById, insertUser, setPasswordHash, updateUser } from "../db/users";
 import type { UserPatch, UserRow } from "../db/users";
 import type { AppEnv } from "../env";
 import { ApiError, notFoundError } from "../errors";
 import { parseIdParam, parseJsonBody, parseQuery } from "../validate";
+import { adminUserCredentialRoutes } from "./admin-user-credentials";
+import { toMyIdentity } from "./me-identities";
+import { toMyPasskey } from "./me-passkeys";
 import { mapUserConflicts } from "./user-conflicts";
 import { HTTP_CONFLICT, HTTP_CREATED } from "../http-status";
 
 export const adminUserRoutes = new Hono<AppEnv>();
+adminUserRoutes.route("/", adminUserCredentialRoutes);
 
 function userNotFound(): ApiError {
   return notFoundError("用户不存在");
@@ -47,8 +53,10 @@ async function requireAdminUser(db: D1Database, id: number): Promise<AdminUser> 
 }
 
 /** 只记录真正变化的字段（from → to），不含密码等秘密 */
+type AuditedField = Exclude<keyof UserPatch, "email_admin_set">;
+
 function diffUser(before: UserRow, patch: UserPatch): Record<string, { from: unknown; to: unknown }> {
-  const current: Record<keyof UserPatch, unknown> = {
+  const current: Record<AuditedField, unknown> = {
     username: before.username,
     display_name: before.display_name,
     email: before.email_lc,
@@ -56,7 +64,7 @@ function diffUser(before: UserRow, patch: UserPatch): Record<string, { from: unk
     status: before.status,
   };
   const changes: Record<string, { from: unknown; to: unknown }> = {};
-  for (const key of Object.keys(current) as Array<keyof UserPatch>) {
+  for (const key of Object.keys(current) as AuditedField[]) {
     const next = patch[key];
     if (next !== undefined && next !== current[key]) changes[key] = { from: current[key], to: next };
   }
@@ -81,6 +89,7 @@ adminUserRoutes.post("/", async (c) => {
         role: body.role,
         status: body.status,
         password_hash: passwordHash,
+        email_admin_set: true,
       },
       nowSec(),
     ),
@@ -96,14 +105,25 @@ adminUserRoutes.post("/", async (c) => {
 });
 
 adminUserRoutes.get("/:id", async (c) => {
-  return c.json(await requireAdminUser(c.env.APP_DB, parseIdParam(c)));
+  const db = c.env.APP_DB;
+  const user = await requireAdminUser(db, parseIdParam(c));
+  const [passkeys, identities] = await Promise.all([listUserPasskeys(db, user.id), listUserIdentities(db, user.id)]);
+  const detail: AdminUserDetail = {
+    ...user,
+    passkeys: passkeys.map(toMyPasskey),
+    identities: identities.map(toMyIdentity),
+  };
+  return c.json(detail);
 });
 
 adminUserRoutes.patch("/:id", async (c) => {
   const db = c.env.APP_DB;
   const id = parseIdParam(c);
-  const patch = await parseJsonBody(c, adminUserPatchSchema);
+  const body = await parseJsonBody(c, adminUserPatchSchema);
   const before = await requireUserRow(db, id);
+  // 管理员改了邮箱才打上"管理员设置"标记（OAuth 自动关联只认这类邮箱）；提交的邮箱与现有相同时不算修改，标记不变
+  const { email, ...rest } = body;
+  const patch: UserPatch = email === undefined || email === before.email_lc ? rest : { ...rest, email, email_admin_set: true };
 
   const updated = await mapUserConflicts(updateUser(db, id, patch, nowSec()));
   if (!updated) throw await explainBlockedChange(db, id);

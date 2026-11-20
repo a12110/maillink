@@ -1,9 +1,11 @@
 import { Hono } from "hono";
-import { loginRequestSchema } from "@maillink/shared";
+import { loginRequestSchema, mfaRecoveryRequestSchema, mfaTotpRequestSchema } from "@maillink/shared";
 import type { LoginResponse, OkResponse, SessionResponse } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
+import { completeSecondFactor, issuePendingAuth } from "../auth/mfa";
 import { burnPasswordCheck, verifyPassword } from "../auth/password";
 import { endSession, startSession } from "../auth/session";
+import { recoveryFactor, totpFactor } from "../auth/second-factors";
 import { nowSec } from "../clock";
 import { findUserByUsername, touchLastLogin } from "../db/users";
 import type { UserRow } from "../db/users";
@@ -12,10 +14,14 @@ import { ApiError } from "../errors";
 import { requireUser } from "../middleware/auth";
 import { parseJsonBody } from "../validate";
 import { HTTP_UNAUTHORIZED } from "../http-status";
+import { authOAuthRoutes } from "./auth-oauth";
+import { authPasskeyRoutes } from "./auth-passkey";
 
 type LoginFailure = "unknown_user" | "no_password" | "bad_password" | "disabled";
 
 export const authRoutes = new Hono<AppEnv>();
+authRoutes.route("/passkey", authPasskeyRoutes);
+authRoutes.route("/oauth", authOAuthRoutes);
 
 authRoutes.post("/login", async (c) => {
   const body = await parseJsonBody(c, loginRequestSchema);
@@ -39,6 +45,11 @@ authRoutes.post("/login", async (c) => {
     throw new ApiError(HTTP_UNAUTHORIZED, "invalid_credentials", "用户名或密码错误");
   }
 
+  // 已启用 2FA：不发会话，改发 pending_auth（03 §4.2）
+  if (verdict.user.totp_enabled_at !== null) {
+    return c.json(await issuePendingAuth(c, verdict.user.id, ["password"]) satisfies LoginResponse);
+  }
+
   await startSession(c, verdict.user.id, ["password"]);
   await touchLastLogin(db, verdict.user.id, nowSec());
   await recordAudit(c, {
@@ -48,7 +59,6 @@ authRoutes.post("/login", async (c) => {
     targetId: verdict.user.id,
     detail: { method: "password" },
   });
-  // M5 在密码通过后若该用户启用了 TOTP，这里改发 pending_auth 并返回 mfa_required
   const response: LoginResponse = { status: "ok" };
   return c.json(response);
 });
@@ -61,6 +71,20 @@ function judgeLogin(user: UserRow | null, passwordOk: boolean): { user: UserRow 
   if (user.status !== "active") return { reason: "disabled" };
   return { user };
 }
+
+authRoutes.post("/mfa/totp", async (c) => {
+  const body = await parseJsonBody(c, mfaTotpRequestSchema);
+  await completeSecondFactor(c, "totp", totpFactor(c.env, body.code, nowSec()));
+  const response: OkResponse = { status: "ok" };
+  return c.json(response);
+});
+
+authRoutes.post("/mfa/recovery", async (c) => {
+  const body = await parseJsonBody(c, mfaRecoveryRequestSchema);
+  await completeSecondFactor(c, "recovery", recoveryFactor(c.env, body.code, nowSec()));
+  const response: OkResponse = { status: "ok" };
+  return c.json(response);
+});
 
 authRoutes.post("/logout", async (c) => {
   await endSession(c);
