@@ -51,8 +51,11 @@ export async function setRawSetting(key: string, value: unknown): Promise<void> 
 
 export type SiteverifyCall = { url: string; method: string; form: URLSearchParams };
 
-/** 拦截 fetch 模拟 Turnstile siteverify：token 为 `good` 时通过，其余按 success:false 返回；calls 记录每次请求 */
-export function installTurnstileFetch(respond?: (form: URLSearchParams) => Response): SiteverifyCall[] {
+/**
+ * 拦截 fetch 模拟 Turnstile siteverify：token 为 `good` 时通过（响应带本站 hostname 与 action），其余按 success:false 返回；
+ * calls 记录每次请求。action 是"控件渲染时传的 action"，应与被测入口的 scope 同名。
+ */
+export function installTurnstileFetch(respond?: (form: URLSearchParams) => Response, action = "login"): SiteverifyCall[] {
   const calls: SiteverifyCall[] = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = new Request(input, init);
@@ -60,7 +63,8 @@ export function installTurnstileFetch(respond?: (form: URLSearchParams) => Respo
     calls.push({ url: request.url, method: request.method, form });
     if (respond) return respond(form);
     const good = form.get("response") === "good";
-    return Response.json(good ? { success: true } : { success: false, "error-codes": ["invalid-input-response"] });
+    const hostname = new URL(env.PUBLIC_ORIGIN).hostname;
+    return Response.json(good ? { success: true, hostname, action } : { success: false, "error-codes": ["invalid-input-response"] });
   });
   return calls;
 }

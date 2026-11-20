@@ -15,6 +15,8 @@ import type { TurnstileConfig } from "./config";
 
 const siteverifyResponseSchema = z.object({
   success: z.boolean(),
+  hostname: z.string().optional(),
+  action: z.string().optional(),
   "error-codes": z.array(z.string()).optional(),
 });
 
@@ -59,8 +61,19 @@ async function postSiteverify(secret: string, token: string, remoteIp: string | 
   }
 }
 
-/** 调 siteverify，返回 token 是否有效。传输层或响应格式问题抛 503 turnstile_unavailable */
-export async function verifyTurnstileToken(secret: string, token: string, remoteIp: string | null): Promise<boolean> {
+/** token 必须在本站（hostname）、本入口（action = scope）完成校验，防止拿别处或别的入口的 token 重放 */
+export type TurnstileExpectation = { hostname: string; action: TurnstileScope };
+
+/**
+ * 调 siteverify，返回 token 是否有效且 hostname、action 与期望一致（缺失也算不一致）。
+ * 传输层或响应格式问题抛 503 turnstile_unavailable
+ */
+export async function verifyTurnstileToken(
+  secret: string,
+  token: string,
+  remoteIp: string | null,
+  expected: TurnstileExpectation,
+): Promise<boolean> {
   const response = await postSiteverify(secret, token, remoteIp);
   if (!response.ok) throw unavailable(`HTTP ${response.status}`);
   let json: unknown;
@@ -72,14 +85,23 @@ export async function verifyTurnstileToken(secret: string, token: string, remote
   }
   const parsed = siteverifyResponseSchema.safeParse(json);
   if (!parsed.success) throw unavailable("响应格式不符");
-  if (!parsed.data.success) console.warn("Turnstile 校验未通过", parsed.data["error-codes"] ?? []);
-  return parsed.data.success;
+  const data = parsed.data;
+  if (!data.success) {
+    console.warn("Turnstile 校验未通过", data["error-codes"] ?? []);
+    return false;
+  }
+  if (data.hostname !== expected.hostname || data.action !== expected.action) {
+    console.warn("Turnstile 校验通过但 hostname 或 action 不符", { hostname: data.hostname, action: data.action });
+    return false;
+  }
+  return true;
 }
 
 export type EnforceTurnstileOptions = {
   /**
-   * true = 调用方自己要求校验，与系统的作用范围无关（取件链接的 `access.turnstile`）。
-   * 此时系统必须已启用 Turnstile、配好 site key 与 secret，且作用范围含该 scope，否则 503 turnstile_not_configured。
+   * pickup 入口由调用方决定是否校验：true = 该链接开了 `access.turnstile`。
+   * 此时系统必须已启用 Turnstile、配好 site key 与 secret，且作用范围含 pickup，否则 503 turnstile_not_configured；
+   * 为假则一律跳过，不看系统的作用范围。login / register 入口只看系统设置，忽略此选项。
    */
   forced?: boolean;
 };
@@ -88,7 +110,7 @@ type Requirement = "skip" | "not_configured" | "verify";
 
 function requirementFor(config: TurnstileConfig, scope: TurnstileScope, forced: boolean): Requirement {
   const applies = config.enabled && config.scopes.includes(scope);
-  if (!applies && !forced) return "skip";
+  if (scope === "pickup" ? !forced : !applies) return "skip";
   const ready = applies && config.siteKey !== "" && config.secretEnc !== "";
   return ready ? "verify" : "not_configured";
 }
@@ -115,7 +137,8 @@ export async function enforceTurnstile(
     throw new ApiError(HTTP_BAD_REQUEST, "turnstile_failed", "请先完成人机验证");
   }
   const secret = await openTurnstileSecret(c.env, config.secretEnc);
-  if (!(await verifyTurnstileToken(secret, token, clientIp(c)))) {
+  const expected = { hostname: new URL(c.env.PUBLIC_ORIGIN).hostname, action: scope };
+  if (!(await verifyTurnstileToken(secret, token, clientIp(c), expected))) {
     throw new ApiError(HTTP_BAD_REQUEST, "turnstile_failed", "人机验证未通过，请重试");
   }
 }

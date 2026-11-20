@@ -215,6 +215,21 @@ describe("会话时长读系统设置", () => {
     expect(Math.abs(expires_at - (now() + 7200))).toBeLessThanOrEqual(5);
   });
 
+  it("GET /api/auth/session 的 expires_at 取 min(expires_at, 创建时间 + 当前绝对时长)：缩短后前端显示正确，没缩短时保持原值", async () => {
+    const created = now() - 600;
+    const long = await createSessionCookie(admin.id, { created_at: created, expires_at: created + 30 * DAY });
+    const read = async (): Promise<number> =>
+      ((await (await api("/api/auth/session", { cookie: long.cookie })).json()) as { expires_at: number }).expires_at;
+    expect(await read()).toBe(created + 30 * DAY);
+
+    await saveSettings(admin.cookie, "security", { ...DEFAULTS.security, session_idle_sec: 3600, session_absolute_sec: 7200 });
+    expect(await read()).toBe(created + 7200);
+
+    const short = await createSessionCookie(admin.id, { created_at: created, expires_at: created + 3700 });
+    const shortRes = await api("/api/auth/session", { cookie: short.cookie });
+    expect(((await shortRes.json()) as { expires_at: number }).expires_at).toBe(created + 3700);
+  });
+
   it("cron 清理用设置里的时长：空闲与绝对都按设置删除", async () => {
     await saveSettings(admin.cookie, "security", { ...DEFAULTS.security, session_idle_sec: 7200, session_absolute_sec: 14_400 });
     await createSessionCookie(admin.id, { last_seen_at: now() - 7300, expires_at: now() + DAY });

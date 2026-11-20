@@ -102,7 +102,7 @@ describe("注册的人机验证（作用范围含 register）", () => {
   }
 
   it("通过 201；失败 400；缺 token 400；失败时不建用户", async () => {
-    installTurnstileFetch();
+    installTurnstileFetch(undefined, "register");
     const missing = await register();
     expect(missing.status).toBe(400);
     const bad = await register("bad");
@@ -159,7 +159,7 @@ describe("Cloudflare 校验服务异常：失败关闭，503 turnstile_unavailab
   });
 
   it("请求设了超时信号与禁止重定向", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ success: true }));
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ success: true, hostname: "localhost", action: "login" }));
     expect((await loginWith("good")).status).toBe(200);
     const init = spy.mock.calls[0]?.[1];
     expect(init?.redirect).toBe("manual");
@@ -206,15 +206,60 @@ describe("导出给取件页的 enforceTurnstile（forced：链接自己要求�
 
   it("强制且已配置：有效 200，无效或缺失 400 turnstile_failed", async () => {
     await enableTurnstile(admin.cookie, ["pickup"]);
-    installTurnstileFetch();
+    installTurnstileFetch(undefined, "pickup");
     expect((await start({ forced: true, token: "good" })).status).toBe(200);
     expect(await errorCode(await start({ forced: true, token: "bad" }))).toBe("turnstile_failed");
     expect(await errorCode(await start({ forced: true }))).toBe("turnstile_failed");
   });
 
-  it("系统范围含 pickup 时不强制也要校验", async () => {
+  it("pickup 只看链接自己的开关：系统范围含 pickup 但链接没开（forced 为假）→ 跳过，不调用 Cloudflare、不要 token", async () => {
     await enableTurnstile(admin.cookie, ["pickup"]);
-    installTurnstileFetch();
-    expect((await start({ token: "bad" })).status).toBe(400);
+    const calls = installTurnstileFetch(undefined, "pickup");
+    expect((await start({})).status).toBe(200);
+    expect((await start({ token: "bad" })).status).toBe(200);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("pickup 链接开了而系统范围不含 pickup：503 turnstile_not_configured（即使 login 范围已配好）", async () => {
+    await enableTurnstile(admin.cookie, ["login", "register"]);
+    installTurnstileFetch(undefined, "pickup");
+    const res = await start({ forced: true, token: "good" });
+    expect(res.status).toBe(503);
+    expect(await errorCode(res)).toBe("turnstile_not_configured");
+  });
+});
+
+describe("siteverify 返回的 hostname 与 action 必须与期望一致", () => {
+  const host = () => new URL(env.PUBLIC_ORIGIN).hostname;
+
+  async function loginAgainst(payload: Record<string, unknown>): Promise<Response> {
+    await enableTurnstile(admin.cookie, ["login"]);
+    installTurnstileFetch(() => Response.json({ success: true, ...payload }));
+    return loginWith("good");
+  }
+
+  it("hostname 与 action 都对：登录成功", async () => {
+    expect((await loginAgainst({ hostname: host(), action: "login" })).status).toBe(200);
+  });
+
+  it.each([
+    ["hostname 是别的站点", { hostname: "evil.example.com", action: "login" }],
+    ["action 是别的入口（register 的 token 拿来登录）", { hostname: "localhost", action: "register" }],
+    ["缺 hostname", { action: "login" }],
+    ["缺 action", { hostname: "localhost" }],
+  ])("%s：400 turnstile_failed，不发会话", async (_label, payload) => {
+    const res = await loginAgainst(payload);
+    expect(res.status).toBe(400);
+    expect(await errorCode(res)).toBe("turnstile_failed");
+    expect(sidSetCookie(res)).toBeUndefined();
+  });
+
+  it("注册入口的期望 action 是 register（用 login 的 token 注册被拒）", async () => {
+    await saveSettings(admin.cookie, "auth", { ...DEFAULTS.auth, registration_enabled: true });
+    await enableTurnstile(admin.cookie, ["register", "pickup"]);
+    installTurnstileFetch(() => Response.json({ success: true, hostname: host(), action: "login" }));
+    const res = await api("/api/auth/register", { json: { username: "newbie", password: NEW_PASSWORD, turnstile_token: "good" } });
+    expect(res.status).toBe(400);
+    expect(await errorCode(res)).toBe("turnstile_failed");
   });
 });

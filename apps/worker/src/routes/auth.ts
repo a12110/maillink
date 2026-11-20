@@ -6,7 +6,7 @@ import { adminTwoFactorMissing } from "../auth/admin-2fa";
 import { requireLoginMethod } from "../auth/login-method-gate";
 import { completeSecondFactor, issuePendingAuth } from "../auth/mfa";
 import { burnPasswordCheck, verifyPassword } from "../auth/password";
-import { endSession, startSession } from "../auth/session";
+import { endSession, sessionLimits, startSession } from "../auth/session";
 import { recoveryFactor, totpFactor } from "../auth/second-factors";
 import { nowSec } from "../clock";
 import { findUserByUsername, touchLastLogin } from "../db/users";
@@ -111,7 +111,8 @@ authRoutes.get("/session", requireUser, async (c) => {
       role: user.role,
     },
     auth_methods: session.authMethods,
-    expires_at: session.expiresAt,
+    // 管理员缩短绝对时长后，已有会话实际到期时间以"创建时间 + 当前设置"为准（与 sessionExpired 一致）
+    expires_at: Math.min(session.expiresAt, session.createdAt + (await sessionLimits(c.env.APP_DB)).absoluteSec),
     admin_2fa_required: await adminTwoFactorMissing(c.env.APP_DB, c.var.auth),
   };
   return c.json(response);
