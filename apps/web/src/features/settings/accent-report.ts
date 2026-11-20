@@ -1,5 +1,5 @@
 import type { THEME_PRESETS } from "@maillink/shared";
-import { AccentUnreachableError, deriveAccent, THEME_GROUNDS, WHITE } from "../../theme/accent";
+import { AccentUnreachableError, DEFAULT_ACCENT, deriveAccent, THEME_GROUNDS, WHITE } from "../../theme/accent";
 import type { AccentDerivation } from "../../theme/accent";
 import type { ThemeSettings } from "../../theme";
 import { assertHex, contrastRatio } from "../../theme/color";
@@ -32,10 +32,23 @@ export type ModeReport =
 
 const MODES = ["light", "dark"] as const;
 
+/**
+ * 默认强调色在 tokens.css 里的 --color-accent-text（浅 :root / 深 [data-theme="dark"]）。
+ * 选默认色时页面不写任何覆盖（theme/apply.ts），实际生效的是 tokens 的取值，不是 deriveAccent 的推导值，
+ * 所以报告要按这两个值算；accent-report.test.ts 会对照 tokens.css 防止漂移。
+ */
+export const DEFAULT_ACCENT_TEXT = { light: "#b53a24", dark: "#f27f66" } as const;
+
+/** 实际生效的颜色：默认强调色用 tokens 的取值，其余用推导值 */
+function effectiveDerivation(hex: string, mode: (typeof MODES)[number]): AccentDerivation {
+  const derived = deriveAccent(hex, THEME_GROUNDS[mode], mode === "dark");
+  return hex === DEFAULT_ACCENT ? { ...derived, text: DEFAULT_ACCENT_TEXT[mode] } : derived;
+}
+
 function reportMode(hex: string, mode: (typeof MODES)[number]): ModeReport {
   const grounds = THEME_GROUNDS[mode];
   try {
-    const derived = deriveAccent(hex, grounds, mode === "dark");
+    const derived = effectiveDerivation(hex, mode);
     return {
       mode,
       ok: true,

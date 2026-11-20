@@ -14,6 +14,7 @@ import type { ThemeController } from "../../theme";
 import { ToastProvider } from "../../ui";
 import { AppearanceForm } from "./AppearanceForm";
 import { AuthForm } from "./AuthForm";
+import { SecurityForm } from "./SimpleForms";
 import { TurnstileForm } from "./TurnstileForm";
 
 let mounted: Mounted | null = null;
@@ -116,6 +117,16 @@ describe("外观：实时预览，未保存可撤销", () => {
 describe("人机验证：secret 留空表示不改", () => {
   const SAVED = { enabled: false, site_key: "", secret_set: true, scopes: [] };
 
+  it("secret 是密码框且 autoComplete=new-password（浏览器不会把管理员登录密码填进来）；文本框 site key 用 off", async () => {
+    stubFetch({ "GET /api/admin/settings/turnstile": SAVED, "GET /api/public/config": publicConfig() });
+    const { container } = await mountForm(createElement(TurnstileForm));
+    await waitUntil(() => container.querySelector('input[name="secret"]') !== null, "表单加载完成");
+    expect(field(container, "secret").type).toBe("password");
+    expect(field(container, "secret").getAttribute("autocomplete")).toBe("new-password");
+    expect(field(container, "site_key").type).toBe("text");
+    expect(field(container, "site_key").getAttribute("autocomplete")).toBe("off");
+  });
+
   it("secret 留空时请求体不含 secret，显示“已设置”；填写后才带上", async () => {
     const { requests } = stubFetch({
       "GET /api/admin/settings/turnstile": SAVED,
@@ -179,5 +190,18 @@ describe("注册与登录：锁死保护的错误说明", () => {
     await click(button(container, "保存"));
     expect(container.textContent).toContain("至少保留一种登录方式");
     expect(requests.some((request) => request.method === "PUT")).toBe(false);
+  });
+});
+
+describe("安全：会话时长文案", () => {
+  it("最短 / 最长来自 shared 常量，页面上写的是“最短 1 小时”“最长 365 天”", async () => {
+    stubFetch({
+      "GET /api/admin/settings/security": { admin_require_2fa: false, session_idle_sec: 7200, session_absolute_sec: 30 * 86_400, password_min_length: 12 },
+      "GET /api/public/config": publicConfig(),
+    });
+    const { container } = await mountForm(createElement(SecurityForm));
+    await waitUntil(() => container.querySelector('input[name="session_idle_hours"]') !== null, "表单加载完成");
+    expect(container.textContent).toContain("最短 1 小时");
+    expect(container.textContent).toContain("最长 365 天");
   });
 });

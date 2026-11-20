@@ -70,6 +70,39 @@ describe("注册页", () => {
     expect(register?.body).toEqual({ username: "newbie", password: "long-enough-password" });
   });
 
+  it("注册成功（201）但会话接口 500：显示“账号已创建，请前往登录”、错误码与 /login 链接，注册 POST 只发 1 次", async () => {
+    const { requests } = stubFetch({
+      "GET /api/public/config": publicConfig(),
+      "POST /api/auth/register": () => new Response(JSON.stringify({ status: "ok" }), { status: 201, headers: { "Content-Type": "application/json" } }),
+      "GET /api/auth/session": () => errorResponse(500, "internal_error", "boom"),
+    });
+    const { router, container } = await openRegister();
+    await waitUntil(() => input(container, "username") !== null, "出现注册表单");
+    await fillAndSubmit(container, { username: "newbie", password: "long-enough-password" });
+    await waitUntil(() => container.textContent?.includes("账号已创建，请前往登录") === true, "出现账号已创建提示");
+    expect(container.textContent).toContain("internal_error · HTTP 500");
+    expect(container.textContent).not.toContain("注册失败");
+    expect(container.querySelector("form")).toBeNull();
+    const link = [...container.querySelectorAll("a")].find((anchor) => anchor.textContent === "前往登录");
+    expect(link?.getAttribute("href")).toBe("/login");
+    expect(router.state.location.pathname).toBe("/register");
+    expect(requests.filter((request) => request.path === "/api/auth/register")).toHaveLength(1);
+  });
+
+  it("注册本身 409（用户名被占用）：仍是字段错误，不出现“账号已创建”", async () => {
+    stubFetch({
+      "GET /api/public/config": publicConfig(),
+      "POST /api/auth/register": () => errorResponse(409, "username_taken", "用户名已被使用"),
+    });
+    const { container } = await openRegister();
+    await waitUntil(() => input(container, "username") !== null, "出现注册表单");
+    await fillAndSubmit(container, { username: "taken", password: "long-enough-password" });
+    await waitUntil(() => container.querySelector(".field-error") !== null, "出现字段错误");
+    expect(container.querySelector(".field-error")?.textContent).toBe("用户名已被使用");
+    expect(container.textContent).not.toContain("账号已创建");
+    expect(container.querySelector("form")).not.toBeNull();
+  });
+
   it("客户端校验：用户名太短、密码太短在字段下提示，不发请求", async () => {
     const { requests } = stubFetch({ "GET /api/public/config": publicConfig() });
     const { container } = await openRegister();
