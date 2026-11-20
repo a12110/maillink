@@ -4,6 +4,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { AccountPage } from "../features/account/AccountPage";
 import { LoginPage } from "../features/auth/LoginPage";
 import { SetupPage } from "../features/auth/SetupPage";
+import { RegisterPage } from "../features/register/RegisterPage";
+import { SettingsPage } from "../features/settings/SettingsPage";
 import { parseMailsSearch } from "../features/mails/search";
 import { parseNewRuleGroupSearch } from "../features/rule-groups/new-search";
 import { MailsPage } from "../features/mails/MailsPage";
@@ -43,12 +45,8 @@ const loginRoute = createRoute({
 const registerRoute = createRoute({
   getParentRoute: () => authLayout,
   path: "/register",
-  component: () => (
-    <>
-      <h1>注册</h1>
-      <p className="auth-lead">注册功能将在后续里程碑实现（后端尚无注册接口）。</p>
-    </>
-  ),
+  beforeLoad: ({ context }) => redirectIfSignedIn(context),
+  component: RegisterPage,
 });
 
 // ── 取件页外壳（页面在 M3b 之后实现） ──
@@ -145,10 +143,10 @@ const editRuleGroupRoute = createRoute({
   path: "/rule-groups/$id",
   component: lazyRouteComponent(() => import("../features/rule-groups/RuleGroupEditPage"), "RuleGroupEditPage"),
 });
+const settingsGroupRoute = createRoute({ getParentRoute: () => adminLayout, path: "/settings/$group", component: SettingsPage });
 
 const adminPlaceholders = [
   placeholder("/links", "取件链接", "取件链接的创建与管理将在后续里程碑实现，本页暂不显示任何数据。"),
-  placeholder("/settings/$group", "系统设置", "系统设置接口将在 M6 提供，本页暂不显示任何数据。"),
 ];
 
 const routeTree = rootRoute.addChildren([
@@ -168,6 +166,7 @@ const routeTree = rootRoute.addChildren([
       editRuleGroupRoute,
       auditRoute,
       settingsIndexRoute,
+      settingsGroupRoute,
       ...adminPlaceholders,
     ]),
   ]),
