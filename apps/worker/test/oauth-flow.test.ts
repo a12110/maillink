@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminSession, api, auditRows, createSessionCookie, createUser, resetApp, sidSetCookie } from "./helpers";
 import { FakeIdp, IDP_ISSUER } from "./fake-idp";
 import type { IdTokenTweaks } from "./fake-idp";
-import { createProvider, finishCallback, identityCount, linkIdentity, runOAuth } from "./oauth-helpers";
+import { createProvider, finishCallback, identityCount, linkIdentity, runOAuth, startLink } from "./oauth-helpers";
 import { cookieCleared, joinCookies } from "./security-helpers";
 
 const CLAIMS = { sub: "idp-user-1", email: "alice@example.com", email_verified: true, name: "Alice" };
@@ -155,16 +155,15 @@ describe("OAuth：绑定（link 模式）", () => {
     expect(await auditRows("auth.identity_link_rejected")).toHaveLength(1);
   });
 
-  it("未登录发起 link：link_requires_login；回调时会话已换成别人：link_requires_login", async () => {
-    const res = await api("/api/auth/oauth/idp/start?mode=link");
-    expect(new URL(res.headers.get("Location") ?? "").searchParams.get("oauth")).toBe("link_requires_login");
+  it("未登录发起绑定：401；回调时会话已换成别人：link_requires_login", async () => {
+    const res = await api("/api/auth/oauth/idp/link", { json: { password: "whatever-password" } });
+    expect(res.status).toBe(401);
 
     const alice = (await createSessionCookie(await createUser({ username: "alice" }))).cookie;
     const bob = (await createSessionCookie(await createUser({ username: "bob" }))).cookie;
-    const start = await api("/api/auth/oauth/idp/start?mode=link", { cookie: alice });
-    const flowCookie = start.headers.getSetCookie().find((line) => line.startsWith("oauth_flow="))?.split(";")[0];
-    const path = idp.authorize(start.headers.get("Location") ?? "", CLAIMS);
-    expect((await finishCallback(path, joinCookies(bob, flowCookie))).result).toBe("link_requires_login");
+    const start = await startLink(alice);
+    const path = idp.authorize(start.authorizeUrl.toString(), CLAIMS);
+    expect((await finishCallback(path, joinCookies(bob, start.flowCookie))).result).toBe("link_requires_login");
     expect(await identityCount()).toBe(0);
   });
 });

@@ -9,6 +9,7 @@ import {
   myMailListResponseSchema,
   myPasskeyListSchema,
   myPasskeySchema,
+  oauthLinkStartResponseSchema,
   okResponseSchema,
   presentedMailSchema,
   recoveryCodesResponseSchema,
@@ -20,6 +21,7 @@ import type {
   GrantBatchRequest,
   GrantPatch,
   MyMailListQuery,
+  OAuthLinkStartRequest,
   PasskeyOptionsRequest,
   PasskeyRegisterVerifyRequest,
   ReauthRequest,
@@ -59,8 +61,11 @@ export function myMailAttachmentPath(id: number, index: number, mailboxId: numbe
   return `/api/me/mails/${id}/attachments/${index}${mailboxId === undefined ? "" : `?mailbox_id=${mailboxId}`}`;
 }
 
-/** 发起 OAuth 的整页跳转地址：必须整页导航（302 到提供方），不能用 fetch */
-export function oauthStartPath(slug: string, mode: "login" | "link"): string {
+/**
+ * 发起 OAuth 登录的整页跳转地址：必须整页导航（302 到提供方），不能用 fetch。
+ * 只用于登录；绑定走 startOAuthLink（POST + 再确认，拿到 authorize_url 后再整页跳转），GET 发起绑定会被后端拒绝。
+ */
+export function oauthStartPath(slug: string, mode: "login"): string {
   return `/api/auth/oauth/${encodeURIComponent(slug)}/start?mode=${mode}`;
 }
 
@@ -100,6 +105,9 @@ export function createAuthEndpoints(client: ApiClient) {
     deletePasskey: (id: number) => request({ method: "DELETE", path: `/api/me/passkeys/${id}`, schema: okResponseSchema }),
 
     myIdentities: () => request({ path: "/api/me/identities", schema: myIdentityListSchema }),
+    /** 发起绑定：返回提供方授权地址，由调用方整页跳转 */
+    startOAuthLink: (slug: string, body: OAuthLinkStartRequest) =>
+      request({ method: "POST", path: `/api/auth/oauth/${encodeURIComponent(slug)}/link`, body, schema: oauthLinkStartResponseSchema }),
     deleteIdentity: (id: number) => request({ method: "DELETE", path: `/api/me/identities/${id}`, schema: okResponseSchema }),
 
     revokeOtherSessions: () =>

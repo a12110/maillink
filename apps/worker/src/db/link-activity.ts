@@ -1,5 +1,6 @@
 import type { LinkLog } from "@maillink/shared";
 import { LINK_DELIVERY_WINDOW_SEC, LIST_PAGE_SIZE } from "../constants";
+import { sameMailIdentity, type MailIdentity } from "../mail-index/identity";
 
 // 取件链接的访问痕迹：设备（link_visitors）、取码记录（link_deliveries）、访问日志（link_access_logs）。
 // 计数类写入都用单条条件 INSERT：D1 对同一个库串行执行语句，条件判断与写入在一条语句里，并发请求不会突破上限。
@@ -89,35 +90,75 @@ export async function deliveryCounts(db: D1Database, linkId: number, now: number
   return row ?? { total: 0, daily: 0, oldest_in_window: null };
 }
 
-export async function deliveredMailIds(db: D1Database, linkId: number, mailIds: readonly number[]): Promise<Set<number>> {
-  if (mailIds.length === 0) return new Set();
+type StoredIdentity = { mail_id: number; mail_message_id: string | null; mail_received_at: number | null; mail_recipient: string | null };
+
+/** 0010 之前的旧行没有身份（received_at / recipient 为 NULL）：返回 null，按"不一致"处理 */
+function storedIdentity(row: StoredIdentity): MailIdentity | null {
+  if (row.mail_received_at === null || row.mail_recipient === null) return null;
+  return { message_id: row.mail_message_id, received_at: row.mail_received_at, recipient: row.mail_recipient };
+}
+
+/**
+ * 哪些邮件已交付给本链接。mails：mail id → MAIL_DB 里当前这封的身份。
+ * 只有记录的身份与当前一致才算（id 被新邮件复用时不一致，视为未取码，失败关闭），口径同 mail_index（sameMailIdentity）。
+ */
+export async function deliveredMailIds(db: D1Database, linkId: number, mails: ReadonlyMap<number, MailIdentity>): Promise<Set<number>> {
+  if (mails.size === 0) return new Set();
   const { results } = await db
-    .prepare("SELECT mail_id FROM link_deliveries WHERE link_id = ? AND mail_id IN (SELECT value FROM json_each(?))")
-    .bind(linkId, JSON.stringify(mailIds))
-    .all<{ mail_id: number }>();
-  return new Set(results.map((row) => row.mail_id));
+    .prepare(
+      `SELECT mail_id, mail_message_id, mail_received_at, mail_recipient FROM link_deliveries
+       WHERE link_id = ? AND mail_id IN (SELECT value FROM json_each(?))`,
+    )
+    .bind(linkId, JSON.stringify([...mails.keys()]))
+    .all<StoredIdentity>();
+  const delivered = new Set<number>();
+  for (const row of results) {
+    const stored = storedIdentity(row);
+    const current = mails.get(row.mail_id);
+    if (stored !== null && current !== undefined && sameMailIdentity(stored, current)) delivered.add(row.mail_id);
+  }
+  return delivered;
+}
+
+export async function isMailDelivered(db: D1Database, linkId: number, mailId: number, mail: MailIdentity): Promise<boolean> {
+  return (await deliveredMailIds(db, linkId, new Map([[mailId, mail]]))).has(mailId);
 }
 
 export type DeliveryLimits = { total: number | null; daily: number | null };
 
 /**
- * 交付一封邮件：同一封已交付过则不写（不重复计次）；总数与滚动 24 小时数都未满才写。
+ * 交付一封邮件：同一封（id 与身份都一致）已交付过则不写（不重复计次）；总数与滚动 24 小时数都未满才写。
+ * 身份比较与 sameMailIdentity 同一口径：message_id 用 IS（NULL 与 NULL 相等），另两列用 =（旧行的 NULL 恒不相等）。
  * 返回是否新写入；调用方再据 deliveredMailIds / deliveryCounts 区分"已交付过"与"次数已满"。
  */
 export async function insertDeliveryIfAllowed(
   db: D1Database,
-  input: { link_id: number; mail_id: number; visitor_hash: string; now: number },
+  input: { link_id: number; mail_id: number; mail: MailIdentity; visitor_hash: string; now: number },
   limits: DeliveryLimits,
 ): Promise<boolean> {
+  const { mail } = input;
   const result = await db
     .prepare(
-      `INSERT INTO link_deliveries (link_id, mail_id, visitor_hash, delivered_at)
-       SELECT ?1, ?2, ?3, ?4
-       WHERE NOT EXISTS (SELECT 1 FROM link_deliveries WHERE link_id = ?1 AND mail_id = ?2)
-         AND (?5 IS NULL OR (SELECT COUNT(*) FROM link_deliveries WHERE link_id = ?1) < ?5)
-         AND (?6 IS NULL OR (SELECT COUNT(*) FROM link_deliveries WHERE link_id = ?1 AND delivered_at > ?7) < ?6)`,
+      `INSERT INTO link_deliveries (link_id, mail_id, mail_message_id, mail_received_at, mail_recipient, visitor_hash, delivered_at)
+       SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+       WHERE NOT EXISTS (
+           SELECT 1 FROM link_deliveries
+           WHERE link_id = ?1 AND mail_id = ?2 AND mail_message_id IS ?3 AND mail_received_at = ?4 AND mail_recipient = ?5)
+         AND (?8 IS NULL OR (SELECT COUNT(*) FROM link_deliveries WHERE link_id = ?1) < ?8)
+         AND (?9 IS NULL OR (SELECT COUNT(*) FROM link_deliveries WHERE link_id = ?1 AND delivered_at > ?10) < ?9)`,
     )
-    .bind(input.link_id, input.mail_id, input.visitor_hash, input.now, limits.total, limits.daily, input.now - LINK_DELIVERY_WINDOW_SEC)
+    .bind(
+      input.link_id,
+      input.mail_id,
+      mail.message_id,
+      mail.received_at,
+      mail.recipient,
+      input.visitor_hash,
+      input.now,
+      limits.total,
+      limits.daily,
+      input.now - LINK_DELIVERY_WINDOW_SEC,
+    )
     .run();
   return result.meta.changes > 0;
 }

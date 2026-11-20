@@ -12,7 +12,7 @@ import {
   type ShareLinkExportResponse,
   type ShareLinkRotateResponse,
 } from "@maillink/shared";
-import { compileStoredPolicy, testRuleGroup } from "../access";
+import { compileStoredPolicy, testRuleGroupTagged, type TaggedTestResult } from "../access";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { nowSec } from "../clock";
 import { LINK_VISITOR_HINT_LENGTH } from "../constants";
@@ -109,11 +109,11 @@ adminLinkOpsRoutes.get("/:id/preview", async (c) => {
   const addresses = mailboxes.filter((mailbox) => mailbox.status === "active").map((mailbox) => mailbox.address);
   const compiled = compileStoredPolicy(row.rule_group_config);
   const anchors = linkAnchors(row);
-  const result =
+  const { result, identities }: TaggedTestResult =
     addresses.length === 0
-      ? { items: [], partial: false, time_lower_bound: computeTimeLowerBound(compiled.config.time, anchors, now) }
-      : await testRuleGroup(c.env, compiled, { addresses }, { now, anchors, limit });
-  const delivered = await deliveredMailIds(db, id, result.items.map((item) => item.mail_id));
+      ? { result: { items: [], partial: false, time_lower_bound: computeTimeLowerBound(compiled.config.time, anchors, now) }, identities: new Map() }
+      : await testRuleGroupTagged(c.env, compiled, { addresses }, { now, anchors, limit });
+  const delivered = await deliveredMailIds(db, id, identities);
   const hint = (hash: string) => hash.slice(0, LINK_VISITOR_HINT_LENGTH);
   const [visitors, deliveries] = await Promise.all([
     listVisitors(db, id, SHARE_LINK_LIMITS.previewRecordsMax),

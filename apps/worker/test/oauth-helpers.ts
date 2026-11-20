@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { AdminOAuthProvider, OAuthProviderCreate } from "@maillink/shared";
 import { expect } from "vitest";
-import { api } from "./helpers";
+import { TEST_PASSWORD, api } from "./helpers";
 import { CLIENT_ID, CLIENT_SECRET, IDP_ISSUER } from "./fake-idp";
 import type { FakeIdp } from "./fake-idp";
 import { cookieFrom, joinCookies } from "./security-helpers";
@@ -35,17 +35,31 @@ export type FlowResult = {
   res: Response;
 };
 
-/** 发起 → IdP 同意 → 回调，一次走完。claims 是 IdP 这次签发的声明 */
+export type Started = { authorizeUrl: URL; flowCookie: string };
+
+/** 发起绑定：POST /api/auth/oauth/:slug/link（默认带测试用户的当前密码再确认），返回授权地址与流程 Cookie */
+export async function startLink(cookie: string, options: { slug?: string; reauth?: Record<string, string> } = {}): Promise<Started> {
+  const res = await api(`/api/auth/oauth/${options.slug ?? "idp"}/link`, { json: options.reauth ?? { password: TEST_PASSWORD }, cookie });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { authorize_url: string };
+  return { authorizeUrl: new URL(body.authorize_url), flowCookie: cookieFrom(res, "oauth_flow") ?? "" };
+}
+
+async function startLogin(slug: string, cookie: string | undefined): Promise<Started> {
+  const res = await api(`/api/auth/oauth/${slug}/start?mode=login`, cookie ? { cookie } : {});
+  expect(res.status).toBe(302);
+  return { authorizeUrl: new URL(res.headers.get("Location") ?? ""), flowCookie: cookieFrom(res, "oauth_flow") ?? "" };
+}
+
+/** 发起 → IdP 同意 → 回调，一次走完。claims 是 IdP 这次签发的声明；link 模式必须给 cookie */
 export async function runOAuth(
   idp: FakeIdp,
   claims: Record<string, unknown>,
   options: { slug?: string; mode?: "login" | "link"; cookie?: string; challenge?: string; state?: string } = {},
 ): Promise<FlowResult & { flowCookie: string; callbackPath: string; authorizeUrl: URL }> {
   const slug = options.slug ?? "idp";
-  const start = await api(`/api/auth/oauth/${slug}/start?mode=${options.mode ?? "login"}`, options.cookie ? { cookie: options.cookie } : {});
-  expect(start.status).toBe(302);
-  const authorizeUrl = new URL(start.headers.get("Location") ?? "");
-  const flowCookie = cookieFrom(start, "oauth_flow") ?? "";
+  const { authorizeUrl, flowCookie } =
+    options.mode === "link" ? await startLink(options.cookie ?? "", { slug }) : await startLogin(slug, options.cookie);
   const callbackPath = idp.authorize(authorizeUrl.toString(), claims, options);
   const finished = await finishCallback(callbackPath, joinCookies(options.cookie, flowCookie));
   return { ...finished, flowCookie, callbackPath, authorizeUrl };

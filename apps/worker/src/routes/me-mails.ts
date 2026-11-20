@@ -99,7 +99,7 @@ meMailRoutes.get("/", async (c) => {
 async function scopeForMail(c: Context<AppEnv>, mailId: number, now: number): Promise<AccessScope> {
   const { mailbox_id: mailboxId } = parseWith(myMailDetailQuerySchema, { mailbox_id: c.req.query("mailbox_id") });
   const grants = await listEffectiveGrantRows(c.env.APP_DB, c.var.auth.user.id, now);
-  return singleScope(await locateGrantForMail(c.env.MAIL_DB, grants, mailId, mailboxId));
+  return singleScope(await locateGrantForMail(c.env, grants, mailId, mailboxId));
 }
 
 meMailRoutes.get("/:id", async (c) => {

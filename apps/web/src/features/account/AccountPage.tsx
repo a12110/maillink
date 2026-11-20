@@ -62,9 +62,9 @@ export function AccountPage() {
           <>
             <TotpSection me={me.data} />
             <PasskeysSection me={me.data} />
+            <IdentitiesSection me={me.data} />
           </>
         ) : null}
-        <IdentitiesSection />
         <SessionsSection />
       </div>
     </>

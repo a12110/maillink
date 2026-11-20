@@ -10,6 +10,7 @@ import { getSettings } from "../db/settings";
 import { findUserById, touchLastLogin } from "../db/users";
 import type { AppEnv } from "../env";
 import { ApiError } from "../errors";
+import type { AuthContext } from "./context";
 import { issuePendingAuth } from "./mfa";
 import type { OAuthProfile } from "./oauth/claims";
 import type { OAuthFlowState } from "./oauth/state";
@@ -21,7 +22,7 @@ import { authenticate, startSession } from "./session";
 // 已绑定 → 登录（auth_methods 记 oauth:<slug>）。D7：默认不再要求本地 2FA；
 //   设置 auth.oauth_require_2fa = true 时，已启用 TOTP 的用户改走 pending_auth；
 //   设置 security.admin_require_2fa = true 时，已启用 TOTP 的管理员同样改走 pending_auth。
-// 未绑定 + link → 绑到当前登录用户（回调时会话必须仍是发起绑定的那个用户）；该身份已绑别人则拒绝。
+// 未绑定 + link → 绑到当前登录用户（回调时必须仍是发起绑定的那个用户的那个会话）；该身份已绑别人则拒绝。
 // 未绑定 + login → 依次尝试：自动关联（见下）→ 自动建号（提供方 allow_signup 且系统开启注册）→ 拒绝 not_linked。
 //
 // 自动按邮箱关联的规则（默认关闭；本系统不验证本地邮箱，所以只能信任管理员设置的邮箱）：
@@ -132,20 +133,36 @@ async function resolveLogin(ctx: LinkContext): Promise<OAuthResultCode> {
   return "not_linked";
 }
 
-/** link 模式：回调时的会话必须仍属于发起绑定的用户 */
-async function currentUserId(c: Context<AppEnv>): Promise<number | null> {
+async function currentAuth(c: Context<AppEnv>): Promise<AuthContext | null> {
   try {
-    return (await authenticate(c)).user.id;
+    return await authenticate(c);
   } catch (error) {
     if (error instanceof ApiError) return null;
     throw error;
   }
 }
 
+/**
+ * link 模式：回调时的会话必须就是发起绑定的那一个（state 绑定的 uid 与会话 idHash 都一致）。
+ * 期间退出、换了账号、或会话被注销都拒绝，并写审计。
+ */
+async function linkingUserId(ctx: LinkContext, flow: OAuthFlowState): Promise<number | null> {
+  const auth = await currentAuth(ctx.c);
+  // flow.uid / flow.sh 为 null（登录流程的状态）时恒不相等
+  if (auth !== null && auth.user.id === flow.uid && auth.session.idHash === flow.sh) return auth.user.id;
+  await recordAudit(ctx.c, {
+    action: AUDIT_ACTIONS.identityLinkRejected,
+    actorUserId: flow.uid,
+    ...(flow.uid === null ? {} : { targetType: "user" as const, targetId: flow.uid }),
+    detail: { provider: ctx.provider.slug, reason: "session_mismatch" },
+  });
+  return null;
+}
+
 async function resolveLink(ctx: LinkContext, flow: OAuthFlowState, existing: IdentityRow | null): Promise<OAuthResultCode> {
   const { c, provider } = ctx;
-  const userId = await currentUserId(c);
-  if (userId === null || userId !== flow.uid) return "link_requires_login";
+  const userId = await linkingUserId(ctx, flow);
+  if (userId === null) return "link_requires_login";
   if (existing) {
     if (existing.user_id === userId) return "already_linked";
     await recordAudit(c, {

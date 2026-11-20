@@ -1,7 +1,8 @@
 import type { Bindings } from "../env";
+import type { MailDbBinding } from "../mail-source";
 
 /** 定时任务只用到两个库 */
-export type CronEnv = Pick<Bindings, "APP_DB" | "MAIL_DB">;
+export type CronEnv = Pick<Bindings, "APP_DB"> & MailDbBinding;
 
 /** 各项处理数量，写进 last_run.processed */
 export type Processed = Record<string, number>;

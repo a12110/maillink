@@ -136,6 +136,17 @@ export type MyIdentity = z.infer<typeof myIdentitySchema>;
 export const myIdentityListSchema = z.object({ items: z.array(myIdentitySchema) });
 
 /**
+ * 发起 OAuth 绑定（POST /api/auth/oauth/:slug/link）前的再确认，口径同注册通行密钥：
+ * 当前密码或当前 TOTP 至多一个；没有密码的账号可都省略，此时要求会话是最近登录的（worker auth/reauth.ts）。
+ */
+export const oauthLinkStartRequestSchema = passkeyOptionsRequestSchema;
+export type OAuthLinkStartRequest = PasskeyOptionsRequest;
+
+/** 提供方授权地址：前端拿到后整页跳转（location.assign），state 已绑定到当前会话 */
+export const oauthLinkStartResponseSchema = z.object({ authorize_url: z.string().url() });
+export type OAuthLinkStartResponse = z.infer<typeof oauthLinkStartResponseSchema>;
+
+/**
  * OAuth 回调结束后 302 回前端时带的结果码（查询参数 `oauth`）。
  * login 模式回 `/login`，link 模式回 `/account`。令牌从不出现在 URL 里。
  */

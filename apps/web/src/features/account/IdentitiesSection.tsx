@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link2 } from "lucide-react";
 import { useState } from "react";
-import type { MyIdentity, PublicConfig } from "@maillink/shared";
-import { oauthStartPath } from "../../api/endpoints-auth";
+import type { MeResponse, MyIdentity, PublicConfig } from "@maillink/shared";
 import { api } from "../../api/instance";
 import { publicConfigQuery } from "../../api/queries";
 import { authQueryKeys, myIdentitiesQuery } from "../../api/queries-auth";
 import { describeAuthError } from "../../lib/auth-messages";
 import { formatDateTime } from "../../lib/format";
 import { Button, ConfirmDialog, ErrorCallout, useToast } from "../../ui";
+import { OAuthLinkDialog } from "./OAuthLinkDialog";
+import type { OAuthLinkProvider } from "./OAuthLinkDialog";
 
 function IdentityList({ items, onUnlink }: { items: MyIdentity[]; onUnlink: (identity: MyIdentity) => void }) {
   return (
@@ -60,10 +61,19 @@ function Body({ items, loaded, noProviders, onUnlink }: BodyProps) {
   return <IdentityList items={items} onUnlink={onUnlink} />;
 }
 
-export function IdentitiesSection() {
+const assignLocation = (url: string) => window.location.assign(url);
+
+type SectionProps = {
+  me: MeResponse;
+  /** 拿到提供方授权地址后的整页跳转，默认 location.assign；测试里替换 */
+  redirect?: (url: string) => void;
+};
+
+export function IdentitiesSection({ me, redirect = assignLocation }: SectionProps) {
   const list = useQuery(myIdentitiesQuery());
   const config = useQuery(publicConfigQuery());
   const [unlinking, setUnlinking] = useState<MyIdentity | null>(null);
+  const [linking, setLinking] = useState<OAuthLinkProvider | null>(null);
   const unlink = useUnlink(() => setUnlinking(null));
   const items = list.data?.items ?? [];
   const free = bindable(config.data, items);
@@ -72,17 +82,18 @@ export function IdentitiesSection() {
   return (
     <section aria-labelledby="identities-title" className="security-block">
       <h2 className="section-heading" id="identities-title">第三方账号</h2>
-      <p className="section-lead">绑定后可以用第三方账号一键登录。绑定会先跳转到提供方授权，完成后回到本页。</p>
+      <p className="section-lead">绑定后可以用第三方账号一键登录。绑定前要先确认是你本人，再跳转到提供方授权，完成后回到本页。</p>
       {list.isError ? <ErrorCallout title="第三方账号加载失败" {...describeAuthError(list.error)} onRetry={() => void list.refetch()} /> : null}
       <Body items={items} loaded={list.data !== undefined} noProviders={noProviders}
         onUnlink={(identity) => { unlink.reset(); setUnlinking(identity); }} />
       <div className="form-actions">
         {free.map((provider) => (
-          <a key={provider.slug} className="btn" data-variant="secondary" href={oauthStartPath(provider.slug, "link")}>
+          <Button key={provider.slug} onClick={() => setLinking({ slug: provider.slug, name: provider.name })}>
             绑定 {provider.name}
-          </a>
+          </Button>
         ))}
       </div>
+      {linking ? <OAuthLinkDialog me={me} provider={linking} redirect={redirect} onClose={() => setLinking(null)} /> : null}
       {unlinking ? (
         <ConfirmDialog open onOpenChange={(open) => !open && setUnlinking(null)} title={`解绑 ${unlinking.provider.name}？`}
           consequence="解绑后不能再用这个第三方账号登录。至少要保留一种登录方式（密码、通行密钥或其他第三方账号）。"

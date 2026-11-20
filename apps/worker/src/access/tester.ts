@@ -1,5 +1,5 @@
 import type { RuleEvaluation, RuleGroupTestItem } from "@maillink/shared";
-import { getOrBuild, type IndexedItem, type MailIndexDbs } from "../mail-index";
+import { getOrBuild, mailIdentity, type IndexedItem, type MailIdentity, type MailIndexDbs } from "../mail-index";
 import { getCandidatesByIds, listCandidates } from "../mail-source";
 import { presentListItem } from "../render";
 import { computeTimeLowerBound, limitToNewest, type CompiledRuleGroup, type TimeAnchors } from "../rules";
@@ -22,6 +22,9 @@ export type TestOptions = {
 };
 
 export type TestResult = { items: RuleGroupTestItem[]; partial: boolean; time_lower_bound: number | null };
+
+/** 试跑结果，外加不进响应体的邮件身份（mail id → 身份），供管理员预览链接时核对取码记录 */
+export type TaggedTestResult = { result: TestResult; identities: Map<number, MailIdentity> };
 
 function testLowerBound(compiled: CompiledRuleGroup, options: TestOptions): number | null {
   if (options.anchors !== undefined) return computeTimeLowerBound(compiled.config.time, options.anchors, options.now);
@@ -65,6 +68,15 @@ export async function testRuleGroup(
   targets: TestTargets,
   options: TestOptions,
 ): Promise<TestResult> {
+  return (await testRuleGroupTagged(dbs, compiled, targets, options)).result;
+}
+
+export async function testRuleGroupTagged(
+  dbs: MailIndexDbs,
+  compiled: CompiledRuleGroup,
+  targets: TestTargets,
+  options: TestOptions,
+): Promise<TaggedTestResult> {
   const lowerBound = testLowerBound(compiled, options);
   const candidates =
     "addresses" in targets
@@ -101,5 +113,6 @@ export async function testRuleGroup(
     if (item.status !== "ok" || result.extracted === null) throw new Error(`mail ${result.mail_id}: 可见却没有事实或提取结果`);
     return { ...result, preview: presentListItem(compiled.presentation, item.facts, result.extracted) };
   });
-  return { items, partial: built.partial, time_lower_bound: lowerBound };
+  const identities = new Map(built.items.map((item) => [item.candidate.id, mailIdentity(item.candidate)]));
+  return { result: { items, partial: built.partial, time_lower_bound: lowerBound }, identities };
 }

@@ -9,7 +9,7 @@ import {
   type VisibleMailListResponse,
 } from "@maillink/shared";
 import { z } from "zod";
-import { getVisibleAttachment, getVisibleMailDetail, listVisibleMails } from "../access";
+import { getVisibleAttachment, getVisibleMailDetail, listVisibleMailsTagged, type DetailOptions } from "../access";
 import { verifyPassword } from "../auth/password";
 import { createMiddleware } from "hono/factory";
 import {
@@ -18,14 +18,16 @@ import {
   deliveryCounts,
   insertAccessLog,
   insertDeliveryIfAllowed,
+  isMailDelivered,
   markLinkAccessStatement,
   registerVisitor,
   touchVisitorStatement,
 } from "../db/link-activity";
 import { claimPasswordAttempt, passwordIpBucket, releasePasswordAttempt } from "../db/link-password";
 import type { AppEnv } from "../env";
-import { ApiError, notFoundError } from "../errors";
+import { ApiError } from "../errors";
 import { HTTP_CONFLICT, HTTP_OK } from "../http-status";
+import type { MailIdentity } from "../mail-index";
 import { LinkDenied, denial, type DenyReason } from "../links/guard";
 import { deliveryQuota, loadLinkRequest, rejectWith, type LinkRequest } from "../links/request";
 import { loadLinkScope, type LinkScope } from "../links/scope";
@@ -142,20 +144,17 @@ publicLinkRoutes.get("/:token/mails", async (c) => {
   const scope = await requireMailboxScope(c, req, false);
   await requireVisitor(c, req);
   const query = parseQuery(c, linkMailListQuerySchema);
-  const result = await listVisibleMailsFor(c.env, scope, query, req.now);
+  const { response: result, identities } = await listVisibleMailsTagged(c.env, scope.scope, { cursor: query.cursor, afterId: query.after_id, now: req.now });
   if (req.access.reveal !== "click") return c.json(result, HTTP_OK);
-  const delivered = await deliveredMailIds(c.env.APP_DB, req.row.id, result.items.map((mail) => mail.id));
+  // 取码记录按邮件身份核对：id 被新邮件复用时记录对不上，新邮件仍是锁定状态
+  const delivered = await deliveredMailIds(c.env.APP_DB, req.row.id, identities);
   const body: VisibleMailListResponse = { ...result, items: result.items.map((mail) => (delivered.has(mail.id) ? mail : lockPresentedMail(mail))) };
   return c.json(body, HTTP_OK);
 });
 
-async function listVisibleMailsFor(env: AppEnv["Bindings"], scope: LinkScope, query: z.output<typeof linkMailListQuerySchema>, now: number): Promise<VisibleMailListResponse> {
-  return await listVisibleMails(env, scope.scope, { cursor: query.cursor, afterId: query.after_id, now });
-}
-
 /** 次数没写进去：已交付过的（不重复计）或者次数满了（区分总数与每日） */
-async function explainRefusedDelivery(c: Parameters<typeof loadLinkRequest>[0], req: LinkRequest, mailId: number): Promise<void> {
-  if ((await deliveredMailIds(c.env.APP_DB, req.row.id, [mailId])).has(mailId)) return;
+async function explainRefusedDelivery(c: Parameters<typeof loadLinkRequest>[0], req: LinkRequest, mailId: number, identity: MailIdentity): Promise<void> {
+  if (await isMailDelivered(c.env.APP_DB, req.row.id, mailId, identity)) return;
   const counts = await deliveryCounts(c.env.APP_DB, req.row.id, req.now);
   if (req.access.max_deliveries_total !== undefined && counts.total >= req.access.max_deliveries_total) {
     await rejectWith(c, req, "total_limit", true);
@@ -173,10 +172,11 @@ publicLinkRoutes.post("/:token/mails/:id/reveal", async (c) => {
   const scope = await requireMailboxScope(c, req, true);
   const visitor = await requireVisitor(c, req);
   const visitorHash = visitor.hash;
-  const mail = await findVisibleListItem(c.env, scope.scope, mailId, req.now);
+  const { mail, identity } = await findVisibleListItem(c.env, scope.scope, mailId, req.now);
   const db = c.env.APP_DB;
   const limits = { total: req.access.max_deliveries_total ?? null, daily: req.access.max_deliveries_per_day ?? null };
-  const counted = await insertDeliveryIfAllowed(db, { link_id: req.row.id, mail_id: mailId, visitor_hash: visitorHash, now: req.now }, limits);
+  const delivery = { link_id: req.row.id, mail_id: mailId, mail: identity, visitor_hash: visitorHash, now: req.now };
+  const counted = await insertDeliveryIfAllowed(db, delivery, limits);
   if (counted) {
     await db.batch([
       accessLogStatement(db, { link_id: req.row.id, event: "deliver", mail_id: mailId, reason: null, created_at: req.now, ...req.client }),
@@ -184,7 +184,7 @@ publicLinkRoutes.post("/:token/mails/:id/reveal", async (c) => {
       touchVisitorStatement(db, req.row.id, visitorHash, req.client, req.now),
     ]);
   } else {
-    await explainRefusedDelivery(c, req, mailId);
+    await explainRefusedDelivery(c, req, mailId, identity);
   }
   await issueVisitorCookie(c, req.row, visitor.value, req.now);
   const counts = req.counts === null ? null : await deliveryCounts(db, req.row.id, req.now);
@@ -192,29 +192,33 @@ publicLinkRoutes.post("/:token/mails/:id/reveal", async (c) => {
   return c.json(body, HTTP_OK);
 });
 
-/** 详情与附件共用：访客已登记、click 模式下这封已交付给本链接 */
-async function detailContext(c: Parameters<typeof loadLinkRequest>[0]): Promise<{ req: LinkRequest; scope: LinkScope; mailId: number }> {
+type DetailContext = { req: LinkRequest; scope: LinkScope; mailId: number; options: Pick<DetailOptions, "now" | "gate"> };
+
+/**
+ * 详情与附件共用：访客已登记；click 模式下这封已交付给本链接。
+ * 交付核对放进详情流水线（gate），拿 MAIL_DB 里当前这封的身份比对：id 被新邮件复用时对不上，同样 404。
+ */
+async function detailContext(c: Parameters<typeof loadLinkRequest>[0]): Promise<DetailContext> {
   const req = await loadLinkRequest(c, false);
   const mailId = parseIdParam(c);
   const scope = await requireMailboxScope(c, req, false);
   await requireVisitor(c, req);
-  if (req.access.reveal === "click" && !(await deliveredMailIds(c.env.APP_DB, req.row.id, [mailId])).has(mailId)) {
-    throw notFoundError("邮件不存在");
-  }
-  return { req, scope, mailId };
+  if (req.access.reveal !== "click") return { req, scope, mailId, options: { now: req.now } };
+  const gate = (identity: MailIdentity) => isMailDelivered(c.env.APP_DB, req.row.id, mailId, identity);
+  return { req, scope, mailId, options: { now: req.now, gate } };
 }
 
 publicLinkRoutes.get("/:token/mails/:id", async (c) => {
-  const { req, scope, mailId } = await detailContext(c);
-  return c.json(await getVisibleMailDetail(c.env, scope.scope, mailId, { now: req.now }), HTTP_OK);
+  const { scope, mailId, options } = await detailContext(c);
+  return c.json(await getVisibleMailDetail(c.env, scope.scope, mailId, options), HTTP_OK);
 });
 
 const attachmentIndexSchema = z.coerce.number().int().min(0);
 
 publicLinkRoutes.get("/:token/mails/:id/attachments/:index", async (c) => {
-  const { req, scope, mailId } = await detailContext(c);
+  const { req, scope, mailId, options } = await detailContext(c);
   const index = parseWith(attachmentIndexSchema, c.req.param("index"));
-  const attachment = await getVisibleAttachment(c.env, scope.scope, mailId, index, { now: req.now });
+  const attachment = await getVisibleAttachment(c.env, scope.scope, mailId, index, options);
   await insertAccessLog(c.env.APP_DB, { link_id: req.row.id, event: "download", mail_id: mailId, reason: `attachment:${index}`, created_at: req.now, ...req.client });
   return new Response(attachment.content, {
     status: HTTP_OK,

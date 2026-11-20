@@ -1,6 +1,6 @@
 import type { PresentedMail, VisibleMailListResponse } from "@maillink/shared";
 import { LIST_PAGE_SIZE } from "../constants";
-import type { MailIndexDbs } from "../mail-index";
+import { mailIdentity, type MailIdentity, type MailIndexDbs } from "../mail-index";
 import { listAfter, listCandidates } from "../mail-source";
 import { presentListItem } from "../render";
 import { limitToNewest, type CompiledRuleGroup } from "../rules";
@@ -38,8 +38,15 @@ function parseCursor(options: ListVisibleOptions): number | null {
   return Number(cursor);
 }
 
-/** 列表结果，外加每封返回邮件的收件地址（mail id → 全小写地址），供用户收件箱把邮件对回授权；不进响应体 */
-export type TaggedVisibleList = { response: VisibleMailListResponse; recipients: Map<number, string> };
+/**
+ * 列表结果，外加不进响应体的两份对照（都以 mail id 为键）：
+ * recipients：收件地址（全小写），供用户收件箱把邮件对回授权；identities：邮件身份，供取件链接核对取码记录。
+ */
+export type TaggedVisibleList = {
+  response: VisibleMailListResponse;
+  recipients: Map<number, string>;
+  identities: Map<number, MailIdentity>;
+};
 
 function present(compiled: CompiledRuleGroup, entries: readonly VisibleEntry[]): PresentedMail[] {
   return entries.map((entry) =>
@@ -52,6 +59,7 @@ function tagged(response: Omit<VisibleMailListResponse, "items">, compiled: Comp
   return {
     response: { ...response, items: present(compiled, entries) },
     recipients: new Map(entries.map((entry) => [entry.mail_id, entry.recipient])),
+    identities: new Map(entries.map((entry) => [entry.mail_id, mailIdentity(entry)])),
   };
 }
 

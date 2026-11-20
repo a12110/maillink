@@ -8,7 +8,7 @@ import { notFoundError } from "../errors";
 import { parseIdParam } from "../validate";
 import { lastLoginMethodError } from "./me-passkeys";
 
-// /api/me/identities：OAuth 绑定列表与解绑（至少保留一种登录方式）。绑定走 /api/auth/oauth/:slug/start?mode=link。
+// /api/me/identities：OAuth 绑定列表与解绑（至少保留一种登录方式）。发起绑定走 POST /api/auth/oauth/:slug/link（auth-oauth.ts）。
 
 export const meIdentityRoutes = new Hono<AppEnv>();
 
