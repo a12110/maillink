@@ -180,7 +180,7 @@ describe("getOrBuild", () => {
   });
 
   it("没有候选时什么都不做", async () => {
-    expect(await getOrBuild(env, [])).toEqual({ items: [], partial: false });
+    expect(await getOrBuild(env, [])).toEqual({ items: [], partial: false, attempted: 0 });
   });
 
   it("超长正文：索引里存截断副本并标记", async () => {

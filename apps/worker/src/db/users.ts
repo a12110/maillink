@@ -81,20 +81,16 @@ export async function insertUser(db: D1Database, user: NewUser, now: number): Pr
   return result.meta.last_row_id;
 }
 
-/** 仅当 users 表仍为空时插入首个管理员（单条语句，并发初始化时只有一个会成功）。返回 null 表示已有用户 */
-export async function insertFirstAdmin(
+/** 仅当 users 表仍为空时插入首个管理员（并发初始化时只有一个会成功）；供 setup 与其他初始化写入放进同一个 batch */
+export function firstAdminStatement(
   db: D1Database,
   user: Omit<NewUser, "role" | "status" | "display_name" | "email">,
   now: number,
-): Promise<number | null> {
+): D1PreparedStatement {
   const full: NewUser = { ...user, display_name: null, email: null, role: "admin", status: "active" };
-  const result = await db
-    .prepare(
-      `INSERT INTO users (${INSERT_COLUMNS}) SELECT ${INSERT_USER_VALUES} WHERE NOT EXISTS (SELECT 1 FROM users)`,
-    )
-    .bind(...insertParams(full, now))
-    .run();
-  return result.meta.changes > 0 ? result.meta.last_row_id : null;
+  return db
+    .prepare(`INSERT INTO users (${INSERT_COLUMNS}) SELECT ${INSERT_USER_VALUES} WHERE NOT EXISTS (SELECT 1 FROM users)`)
+    .bind(...insertParams(full, now));
 }
 
 /**

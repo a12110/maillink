@@ -40,7 +40,10 @@ export type ParsedMail = {
   display_body: string;
   display_truncated: boolean;
   headers: Array<{ key: string; value: string }>;
+  /** 邮件原始 HTML（未清洗），只能交给 render 的清洗器，绝不能直接输出；没有 HTML 部分时为 null */
+  html: string | null;
 };
+
 
 /** 用 postal-mime 解析原文；失败或没有任何邮件头时抛 MailParseError */
 export async function parseMime(raw: string): Promise<Email> {
@@ -100,10 +103,26 @@ type BodyParts = {
   hrefs: string[];
 };
 
+/**
+ * lol-html 放弃解析的 HTML（如 `<select><style>`）取不到文字：整封按解析失败处理（链接与用户侧隐藏，管理员可看原文）。
+ * 不能退回只用 text/plain——HTML 部分里的内容会因此逃过正文类 deny 规则（失败开放）。
+ */
+const LOL_HTML_PARSER_ERROR_PREFIX = "Parser error:";
+
+async function extractHtmlOrFail(html: string): Promise<Awaited<ReturnType<typeof extractHtml>>> {
+  try {
+    return await extractHtml(html);
+  } catch (error) {
+    // 只转换 lol-html 的解析器放弃（TypeError "Parser error: …"）；其他异常是代码缺陷，原样抛出（Debug-First）
+    if (!(error instanceof TypeError && error.message.startsWith(LOL_HTML_PARSER_ERROR_PREFIX))) throw error;
+    throw new MailParseError(`HTML 部分无法解析：${error.message}`, { cause: error });
+  }
+}
+
 /** text/plain 与 html→text 两者拼接。内容相同（常见的 multipart/alternative）时只保留一份 */
 async function buildBody(email: Email): Promise<BodyParts> {
   const plain = email.text ?? "";
-  const html = email.html ? await extractHtml(email.html) : { text: "", hrefs: [] };
+  const html = email.html ? await extractHtmlOrFail(email.html) : { text: "", hrefs: [] };
   const plainBody = normalizeText(plain);
   const htmlBody = normalizeText(html.text);
   const sameContent = htmlBody === plainBody;
@@ -163,5 +182,6 @@ export async function parseMail(input: ParseInput): Promise<ParsedMail> {
     display_body: displayBody.text,
     display_truncated: displayBody.truncated,
     headers: email.headers.map((header) => ({ key: header.originalKey, value: header.value })),
+    html: email.html ?? null,
   };
 }

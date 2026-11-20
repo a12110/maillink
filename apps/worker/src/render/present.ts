@@ -7,7 +7,7 @@ import {
   type ViewMode,
 } from "@maillink/shared";
 import type { CompiledPresentation } from "../rules/compile";
-import type { MailFacts } from "../rules/facts";
+import type { MailFacts } from "../mail-parse/facts";
 import { sanitizeEmailHtml } from "./html-sanitize";
 import { maskAddress } from "./mask";
 import { makeSnippet, normalizeDisplayText, processText } from "./text";

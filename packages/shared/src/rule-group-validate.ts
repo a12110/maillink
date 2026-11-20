@@ -185,6 +185,10 @@ const STATIC_ISSUE_MESSAGES: Record<RegexStaticIssue, [RuleGroupIssue["code"], s
     "regex_nested_quantifier",
     "带重复的分组（+、*、{n} 等）里不能再有分支 |、可变长度的重复（含 ?）或带量词的子分组（如 (a+)+、(\\w|\\d)+、(\\w*\\s*){20}），否则可能灾难性回溯；请改写成单层重复或字符类（如 [\\w\\d]+）",
   ],
+  adjacent_unbounded: [
+    "regex_adjacent_unbounded",
+    "同一处有多个字符可能重叠的无上限重复（如 \\d+\\d+、\\w*\\s*\\w*\\s*\\w*），在长正文上是多项式级回溯；请合并成一个重复（如 \\w+），或给重复加上上限（如 \\w{1,20}）",
+  ],
   leading_unbounded: [
     "regex_leading_unbounded",
     "正则以无上限的重复开头（如 .*x、\\w+@），在长正文上是平方级耗时。regex 本来就是\"包含\"匹配，去掉开头的 .* 即可，或用 ^ 锚定开头",

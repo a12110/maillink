@@ -21,7 +21,7 @@ const FILTER_TEXT_MAX = 254;
 
 const filterText = z.string().trim().min(1).max(FILTER_TEXT_MAX);
 /** 9999-12-31 23:59:59 UTC：再大 formatD1Utc 会抛 RangeError，变成 500 */
-const MAX_UNIX_SECONDS = 253_402_300_799;
+export const MAX_UNIX_SECONDS = 253_402_300_799;
 const unixSeconds = z.coerce.number().int().nonnegative().max(MAX_UNIX_SECONDS);
 /** 最多 15 位：落在 JS 安全整数范围内 */
 const idString = z.string().regex(/^[1-9]\d{0,14}$/, "必须是正整数 id");
@@ -124,6 +124,11 @@ export const adminMailDetailSchema = z.object({
       category: mailCategorySchema,
       headers: z.array(z.object({ key: z.string(), value: z.string() })),
       has_html: z.boolean(),
+      /**
+       * 清洗并包装后的 HTML 文档（CSP meta 开头），直接放进 sandbox iframe 的 srcdoc。
+       * 没有 HTML 部分，或清洗失败（此时只看纯文本，绝不回退原始 HTML）时不出现。
+       */
+      html: z.string().optional(),
     })
     .nullable(),
   /** 仅 ?raw=1 时返回；邮件原文 */

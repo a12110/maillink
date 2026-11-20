@@ -56,6 +56,28 @@ describe("静态检查 analyzeRegexPattern", () => {
     ["(\\d+)x", ["leading_unbounded"]],
     ["foo|.+bar", ["leading_unbounded"]],
     ["[^x]*y", ["leading_unbounded"]],
+    // M3b 加固：同一序列里字符集可能重叠的无上限重复（紧挨着两个，或只隔可省略原子的三个及以上）
+    ["x\\w*\\w*\\w*!", ["adjacent_unbounded"]],
+    ["x\\w*\\s*\\w*\\s*\\w*!", ["adjacent_unbounded"]],
+    ["1\\d+\\d+y", ["adjacent_unbounded"]],
+    ["x(\\w*)(\\w*)y", ["adjacent_unbounded"]],
+    ["x\\w+[a-z]*y", ["adjacent_unbounded"]],
+    ["x.*\\d+y", ["adjacent_unbounded"]],
+    ["x\\S+\\w+y", ["adjacent_unbounded"]],
+    ["x[^,]*,?[^,]*,?[^,]*y", ["adjacent_unbounded"]],
+    ["x\\d+-?\\d+y", []],
+    ["x\\d+[a-z]+y", []],
+    ["x\\s*\\S+y", []],
+    ["x\\d*\\s*[a-z]*\\s*y", []],
+    ["x\\w*:\\w*:\\w*y", []],
+    ["x\\w*\\b\\w*y", ["adjacent_unbounded"]],
+    ["x(?=\\w)\\w*y", []],
+    ["验证码[：:]\\s*(\\d{6})", []],
+    ["code is (\\w{4,8})", []],
+    ["^\\[OpenAI\\].*", []],
+    ["\\b\\d{6}\\b", []],
+    ["(?:code|码)\\s*[:：]?\\s*([A-Z0-9]{6})", []],
+    ["\\d{3}-?\\d{3}", []],
   ])("%s → %j", (pattern, expected) => {
     compileUserRegex(pattern, { caseSensitive: false, global: false });
     expect(analyzeRegexPattern(pattern).sort()).toEqual([...expected].sort());
@@ -74,16 +96,18 @@ describe("试跑计时 probeRegexCost", () => {
     }
   });
 
-  it("构造的灾难性回溯模式（静态检查抓不到的相邻重叠重复）被计时拒绝", () => {
-    const regex = compileUserRegex("1\\d+\\d+\\d+y", { caseSensitive: false, global: false });
-    expect(analyzeRegexPattern("1\\d+\\d+\\d+y")).toEqual([]);
+  it("构造的灾难性回溯模式（静态检查抓不到的、只隔可省略原子的重叠重复）被计时拒绝", () => {
+    const pattern = "1\\d+-?\\d+-?\\d+y";
+    // 三个同类无上限重复：静态检查已拒绝；这里单独验证计时同样能拦下
+    expect(analyzeRegexPattern(pattern)).toEqual(["adjacent_unbounded"]);
+    const regex = compileUserRegex(pattern, { caseSensitive: false, global: false });
     const outcome = probeRegexCost(regex, defaultClock());
     expect(outcome.ok).toBe(false);
     expect(!outcome.ok && outcome.ms).toBeGreaterThan(REGEX_PROBE_MAX_RUN_MS);
   });
 
   it("多项式回溯（相邻重叠的重复）在长样本上被计时拒绝", () => {
-    const pattern = "1\\d+\\d+y";
+    const pattern = "1\\d+-?\\d+y";
     expect(analyzeRegexPattern(pattern)).toEqual([]);
     const outcome = probeRegexCost(compileUserRegex(pattern, { caseSensitive: false, global: false }), defaultClock());
     expect(outcome.ok).toBe(false);
@@ -91,7 +115,7 @@ describe("试跑计时 probeRegexCost", () => {
   });
 
   it("已知局限：需要特定前缀才触发的回溯，固定样本测不到（静态检查与长度上限兜底）", () => {
-    const pattern = "x\\d+\\d+y";
+    const pattern = "x\\d+-?\\d+y";
     const regex = compileUserRegex(pattern, { caseSensitive: false, global: false });
     expect(analyzeRegexPattern(pattern)).toEqual([]);
     expect(probeRegexCost(regex, defaultClock())).toEqual({ ok: true });
@@ -102,7 +126,7 @@ describe("保存校验里的正则检查", () => {
   const withRegex = (pattern: string) => makeConfig({ rules: [rule("r1", "deny", leaf("body", "regex", pattern))] });
 
   it("灾难性回溯模式保存时被拒绝（regex_too_slow），路径指向该取值", () => {
-    const result = validateRuleGroupConfig(withRegex("1\\d+\\d+y"));
+    const result = validateRuleGroupConfig(withRegex("1\\d+-?\\d+y"));
     expect(result.ok).toBe(false);
     const issue = result.errors.find((e) => e.code === "regex_too_slow");
     expect(issue?.path).toEqual(["filter", "rules", 0, "when", "value"]);
@@ -139,7 +163,7 @@ describe("保存校验里的正则检查", () => {
   it("regexProbe=skip 时不试跑（运行时编译用）", () => {
     let calls = 0;
     const clock: Clock = () => (calls += 1);
-    expect(validateRuleGroupConfig(withRegex("1\\d+\\d+y"), { regexProbe: "skip", clock }).ok).toBe(true);
+    expect(validateRuleGroupConfig(withRegex("1\\d+-?\\d+y"), { regexProbe: "skip", clock }).ok).toBe(true);
     expect(calls).toBe(0);
   });
 
@@ -147,7 +171,7 @@ describe("保存校验里的正则检查", () => {
     const config = makeConfig({
       present: {
         code_regex: ".*(\\d{6})",
-        redact: [{ name: "r", match: { type: "regex", pattern: "1\\d+\\d+y" }, scope: ["body"], replace: "*" }],
+        redact: [{ name: "r", match: { type: "regex", pattern: "1\\d+-?\\d+y" }, scope: ["body"], replace: "*" }],
       },
     });
     const errors = validateRuleGroupConfig(config).errors;
@@ -159,6 +183,12 @@ describe("保存校验里的正则检查", () => {
 describe("验收必修：线上只剩静态检查时，反例必须在保存时被拒绝", () => {
   const frozen: Clock = () => 1000;
   const withRegex = (pattern: string) => makeConfig({ rules: [rule("r1", "deny", leaf("body", "regex", pattern))] });
+
+  it.each(["x\\w*\\w*\\w*!", "x\\w*\\s*\\w*\\s*\\w*!"])("立方级反例 %s 在时钟冻结时仍被拒绝（regex_adjacent_unbounded）", (pattern) => {
+    const result = validateRuleGroupConfig(withRegex(pattern), { clock: frozen });
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((e) => e.code)).toEqual(["regex_adjacent_unbounded"]);
+  });
 
   it.each(["a(\\w|\\d)+!", "x(\\w*\\s*){20}!"])("反例 %s 在时钟冻结时仍被拒绝（regex_nested_quantifier）", (pattern) => {
     const result = validateRuleGroupConfig(withRegex(pattern), { clock: frozen });
@@ -172,6 +202,7 @@ describe("验收必修：线上只剩静态检查时，反例必须在保存时�
     "^\\[OpenAI\\].*",
     "\\b\\d{6}\\b",
     "(?:code|码)\\s*[:：]?\\s*([A-Z0-9]{6})",
+    "\\d{3}-?\\d{3}",
   ])("常用写法 %s 不误报", (pattern) => {
     expect(analyzeRegexPattern(compileUserRegex(pattern, { caseSensitive: false, global: false }).source)).toEqual([]);
     const result = validateRuleGroupConfig(makeConfig({ present: { code_regex: pattern } }));

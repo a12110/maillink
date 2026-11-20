@@ -208,6 +208,20 @@ describe("截断的标签不能在包装后变成活标签（验收必修 2）",
     expect(doc).not.toContain("t.example");
   });
 
+  it.each<[string, string]>([
+    ["title 里的注释开头", '<p>a</p><title><!--</title><a title="-->" onclick=alert(1)//'],
+    ["xmp", "<p>a</p><xmp><img src=x onerror=alert(1)></xmp>"],
+    ["noembed", "<p>a</p><noembed><img src=x onerror=alert(1)></noembed>"],
+    ["noframes", "<p>a</p><noframes><img src=x onerror=alert(1)></noframes>"],
+    ["plaintext", "<p>a</p><plaintext><img src=x onerror=alert(1)>"],
+  ])("RCDATA / 原始文本元素整段删除：%s", async (_name, html) => {
+    const out = await sanitize(html);
+    expect(out.startsWith("<p>a</p>")).toBe(true);
+    expect(out).not.toMatch(/<\s*(title|xmp|noembed|noframes|plaintext)\b/iu);
+    expect(out).not.toMatch(DANGEROUS);
+    expect(out).not.toContain("onclick");
+  });
+
   it("末尾是完整标签或普通文本时不截", async () => {
     expect(await sanitize('<p title="a<b">x</p> 1 < 2')).toBe('<p title="a<b">x</p> 1 < 2');
   });

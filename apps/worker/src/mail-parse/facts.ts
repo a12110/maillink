@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { MAIL_CATEGORIES } from "@maillink/shared";
-import type { CodeSource } from "@maillink/shared";
+import { MAIL_CATEGORIES, codeSourceSchema } from "@maillink/shared";
+import type { CodeSource, MailCategory } from "@maillink/shared";
 
-// MailFacts 与 M3a（rules/）共用的对接类型：两边定义必须逐字一致，M3b 合并时去重。
+// MailFacts：解析（M2）产出、规则引擎（rules/）消费的唯一定义（01 §4.1）。
 
-export type MailCategory = 'email_change' | 'password_reset' | 'security_change' | 'billing' | 'verification' | 'other';
 export type MailFacts = {
   mail_id: number;
   received_at: number;            // Unix 秒，来自 raw_mails.created_at
@@ -27,16 +26,7 @@ export type MailFacts = {
   has_html: boolean;
 };
 
-// 编译期检查：本文件的 MailCategory 与 shared 里的枚举一致
-type SharedCategory = (typeof MAIL_CATEGORIES)[number];
-const _categoryMatchesShared: [MailCategory] extends [SharedCategory]
-  ? [SharedCategory] extends [MailCategory]
-    ? true
-    : never
-  : never = true;
-void _categoryMatchesShared;
-
-export type { CodeSource };
+export type { CodeSource, MailCategory };
 
 /** mail_index 的一行（01 §5 + 0003 迁移），JSON 列保持文本形态 */
 export type MailIndexRow = {
@@ -122,6 +112,22 @@ export function rowToFacts(row: MailIndexRow): MailFacts {
     raw_size: row.raw_size ?? 0,
     has_html: row.has_html === 1,
   };
+}
+
+/**
+ * mail_index 行里的验证码来源（0003）。与 code 必须一致：有码必有来源、无码必无来源；
+ * 不一致说明索引行被改坏，抛出而不是猜一个来源（规则组提取按来源决定优先级，02 §4.6）。
+ */
+export function rowCodeSource(row: MailIndexRow): CodeSource | null {
+  if (row.code_source === null) {
+    if (row.code !== null) throw new Error(`mail_index.code_source 为空但有验证码 (mail_id=${row.mail_id})`);
+    return null;
+  }
+  const parsed = codeSourceSchema.safeParse(row.code_source);
+  if (!parsed.success || row.code === null) {
+    throw new Error(`mail_index.code_source 内容无效 (mail_id=${row.mail_id}): ${String(row.code_source)}`);
+  }
+  return parsed.data;
 }
 
 function parseCategory(row: MailIndexRow): MailCategory {
