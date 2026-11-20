@@ -1,4 +1,4 @@
-import type { AdminUser, AdminUserListQuery } from "@maillink/shared";
+import type { AdminUser, AdminUserList, AdminUserListQuery } from "@maillink/shared";
 import { LIST_PAGE_SIZE } from "../constants";
 
 // 管理端用户列表 / 详情：带登录方式标记与授权邮箱数的聚合查询。
@@ -57,7 +57,7 @@ function escapeLike(text: string): string {
 
 const KEYWORD_CLAUSE = `(u.username_lc LIKE ? ESCAPE '\\' OR u.email_lc LIKE ? ESCAPE '\\' OR u.display_name LIKE ? ESCAPE '\\')`;
 
-function buildFilter(query: AdminUserListQuery): { where: string; params: unknown[] } {
+function buildFilter(query: AdminUserListQuery, withCursor: boolean): { where: string; params: unknown[] } {
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (query.q) {
@@ -73,27 +73,27 @@ function buildFilter(query: AdminUserListQuery): { where: string; params: unknow
     clauses.push("u.status = ?");
     params.push(query.status);
   }
-  if (query.cursor) {
+  if (withCursor && query.cursor) {
     clauses.push("u.id < ?");
     params.push(Number(query.cursor));
   }
   return { where: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "", params };
 }
 
-/** 按 id 倒序（新用户在前）的游标分页；cursor 是上一页最后一条的 id */
-export async function listAdminUsers(
-  db: D1Database,
-  query: AdminUserListQuery,
-): Promise<{ items: AdminUser[]; next_cursor: string | null }> {
+/** 按 id 倒序（新用户在前）的游标分页；cursor 是上一页最后一条的 id。total 为满足筛选条件的总数，与本页同一 batch */
+export async function listAdminUsers(db: D1Database, query: AdminUserListQuery): Promise<AdminUserList> {
   const limit = query.limit ?? LIST_PAGE_SIZE;
-  const { where, params } = buildFilter(query);
-  const { results } = await db
-    .prepare(`${SELECT_ADMIN_USERS} ${where} ORDER BY u.id DESC LIMIT ?`)
-    .bind(...params, limit + 1)
-    .all<AdminUserRow>();
-  const page = results.slice(0, limit).map(toAdminUser);
+  const page = buildFilter(query, true);
+  const count = buildFilter(query, false);
+  const [list, total] = await db.batch<AdminUserRow | { total: number }>([
+    db.prepare(`${SELECT_ADMIN_USERS} ${page.where} ORDER BY u.id DESC LIMIT ?`).bind(...page.params, limit + 1),
+    db.prepare(`SELECT COUNT(*) AS total FROM users u ${count.where}`).bind(...count.params),
+  ]);
+  const results = (list?.results ?? []) as AdminUserRow[];
+  const items = results.slice(0, limit).map(toAdminUser);
   const hasMore = results.length > limit;
-  return { items: page, next_cursor: hasMore ? String(page[page.length - 1]?.id) : null };
+  const totalRow = total?.results[0] as { total: number } | undefined;
+  return { items, next_cursor: hasMore ? String(items[items.length - 1]?.id) : null, total: totalRow?.total ?? 0 };
 }
 
 export async function findAdminUser(db: D1Database, id: number): Promise<AdminUser | null> {

@@ -210,5 +210,7 @@ export const publicConfigSchema = z.object({
     site_key: z.string(),
     scopes: z.array(turnstileScopeSchema),
   }),
+  /** 密码最小长度（security.password_min_length），注册页与改密码表单提示用；服务端照常校验 */
+  password_min_length: z.number().int(),
 });
 export type PublicConfig = z.infer<typeof publicConfigSchema>;

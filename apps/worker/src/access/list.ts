@@ -38,6 +38,9 @@ function parseCursor(options: ListVisibleOptions): number | null {
   return Number(cursor);
 }
 
+/** 列表结果，外加每封返回邮件的收件地址（mail id → 全小写地址），供用户收件箱把邮件对回授权；不进响应体 */
+export type TaggedVisibleList = { response: VisibleMailListResponse; recipients: Map<number, string> };
+
 function present(compiled: CompiledRuleGroup, entries: readonly VisibleEntry[]): PresentedMail[] {
   return entries.map((entry) =>
     // 可见的邮件一定做过提取（只有 parse_failed / out_of_window 时 extracted 为 null）
@@ -45,31 +48,47 @@ function present(compiled: CompiledRuleGroup, entries: readonly VisibleEntry[]):
   );
 }
 
+function tagged(response: Omit<VisibleMailListResponse, "items">, compiled: CompiledRuleGroup, entries: readonly VisibleEntry[]): TaggedVisibleList {
+  return {
+    response: { ...response, items: present(compiled, entries) },
+    recipients: new Map(entries.map((entry) => [entry.mail_id, entry.recipient])),
+  };
+}
+
 export async function listVisibleMails(
   dbs: MailIndexDbs,
   scope: AccessScope,
   options: ListVisibleOptions,
 ): Promise<VisibleMailListResponse> {
+  return (await listVisibleMailsTagged(dbs, scope, options)).response;
+}
+
+export async function listVisibleMailsTagged(
+  dbs: MailIndexDbs,
+  scope: AccessScope,
+  options: ListVisibleOptions,
+): Promise<TaggedVisibleList> {
   const beforeId = parseCursor(options);
   const { compiled, lowerBound } = effectivePolicy(scope, options.now);
   const maxMails = compiled.config.limits.max_mails;
-  const empty: VisibleMailListResponse = { items: [], next_cursor: null, partial: false, next_after_id: options.afterId ?? null };
-  if (scope.addresses.length === 0 || (maxMails !== undefined && beforeId !== null)) return empty;
+  if (scope.addresses.length === 0 || (maxMails !== undefined && beforeId !== null)) {
+    return tagged({ next_cursor: null, partial: false, next_after_id: options.afterId ?? null }, compiled, []);
+  }
   if (maxMails !== undefined) {
     const { entries, scan } = await scanNewestVisible(dbs, scope.addresses, compiled, lowerBound, maxMails, options.parseBudget);
     const afterId = options.afterId ?? 0;
-    const items = present(compiled, entries.filter((entry) => entry.mail_id > afterId));
-    return { items, next_cursor: null, partial: scan.pending !== null, next_after_id: firstPageWatermark(scan, null) };
+    const meta = { next_cursor: null, partial: scan.pending !== null, next_after_id: firstPageWatermark(scan, null) };
+    return tagged(meta, compiled, entries.filter((entry) => entry.mail_id > afterId));
   }
 
   const fetch = batchFetcher(dbs, scope.addresses, lowerBound, options.afterId, beforeId);
   const scan = await scanVisible(dbs, compiled, lowerBound, fetch, LIST_PAGE_SIZE, options.parseBudget);
-  const items = present(compiled, limitToNewest(scan.visible, undefined));
+  const entries = limitToNewest(scan.visible, undefined);
   const partial = scan.pending !== null;
   if (options.afterId !== undefined) {
-    return { items, next_cursor: null, partial, next_after_id: scan.lastScannedId ?? options.afterId };
+    return tagged({ next_cursor: null, partial, next_after_id: scan.lastScannedId ?? options.afterId }, compiled, entries);
   }
-  return { items, next_cursor: nextCursor(scan), partial, next_after_id: firstPageWatermark(scan, beforeId) };
+  return tagged({ next_cursor: nextCursor(scan), partial, next_after_id: firstPageWatermark(scan, beforeId) }, compiled, entries);
 }
 
 /** 增量轮询按 id 正序取 id > after_id；翻页按 id 倒序取 id < cursor。地址与时间下界都下推进 SQL */

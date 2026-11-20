@@ -2,6 +2,8 @@ import { z } from "zod";
 import { LIST_PAGE_SIZE_MAX } from "./limits";
 import { mailboxStatusSchema } from "./mailboxes";
 import { VIEW_MODES } from "./rule-group";
+import { presentedMailSchema } from "./rule-group-presented-mail";
+import { visibleMailListResponseSchema } from "./visible-mails";
 
 // 用户邮箱授权：管理端 /api/admin/grants* 与用户侧 /api/me/mailboxes（04 管理端 / 授权，当前用户）。
 
@@ -148,6 +150,22 @@ export const myMailListQuerySchema = z
     path: ["cursor"],
   });
 export type MyMailListQuery = z.infer<typeof myMailListQuerySchema>;
+
+/**
+ * `/api/me/mails` 的列表项：PresentedMail 加上它所属授权的收件地址 id 与视图模式。
+ * "全部"里各封邮件来自不同授权，前端据 `view` 决定是否放详情入口（code_only / meta_only 没有详情），
+ * 打开详情时带 `?mailbox_id=<mailbox_id>`。
+ */
+export const myMailListItemSchema = presentedMailSchema.extend({
+  mailbox_id: z.number().int(),
+  view: z.enum(VIEW_MODES),
+});
+export type MyMailListItem = z.infer<typeof myMailListItemSchema>;
+
+export const myMailListResponseSchema = visibleMailListResponseSchema.extend({
+  items: z.array(myMailListItemSchema),
+});
+export type MyMailListResponse = z.infer<typeof myMailListResponseSchema>;
 
 export const myMailDetailQuerySchema = z.object({
   /** 收件地址 id；不给时按邮件自己的收件地址在当前用户的有效授权里定位 */

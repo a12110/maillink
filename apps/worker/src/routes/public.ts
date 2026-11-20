@@ -7,7 +7,8 @@ import type { AppEnv } from "../env";
 export const publicRoutes = new Hono<AppEnv>();
 
 // 免登录可读的"公开"设置（03 §7）：站点信息、外观、是否开放注册、Turnstile 的启用状态 / site key / 作用范围、
-// 可用登录方式与已启用的 OAuth 提供方（仅 slug、名称、图标）。secret、安全设置、取件链接默认值一律不在这里。
+// 可用登录方式与已启用的 OAuth 提供方（仅 slug、名称、图标）、密码最小长度（注册页提示用）。
+// secret、其余安全设置、取件链接默认值一律不在这里。
 // login_methods 以设置 auth.login_methods 为准；没有启用中的提供方时不列出 oauth。
 // 取件页公告 pickup_notice 在这里；"取件页是否显示站点品牌"不是公开设置，由 GET /api/s/:token 带出。
 const PUBLIC_KEYS = [
@@ -26,6 +27,7 @@ const PUBLIC_KEYS = [
   "turnstile.enabled",
   "turnstile.site_key",
   "turnstile.scopes",
+  "security.password_min_length",
 ] as const;
 
 publicRoutes.get("/config", async (c) => {
@@ -54,6 +56,7 @@ publicRoutes.get("/config", async (c) => {
       site_key: settings["turnstile.site_key"],
       scopes: settings["turnstile.scopes"],
     },
+    password_min_length: settings["security.password_min_length"],
   };
   return c.json(body);
 });

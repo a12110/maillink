@@ -4,6 +4,7 @@ import {
   RULE_GROUP_API_LIMITS,
   ruleGroupCreateSchema,
   ruleGroupDraftRequestSchema,
+  ruleGroupDraftResponseSchema,
   ruleGroupTestRequestSchema,
   ruleGroupUpdateSchema,
   validateRuleGroupConfig,
@@ -245,5 +246,6 @@ adminRuleGroupRoutes.post("/draft-from-mail", async (c) => {
   if (item.status !== "ok") {
     throw new ApiError(HTTP_UNPROCESSABLE, "mail_parse_failed", "这封邮件解析失败，无法生成规则草稿");
   }
-  return c.json(draftRuleFromMail(item.facts), HTTP_OK);
+  // 出口按 shared 的响应 schema 校验：草稿生成器若产出不合 schema 的规则，是服务端缺陷（500），不能交给编辑器
+  return c.json(ruleGroupDraftResponseSchema.parse(draftRuleFromMail(item.facts)), HTTP_OK);
 });

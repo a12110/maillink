@@ -58,6 +58,11 @@ export const adminMailboxListQuerySchema = z.object({
   q: z.string().trim().min(1).max(SEARCH_KEYWORD_MAX_LENGTH).optional(),
   tag: mailboxTagSchema.optional(),
   status: mailboxStatusSchema.optional(),
+  /** "true" 只看被至少一个取件链接引用的地址，"false" 只看没有被引用的 */
+  has_link: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
   cursor: z.string().regex(/^[1-9]\d{0,14}$/u, "cursor 无效").optional(),
   limit: z.coerce.number().int().min(1).max(LIST_PAGE_SIZE_MAX).optional(),
 });
@@ -68,8 +73,22 @@ export const adminMailboxListResponseSchema = z.object({
   next_cursor: z.string().nullable(),
   /** 满足筛选条件的总数（不受游标影响），页头"共 N 个" */
   total: z.number().int(),
+  /** 除 status 以外的筛选条件下的启用数与停用数（状态切换标签上显示的数字） */
+  active_count: z.number().int(),
+  disabled_count: z.number().int(),
 });
 export type AdminMailboxListResponse = z.infer<typeof adminMailboxListResponseSchema>;
+
+/** GET /api/admin/mailboxes/tags：全部标签及使用次数，次数多的在前，同次数按标签名 */
+export const mailboxTagCountSchema = z.object({ tag: z.string(), count: z.number().int() });
+export type MailboxTagCount = z.infer<typeof mailboxTagCountSchema>;
+
+export const mailboxTagListResponseSchema = z.object({
+  items: z.array(mailboxTagCountSchema),
+  /** 标签种类超过返回上限，只给出了前面的部分 */
+  truncated: z.boolean(),
+});
+export type MailboxTagListResponse = z.infer<typeof mailboxTagListResponseSchema>;
 
 export const mailboxImportRequestSchema = z.object({
   /**

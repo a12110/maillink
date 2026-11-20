@@ -3,6 +3,7 @@ import type { AppEnv } from "./env";
 import { requireAdmin } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
+import { apiSecurityHeaders } from "./middleware/security-headers";
 import { adminGrantRoutes } from "./routes/admin-grants";
 import { adminLinkOpsRoutes } from "./routes/admin-link-ops";
 import { adminLinkRoutes } from "./routes/admin-links";
@@ -29,7 +30,8 @@ export const app = new Hono<AppEnv>();
 app.onError(onError);
 app.notFound(notFound);
 
-// 公开取件接口的安全头（no-store / no-referrer / noindex）挂在最前面，CSRF 拒绝等早期错误响应也带上
+// 全部 /api/* 的 nosniff 与 no-referrer；公开取件接口另加 no-store / noindex。都挂在最前面，CSRF 拒绝等早期错误响应也带上
+app.use("/api/*", apiSecurityHeaders);
 app.use("/api/s/*", linkSecurityHeaders);
 // 写操作的 CSRF 检查对所有 /api/* 生效（04 约定）
 app.use("/api/*", csrfProtection);

@@ -11,10 +11,12 @@ import {
   type MailboxBatchResponse,
   type MailboxImportItem,
   type MailboxImportResponse,
+  type MailboxTagListResponse,
   type OkResponse,
 } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { nowSec } from "../clock";
+import { MAILBOX_TAG_LIST_MAX } from "../constants";
 import {
   addMailboxTags,
   deleteMailboxes,
@@ -24,6 +26,7 @@ import {
   findMailboxTags,
   insertMailboxes,
   listMailboxRows,
+  listMailboxTagCounts,
   removeMailboxTags,
   setMailboxStatus,
   updateMailbox,
@@ -65,9 +68,14 @@ function toAdminMailbox(row: MailboxRow, lastReceived: Map<string, number | null
 
 adminMailboxRoutes.get("/", async (c) => {
   const query = parseQuery(c, adminMailboxListQuerySchema);
-  const { rows, next_cursor, total } = await listMailboxRows(c.env.APP_DB, query);
+  const { rows, ...page } = await listMailboxRows(c.env.APP_DB, query);
   const lastReceived = await getLastReceivedAt(c.env.MAIL_DB, rows.map((row) => row.address));
-  const body: AdminMailboxListResponse = { items: rows.map((row) => toAdminMailbox(row, lastReceived)), next_cursor, total };
+  const body: AdminMailboxListResponse = { items: rows.map((row) => toAdminMailbox(row, lastReceived)), ...page };
+  return c.json(body, HTTP_OK);
+});
+
+adminMailboxRoutes.get("/tags", async (c) => {
+  const body: MailboxTagListResponse = await listMailboxTagCounts(c.env.APP_DB, MAILBOX_TAG_LIST_MAX);
   return c.json(body, HTTP_OK);
 });
 

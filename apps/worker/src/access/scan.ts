@@ -10,7 +10,8 @@ import { evaluateIndexed } from "./policy";
 // 直到凑满目标数 / 触到 SCAN_CAP_PER_REQUEST / 没有更多 / 遇到本次没解析到的邮件。
 // 遇到 pending 立即停：它之后的邮件都不算处理过，游标与 after_id 只能停在它前面，保证不漏。
 
-export type VisibleEntry = { mail_id: number; received_at: number; facts: MailFacts; evaluation: RuleEvaluation };
+/** recipient 为候选的收件地址（全小写），用户收件箱"全部"据此把邮件对回授权 */
+export type VisibleEntry = { mail_id: number; received_at: number; recipient: string; facts: MailFacts; evaluation: RuleEvaluation };
 
 /** 取下一批候选：afterCursor 为上一批最后一封的 id（首批为 null），返回按扫描方向排好序的候选 */
 export type FetchBatch = (afterCursor: number | null, limit: number) => Promise<MailCandidate[]>;
@@ -95,7 +96,13 @@ async function processBatch(
     if (item === undefined || item.status === "failed") continue;
     const evaluation = evaluateIndexed(compiled, item, lowerBound);
     if (!evaluation.visible) continue;
-    state.visible.push({ mail_id: candidate.id, received_at: candidate.received_at, facts: item.facts, evaluation });
+    state.visible.push({
+      mail_id: candidate.id,
+      received_at: candidate.received_at,
+      recipient: candidate.recipient,
+      facts: item.facts,
+      evaluation,
+    });
     if (state.visible.length >= target) return true;
   }
   return false;
