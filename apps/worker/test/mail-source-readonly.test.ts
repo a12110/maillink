@@ -17,7 +17,7 @@ describe("mail-source 只读守卫", () => {
     expect(files.some((file) => file.endsWith("schema-probe.ts"))).toBe(true);
     expect(files.some((file) => file.endsWith("time.ts"))).toBe(true);
     // M2 新增的查询文件也在扫描范围内
-    for (const name of ["candidates.ts", "raw.ts", "guard.ts", "gzip.ts", "addresses.ts"]) {
+    for (const name of ["candidates.ts", "raw.ts", "guard.ts", "gzip.ts", "addresses.ts", "exists.ts"]) {
       expect(files.some((file) => file.endsWith(`/${name}`)), name).toBe(true);
     }
   });

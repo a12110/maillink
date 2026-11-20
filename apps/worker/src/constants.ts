@@ -144,3 +144,68 @@ export const ADMIN_DETAIL_BODY_CAP_BYTES = 262_144;
  * 1 万个地址约 0.8 MB，留足余量。超出时明确报错，不静默截断。
  */
 export const IMPORTED_SCOPE_MAX_ADDRESSES = 10_000;
+
+// ---- 限流（M7a，01 §2 RATE_LIMITER） ----
+
+/**
+ * Workers Rate Limiting 的阈值是"每个 binding 一组"：limit 与 period 写在 wrangler.jsonc 的
+ * `ratelimits[].simple` 里，运行时 `limit({ key })` 只传 key。period 只能是 10 或 60 秒。
+ * 下面两个值必须与 wrangler.jsonc 保持一致（只用于 Retry-After 与文档，代码里不再另设阈值）；
+ * 各用途靠 key 前缀互相隔离，彼此的计数不混用。
+ */
+export const RATE_LIMIT_PERIOD_SEC = 60;
+export const RATE_LIMIT_MAX_REQUESTS = 10;
+
+/** 限流 key 里单个片段（用户名、IP、token 哈希）的长度上限，防止超长输入撑大 key */
+export const RATE_LIMIT_KEY_PART_MAX_LENGTH = 128;
+
+/** 请求没有 CF-Connecting-IP（本地开发、测试）时统一归入的 IP 片段：共用一个桶，偏严而不是放行 */
+export const RATE_LIMIT_NO_IP_PART = "no-ip";
+
+/** 限流用途，同时也是 key 前缀：`<用途>:<片段>[:<片段>]`，如 `login:ip:203.0.113.7` */
+export const RATE_LIMIT_PURPOSES = {
+  loginIp: "login:ip",
+  loginUser: "login:user",
+  setupIp: "setup:ip",
+  mfaIp: "mfa:ip",
+  passkeyIp: "passkey:ip",
+  oauthIp: "oauth:ip",
+  /** 取件链接访问（M3b-2）：`link:<token_hash>:<ip>` */
+  link: "link",
+} as const;
+export type RateLimitPurpose = (typeof RATE_LIMIT_PURPOSES)[keyof typeof RATE_LIMIT_PURPOSES];
+
+// ---- 定时任务（M7a，01 §2 cron） ----
+
+/** 与 wrangler.jsonc 的 triggers.crons 保持一致 */
+export const CRON_PREWARM = "*/5 * * * *";
+export const CRON_DAILY_CLEANUP = "17 3 * * *";
+
+/**
+ * 每次预热最多取多少封新邮件、最多解析多少封。
+ * 单封解析约十到几十毫秒 CPU，20 封远低于 Workers cron 的 CPU 上限；积压的邮件下个 5 分钟继续。
+ */
+export const PREWARM_BATCH_SIZE = 20;
+
+/** 日志保留天数默认值（可被系统设置覆盖） */
+export const ACCESS_LOG_RETENTION_DAYS_DEFAULT = 90;
+export const AUDIT_LOG_RETENTION_DAYS_DEFAULT = 365;
+
+/** 清理删除的分批大小与每张表每次运行的最大批数（超出的留给第二天，避免单次 DELETE 过大） */
+export const CLEANUP_DELETE_BATCH_SIZE = 1000;
+export const CLEANUP_MAX_BATCHES = 50;
+
+/** 孤儿索引扫描：每批检查多少行、每次运行最多几批（游标记在 settings，扫完一圈回到 0） */
+export const ORPHAN_SCAN_BATCH_SIZE = 500;
+export const ORPHAN_SCAN_MAX_BATCHES = 20;
+
+/** settings 里 cron 相关的键 */
+export const CRON_SETTING_KEYS = {
+  prewarmCursor: "system.cron.prewarm_after_id",
+  orphanScanCursor: "system.cron.orphan_scan_after_id",
+  lastRunPrewarm: "system.cron.prewarm.last_run",
+  lastRunCleanup: "system.cron.cleanup.last_run",
+} as const;
+
+/** last_run.error 的长度上限 */
+export const CRON_ERROR_MAX_LENGTH = 1000;

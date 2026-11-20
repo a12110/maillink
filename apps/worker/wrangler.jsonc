@@ -27,6 +27,16 @@
       "database_id": "00000000-0000-0000-0000-00000000a002"
     }
   ],
+  // Workers Rate Limiting：limit 与 period 是每个 binding 一组（period 只能是 10 或 60），
+  // 须与 src/constants.ts 的 RATE_LIMIT_MAX_REQUESTS / RATE_LIMIT_PERIOD_SEC 一致。
+  // namespace_id 是账号内唯一的正整数字符串，部署前按需调整。
+  "ratelimits": [
+    {
+      "name": "RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
   "triggers": {
     "crons": ["*/5 * * * *", "17 3 * * *"]
   },
