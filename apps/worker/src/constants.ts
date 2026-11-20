@@ -144,3 +144,18 @@ export const ADMIN_DETAIL_BODY_CAP_BYTES = 262_144;
  * 1 万个地址约 0.8 MB，留足余量。超出时明确报错，不静默截断。
  */
 export const IMPORTED_SCOPE_MAX_ADDRESSES = 10_000;
+
+// ---- 用户授权与收件箱（M4） ----
+
+// 批量授权的上限（定义在 shared，zod schema 要用），业务代码统一从这里取
+export {
+  GRANT_BATCH_MAX_MAILBOXES,
+  GRANT_BATCH_MAX_PAIRS,
+  GRANT_BATCH_MAX_USERS,
+} from "@maillink/shared";
+
+/**
+ * "全部"邮件一次最多合并的作用域数（同规则组、同时间下界的授权合成一个；设了 max_mails 的授权各占一个）。
+ * 每个作用域各自扫描并解析，超出时明确拒绝，让用户改选具体邮箱，不静默截断。
+ */
+export const ME_ALL_MAX_SCOPES = 20;

@@ -17,3 +17,4 @@ export * from "./rule-group-validate";
 export * from "./mailboxes";
 export * from "./rule-groups-api";
 export * from "./visible-mails";
+export * from "./grants";

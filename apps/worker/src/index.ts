@@ -3,6 +3,7 @@ import type { AppEnv } from "./env";
 import { requireAdmin } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
+import { adminGrantRoutes } from "./routes/admin-grants";
 import { adminMailboxRoutes } from "./routes/admin-mailboxes";
 import { adminMailRoutes } from "./routes/admin-mails";
 import { adminRuleGroupRoutes } from "./routes/admin-rule-groups";
@@ -10,6 +11,7 @@ import { adminSystemRoutes } from "./routes/admin-system";
 import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
 import { meRoutes } from "./routes/me";
+import { meMailboxRoutes, meMailRoutes } from "./routes/me-mails";
 import { publicRoutes } from "./routes/public";
 import { setupRoutes } from "./routes/setup";
 
@@ -26,12 +28,16 @@ app.use("/api/admin/*", requireAdmin);
 app.route("/api/public", publicRoutes);
 app.route("/api/setup", setupRoutes);
 app.route("/api/auth", authRoutes);
+// 收件箱路由先于 meRoutes 挂载：它们各自带 requireUser，命中后不再经过 meRoutes 的中间件（不重复鉴权）
+app.route("/api/me/mailboxes", meMailboxRoutes);
+app.route("/api/me/mails", meMailRoutes);
 app.route("/api/me", meRoutes);
 app.route("/api/admin/users", adminUserRoutes);
 app.route("/api/admin/system", adminSystemRoutes);
 app.route("/api/admin/mails", adminMailRoutes);
 app.route("/api/admin/mailboxes", adminMailboxRoutes);
 app.route("/api/admin/rule-groups", adminRuleGroupRoutes);
+app.route("/api/admin/grants", adminGrantRoutes);
 
 export default {
   fetch: app.fetch,
