@@ -27,9 +27,9 @@ const PREVIEW: MailboxImportResponse = {
   dry_run: true,
   summary: { new: 1, duplicate: 1, invalid: 1 },
   items: [
-    { line: 1, input: "a@icloud.com", address: "a@icloud.com", status: "new", reason: null, id: null },
-    { line: 2, input: "not-an-email", address: null, status: "invalid", reason: "invalid_format", id: null },
-    { line: 3, input: "a@icloud.com", address: "a@icloud.com", status: "duplicate", reason: "duplicate_in_input", id: null },
+    { line: 1, input: "a@icloud.com", address: "a@icloud.com", tags: ["OpenAI", "vip"], note: "备注一", status: "new", reason: null, id: null },
+    { line: 2, input: "not-an-email", address: null, tags: [], note: null, status: "invalid", reason: "invalid_format", id: null },
+    { line: 3, input: "a@icloud.com", address: "a@icloud.com", tags: [], note: null, status: "duplicate", reason: "duplicate_in_input", id: null },
   ],
 };
 
@@ -75,6 +75,18 @@ describe("导入两步对话框", () => {
     expect(importMailboxes).toHaveBeenCalledTimes(2);
     expect(importMailboxes).toHaveBeenLastCalledWith({ content: CSV, tags: [], dry_run: false });
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("预览逐条显示解析出的标签与备注（空值为“—”，全文在 title 里），让管理员在确认前看见落位", async () => {
+    importMailboxes.mockResolvedValueOnce({ ...PREVIEW, items: [{ ...PREVIEW.items[0]!, tags: ["OpenAI", "vip"], note: "x".repeat(80) }, PREVIEW.items[1]!] });
+    await open();
+    await typeInto(body().querySelector("textarea") as HTMLTextAreaElement, CSV);
+    await press(button("预览导入结果"));
+    const field = (label: string) => Array.from(body().querySelectorAll<HTMLElement>(`.import-items [data-field="${label}"]`));
+    expect(field("标签").map((el) => el.textContent).sort()).toEqual(["标签：OpenAI、vip", "标签：—"]);
+    expect(field("标签").find((el) => el.title)?.title).toBe("OpenAI、vip");
+    expect(field("备注").map((el) => el.textContent).sort()).toEqual([`备注：${"x".repeat(80)}`, "备注：—"].sort());
+    expect(field("备注").find((el) => el.title)?.title).toBe("x".repeat(80));
   });
 
   it("上传文件：内容读进文本域并显示文件名，之后照常预览", async () => {

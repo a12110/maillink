@@ -12,6 +12,16 @@ type Props = {
   onConfirm: () => void;
 };
 
+/** 解析结果的一格：纯文本，过长省略并由 title 给出全文；空值显示“—” */
+function Cell({ label, value }: { label: string; value: string }) {
+  return (
+    <span data-field={label} title={value === "" ? undefined : value}>
+      <span className="import-meta-label">{label}：</span>
+      {value === "" ? "—" : value}
+    </span>
+  );
+}
+
 function ItemList({ items }: { items: MailboxImportItem[] }) {
   const shown = items.slice(0, IMPORT_PREVIEW_ROWS);
   return (
@@ -20,6 +30,10 @@ function ItemList({ items }: { items: MailboxImportItem[] }) {
         <li key={item.line}>
           <span className="import-line num">第 {item.line} 行</span>
           <span className="import-input mono" title={item.input}>{item.address ?? item.input}</span>
+          <div className="import-meta">
+            <Cell label="标签" value={item.tags.join("、")} />
+            <Cell label="备注" value={item.note ?? ""} />
+          </div>
           <span className="import-reason">{importReasonLabel(item)}</span>
         </li>
       ))}

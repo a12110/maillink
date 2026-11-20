@@ -123,6 +123,10 @@ export const mailboxImportItemSchema = z.object({
   input: z.string(),
   /** 规范化后的地址（去空白、域名小写）；格式无效时为 null */
   address: z.string().nullable(),
+  /** 解析出的标签（平台列 + 统一标签，去重）；格式类问题的行解析中止，为空数组。重复行带解析值，但不会被写入 */
+  tags: z.array(z.string()),
+  /** 解析出的备注；无备注或该行解析中止时为 null */
+  note: z.string().nullable(),
   status: z.enum(MAILBOX_IMPORT_STATUSES),
   reason: z.enum(MAILBOX_IMPORT_REASONS).nullable(),
   /** 正式导入后新增或已存在的收件地址 id；预览与无效行为 null */

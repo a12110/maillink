@@ -92,9 +92,9 @@ type TableProps = {
 function ProviderTable({ query, busy, onEdit, onToggle, onDelete }: TableProps) {
   const items = query.data?.items ?? [];
   return (
-    <div className="panel table-scope">
-      <table className="table">
-        <colgroup><col /><col data-w="md" /><col className="col-secondary" data-w="sm" /><col data-w="sm" /><col className="col-optional" data-w="md" /><col className="col-optional" data-w="xs" /><col data-w="xl" /></colgroup>
+    <div className="table-scope"><div className="panel">
+      <table className="table oauth-table">
+        <colgroup><col /><col data-w="lg" /><col className="col-secondary" data-w="sm" /><col data-w="sm" /><col className="col-optional" data-w="md" /><col className="col-optional" data-w="xs" /><col data-w="xl" /></colgroup>
         <thead><tr><th>名称</th><th>slug</th><th className="col-secondary">类型</th><th>状态</th><th className="col-optional">注册</th><th className="col-num col-optional">排序</th><th><span className="sr-only">操作</span></th></tr></thead>
         <tbody>
           {query.isPending ? <SkeletonRows rows={3} columns={7} /> : items.map((provider) => (
@@ -106,7 +106,7 @@ function ProviderTable({ query, busy, onEdit, onToggle, onDelete }: TableProps) 
       {!query.isPending && items.length === 0 ? (
         <EmptyState icon={KeyRound} title="还没有 OAuth 提供方" description="添加后，在“注册与登录”里允许 OAuth 登录，用户才能用第三方账号登录。" />
       ) : null}
-    </div>
+    </div></div>
   );
 }
 
