@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { utf8 } from "../src/auth/crypto";
+import { fromBase64Url, toBase64Url, utf8 } from "../src/auth/crypto";
 import { normalizeRecoveryCode, generateRecoveryCodes } from "../src/auth/recovery-codes";
 import { FlowTokenError, decryptToken, encryptToken, signToken, verifySignedToken } from "../src/auth/signed-token";
 import { base32Decode, base32Encode, hotp, matchTotp, otpauthUri, totpAt, totpStep } from "../src/auth/totp";
@@ -83,7 +83,11 @@ describe("签名与加密令牌", () => {
 
   it("加密：内容不可读，AAD 绑定类型", async () => {
     const token = await encryptToken(env, payload);
-    expect(token).not.toContain("t1");
+    // 不对随机密文断言短子串（base64url 随机文本碰巧含 "t1" 的概率约 2%）：解码后比对完整明文 JSON，并排除明文 JSON 的 base64url 形式
+    const plaintext = JSON.stringify(payload);
+    const ciphertext = String.fromCharCode(...fromBase64Url(token.split(".")[2] ?? ""));
+    expect(ciphertext).not.toContain(plaintext);
+    expect(token).not.toContain(toBase64Url(utf8(plaintext)));
     expect(await decryptToken(env, token, "t1", schema, 1_000)).toEqual(payload);
     await expect(decryptToken(env, token, "t2", schema, 1_000)).rejects.toBeInstanceOf(FlowTokenError);
     await expect(decryptToken(env, `${token}x`, "t1", schema, 1_000)).rejects.toBeInstanceOf(FlowTokenError);

@@ -1,15 +1,14 @@
 import type { Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
-  SESSION_ABSOLUTE_SEC,
   SESSION_COOKIE_NAME,
   SESSION_ID_BYTES,
-  SESSION_IDLE_SEC,
   SESSION_TOUCH_INTERVAL_SEC,
   SESSION_USER_AGENT_MAX_LENGTH,
 } from "../constants";
 import { nowSec } from "../clock";
 import { deleteSession, findSessionWithUser, insertSession, touchSession } from "../db/sessions";
+import { getSettings } from "../db/settings";
 import type { SessionWithUser } from "../db/sessions";
 import type { AppEnv } from "../env";
 import { ApiError } from "../errors";
@@ -17,9 +16,12 @@ import type { AuthContext } from "./context";
 import { randomBytes, sha256Hex, toBase64Url } from "./crypto";
 import { HTTP_UNAUTHORIZED } from "../http-status";
 
-// 空闲与绝对时长目前取 constants；M6 做系统设置时改成读设置（见 03 §3），只需改 sessionLimits
-function sessionLimits(): { idleSec: number; absoluteSec: number } {
-  return { idleSec: SESSION_IDLE_SEC, absoluteSec: SESSION_ABSOLUTE_SEC };
+export type SessionLimits = { idleSec: number; absoluteSec: number };
+
+/** 会话空闲与绝对时长，读系统设置 security.session_*（03 §3）；cron 清理也用它 */
+export async function sessionLimits(db: D1Database): Promise<SessionLimits> {
+  const settings = await getSettings(db, ["security.session_idle_sec", "security.session_absolute_sec"]);
+  return { idleSec: settings["security.session_idle_sec"], absoluteSec: settings["security.session_absolute_sec"] };
 }
 
 const COOKIE_OPTIONS = { httpOnly: true, secure: true, sameSite: "Lax", path: "/" } as const;
@@ -37,9 +39,20 @@ function clientUserAgent(c: Context<AppEnv>): string | null {
   return c.req.header("User-Agent")?.slice(0, SESSION_USER_AGENT_MAX_LENGTH) ?? null;
 }
 
-export function sessionExpired(session: { last_seen_at: number; expires_at: number }, now: number): boolean {
-  const { idleSec } = sessionLimits();
-  return session.expires_at <= now || session.last_seen_at + idleSec <= now;
+/**
+ * 空闲或绝对超时任一满足即过期。绝对超时同时看建会话时写入的 expires_at 与"创建时间 + 当前设置"：
+ * 管理员缩短绝对时长会立即作用于已有会话，延长则只对之后新建的会话生效。
+ */
+export function sessionExpired(
+  session: { created_at: number; last_seen_at: number; expires_at: number },
+  now: number,
+  limits: SessionLimits,
+): boolean {
+  return (
+    session.expires_at <= now ||
+    session.created_at + limits.absoluteSec <= now ||
+    session.last_seen_at + limits.idleSec <= now
+  );
 }
 
 /** 创建会话并下发 Cookie。若请求里带着旧会话 Cookie，先删掉旧会话，避免遗留可用的旧会话 */
@@ -53,7 +66,7 @@ export async function startSession(
 
   const token = toBase64Url(randomBytes(SESSION_ID_BYTES));
   const now = nowSec();
-  const { absoluteSec } = sessionLimits();
+  const { absoluteSec } = await sessionLimits(c.env.APP_DB);
   await insertSession(c.env.APP_DB, {
     id_hash: await sha256Hex(token),
     user_id: userId,
@@ -102,7 +115,7 @@ export async function authenticate(c: Context<AppEnv>): Promise<AuthContext> {
   if (!row) throw unauthenticated();
 
   const now = nowSec();
-  if (sessionExpired(row, now)) {
+  if (sessionExpired(row, now, await sessionLimits(db))) {
     await deleteSession(db, row.id_hash);
     throw unauthenticated();
   }

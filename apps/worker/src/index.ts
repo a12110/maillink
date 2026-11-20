@@ -4,6 +4,8 @@ import { requireAdmin } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
 import { adminGrantRoutes } from "./routes/admin-grants";
+import { adminLinkOpsRoutes } from "./routes/admin-link-ops";
+import { adminLinkRoutes } from "./routes/admin-links";
 import { rateLimitByIp, rateLimitLogin } from "./middleware/rate-limit";
 import { runScheduled } from "./cron";
 import { RATE_LIMITED_ROUTES } from "./constants";
@@ -12,12 +14,14 @@ import { adminMailboxRoutes } from "./routes/admin-mailboxes";
 import { adminMailRoutes } from "./routes/admin-mails";
 import { adminOAuthProviderRoutes } from "./routes/admin-oauth-providers";
 import { adminRuleGroupRoutes } from "./routes/admin-rule-groups";
+import { adminSettingsRoutes } from "./routes/admin-settings";
 import { adminSystemRoutes } from "./routes/admin-system";
 import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
 import { meRoutes } from "./routes/me";
 import { meMailboxRoutes, meMailRoutes } from "./routes/me-mails";
 import { publicRoutes } from "./routes/public";
+import { linkSecurityHeaders, publicLinkRoutes } from "./routes/public-links";
 import { setupRoutes } from "./routes/setup";
 
 export const app = new Hono<AppEnv>();
@@ -25,6 +29,8 @@ export const app = new Hono<AppEnv>();
 app.onError(onError);
 app.notFound(notFound);
 
+// 公开取件接口的安全头（no-store / no-referrer / noindex）挂在最前面，CSRF 拒绝等早期错误响应也带上
+app.use("/api/s/*", linkSecurityHeaders);
 // 写操作的 CSRF 检查对所有 /api/* 生效（04 约定）
 app.use("/api/*", csrfProtection);
 // 限流（01 §2）：按 constants.ts 的 RATE_LIMITED_ROUTES 清单挂在这里，不改各路由文件。必须在 csrf 之后、路由之前
@@ -43,11 +49,16 @@ app.route("/api/me/mails", meMailRoutes);
 app.route("/api/me", meRoutes);
 app.route("/api/admin/users", adminUserRoutes);
 app.route("/api/admin/system", adminSystemRoutes);
+app.route("/api/admin/settings", adminSettingsRoutes);
 app.route("/api/admin/mails", adminMailRoutes);
 app.route("/api/admin/oauth-providers", adminOAuthProviderRoutes);
 app.route("/api/admin/mailboxes", adminMailboxRoutes);
 app.route("/api/admin/rule-groups", adminRuleGroupRoutes);
 app.route("/api/admin/grants", adminGrantRoutes);
+app.route("/api/admin/links", adminLinkOpsRoutes);
+app.route("/api/admin/links", adminLinkRoutes);
+// 公开取件接口：链接 token 鉴权（外加访客 Cookie），写操作同样经过上面的 CSRF 检查
+app.route("/api/s", publicLinkRoutes);
 app.route("/api/admin/audit-logs", adminAuditRoutes);
 
 export default {

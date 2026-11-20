@@ -137,12 +137,12 @@ describe("预热 mail_index", () => {
 describe("每日清理：会话", () => {
   beforeEach(resetApp);
 
-  async function addSession(tag: string, lastSeenAt: number, expiresAt: number, userId: number): Promise<void> {
+  async function addSession(tag: string, lastSeenAt: number, expiresAt: number, userId: number, createdAt = now() - 20): Promise<void> {
     await env.APP_DB
       .prepare(
-        "INSERT INTO sessions (id_hash, user_id, auth_methods, created_at, last_seen_at, expires_at) VALUES (?1, ?2, 'password', 0, ?3, ?4)",
+        "INSERT INTO sessions (id_hash, user_id, auth_methods, created_at, last_seen_at, expires_at) VALUES (?1, ?2, 'password', ?5, ?3, ?4)",
       )
-      .bind(tag, userId, lastSeenAt, expiresAt)
+      .bind(tag, userId, lastSeenAt, expiresAt, createdAt)
       .run();
   }
 
