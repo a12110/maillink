@@ -80,6 +80,19 @@ const resaleShared = (): RuleGroupConfigInput => ({
   limits: { max_mails: 3 },
 });
 
+/** 完整显示的呈现配置（"完整访问"与"指定发件人（完整显示）"共用） */
+const fullPresent = (): RuleGroupConfigInput["present"] => ({
+  view: "full",
+  sender: "full",
+  recipient: "full",
+  snippet: true,
+  links: "keep",
+  remote_images: "block",
+  attachments: "download",
+  redact: [],
+  extract: ["code"],
+});
+
 const TEMPLATES: readonly RuleGroupTemplate[] = [
   {
     key: "code_only",
@@ -164,17 +177,7 @@ const TEMPLATES: readonly RuleGroupTemplate[] = [
       schema_version: RULE_GROUP_SCHEMA_VERSION,
       time: { since: { type: "none" } },
       filter: { mode: "blacklist", rules: [] },
-      present: {
-        view: "full",
-        sender: "full",
-        recipient: "full",
-        snippet: true,
-        links: "keep",
-        remote_images: "block",
-        attachments: "download",
-        redact: [],
-        extract: ["code"],
-      },
+      present: fullPresent(),
       limits: {},
     },
   },
@@ -233,6 +236,30 @@ const TEMPLATES: readonly RuleGroupTemplate[] = [
     config: {
       ...resaleShared(),
       present: { ...resaleShared().present, extract: ["code", "login_link"], links: { allow_domains: ["openai.com"] } },
+    },
+  },
+  {
+    key: "sender_full",
+    name: "指定发件人（完整显示）",
+    description:
+      "白名单模式，只放行 openai.com、chatgpt.com（含子域名）的邮件，从链接创建时开始；放行的邮件完整显示（HTML 正文、保留链接、附件可下载、收件地址不打码，远程图片默认阻止）。需要其他平台时在编辑器里改域名。",
+    config: {
+      schema_version: RULE_GROUP_SCHEMA_VERSION,
+      time: { since: { type: "subject_created", lookback_minutes: 0 } },
+      filter: {
+        mode: "whitelist",
+        rules: [
+          {
+            id: "allow-sender",
+            name: "允许的发件人",
+            enabled: true,
+            effect: "allow",
+            when: { field: "sender.domain", op: "domain_is", value: ["openai.com", "chatgpt.com"] },
+          },
+        ],
+      },
+      present: fullPresent(),
+      limits: {},
     },
   },
 ];
