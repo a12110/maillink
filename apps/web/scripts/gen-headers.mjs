@@ -15,9 +15,32 @@ const MAX_LINE_LENGTH = 2000;
 
 const SCRIPT_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/giu;
 const SRC_ATTRIBUTE = /\ssrc\s*=/iu;
+/** <script 开标签，按引号感知地取到真正的结尾 >：属性值里可以有 > */
+const SCRIPT_OPEN_TAG = /<script\b(?:[^>"']|"[^"]*"|'[^']*')*>/giu;
+/** 去掉脚本正文后，HTML 里任何标签上的 on*= 事件属性 */
+const EVENT_ATTRIBUTE = /<[a-z][^>]*?\son[a-z]+\s*=/iu;
+const JAVASCRIPT_URL = /javascript\s*:/iu;
+
+/**
+ * 构建失败而不是生成会被 CSP 拦掉或算错哈希的策略：
+ * - on*= 事件属性：哈希只覆盖 <script> 正文，事件属性会被 CSP 拦下（页面功能悄悄失效）；
+ * - javascript: 链接：同样会被拦，而且本不该出现；
+ * - <script> 开标签的属性值里含 >：下面按 [^>]* 切分正文会切错，哈希对不上。
+ */
+export function assertCspCompatible(html) {
+  for (const tag of html.match(SCRIPT_OPEN_TAG) ?? []) {
+    if (tag.slice(0, -1).includes(">")) throw new Error(`<script> 的属性里含有 ">"，无法可靠计算内联脚本哈希：${tag.slice(0, 80)}`);
+  }
+  const markup = html.replace(SCRIPT_PATTERN, "<script></script>");
+  const event = EVENT_ATTRIBUTE.exec(markup);
+  if (event !== null) throw new Error(`index.html 含内联事件属性（on*=），会被 CSP 拦截：${event[0].slice(0, 80)}`);
+  const js = JAVASCRIPT_URL.exec(markup);
+  if (js !== null) throw new Error("index.html 含 javascript: 链接，会被 CSP 拦截");
+}
 
 /** index.html 里每段内联脚本（没有 src 属性的 <script>）的 CSP 哈希源，按出现顺序去重 */
 export function inlineScriptHashes(html) {
+  assertCspCompatible(html);
   const hashes = [];
   for (const match of html.matchAll(SCRIPT_PATTERN)) {
     const [, attributes, body] = match;

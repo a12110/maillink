@@ -6,7 +6,7 @@
 
 ## 1. 前提
 
-- **Workers Paid 套餐**。设计按 Paid 的 CPU 时间与子请求上限来做（PBKDF2、HTML 清洗、按需解析邮件都按 Paid 计算），Free 套餐会在登录或解析邮件时超时。
+- **Workers Paid 套餐**。设计按 Paid 的 CPU 时间与子请求上限来做（PBKDF2、HTML 清洗、按需解析邮件都按 Paid 计算），Free 套餐会在登录或解析邮件时超时。生产 WebCrypto 对 PBKDF2 迭代数的上限没有可靠文档、本地也测不出来，**以生产上的初始化为准**（§6 第一项）。
 - **与 cloudflare_temp_email 在同一个 Cloudflare 账号**。MailLink 直接绑定 temp_email 的 D1 数据库读取邮件，D1 绑定不能跨账号。
 - 本地已能通过 `pnpm install`、`pnpm typecheck`、`pnpm test`、`pnpm --filter web build`。
 - `wrangler login` 登录到目标账号（只在部署者自己的机器上做）。
@@ -19,14 +19,23 @@
 wrangler d1 create mail-link
 ```
 
-把输出的 `database_id` 填进 `wrangler.jsonc` 里 `binding: "APP_DB"` 那一项，`migrations_dir` 保持 `"migrations"`。
+把输出的 `database_id` 填进 `wrangler.jsonc` 里 `binding: "APP_DB"` 那一项，`migrations_dir` 保持 `"migrations"`（MAIL_DB 那一项的 `migrations_dir` 也保持原样，见 §2.2）。
 
 ### 2.2 MAIL_DB（temp_email 的库，只读）
 
 在 Cloudflare 控制台或 `wrangler d1 list` 找到 temp_email 正在用的 D1，把它的 `database_name` 与 `database_id` 填进 `binding: "MAIL_DB"` 那一项。
 
-- **永远不要给 MAIL_DB 配 `migrations_dir`**，也不要对它执行任何 `wrangler d1 migrations` 或 `wrangler d1 execute` 写语句。MailLink 的代码只读它（`apps/worker/src/mail-source/` 是唯一接触它的目录，有单测禁止写入类 SQL），但 D1 没有只读绑定，误操作会直接改坏 temp_email 的数据。
-- temp_email 升级后，部署后的健康检查会重新探测表结构（见 §7）。
+- **不配置不等于受保护**：wrangler 在 D1 绑定没有 `migrations_dir` 时默认用 `./migrations`，也就是本项目 APP_DB 的迁移。误敲 `wrangler d1 migrations apply MAIL_DB --remote` 会把本项目的建表语句执行到 temp_email 的库里。所以 `wrangler.jsonc` 给 MAIL_DB 显式配置了 `"migrations_dir": "mail-db-no-migrations"`，这个目录必须保持为空（只有一个说明文件，`apps/worker/test/mail-db-migrations-guard.test.ts` 检查里面没有 `.sql`，且 MAIL_DB 确实指向它）。这是防误操作，不是迁移 MAIL_DB。
+- **迁移命令只写 `APP_DB`**，不要对 MAIL_DB 执行任何 `wrangler d1 migrations` 或 `wrangler d1 execute` 写语句。MailLink 的代码只读它（`apps/worker/src/mail-source/` 是唯一接触它的目录，有单测禁止写入类 SQL），但 D1 没有只读绑定，误操作会直接改坏 temp_email 的数据。`apps/worker/package.json` 的 `db:migrate` 也只针对 `APP_DB`（且只在本地）。
+- **误对 MAIL_DB 执行了 `migrations list/apply` 时**（已用 wrangler 4.165 在本地库核实）：因为目录为空，输出 `No migrations to apply!`，不会执行任何建表语句；但 wrangler 仍会在该库里建一张空的 `d1_migrations` 记录表（`list` 也会建）。temp_email 自己不用这张表，可以先确认它是空的再删除：
+
+  ```sh
+  wrangler d1 execute MAIL_DB --remote --command "SELECT COUNT(*) AS n FROM d1_migrations"   # 应为 0
+  wrangler d1 execute MAIL_DB --remote --command "DROP TABLE d1_migrations"
+  ```
+
+  这是唯一一处允许对 MAIL_DB 执行的写语句，只用于撤销误操作；计数不是 0 时不要删，先查明是谁写的。
+- temp_email 升级后，部署后的健康检查会重新探测表结构（见 §6）。
 
 ### 2.3 远程迁移（只针对 APP_DB）
 
@@ -41,7 +50,7 @@ wrangler d1 migrations apply APP_DB --remote
 
 ### 3.1 `PUBLIC_ORIGIN`
 
-在 `wrangler.jsonc` 的 `vars.PUBLIC_ORIGIN` 填对外访问地址，例如 `https://mail.example.com`（协议 + 主机名，不带路径与结尾斜杠）。它是以下几项的唯一来源：
+在 `wrangler.jsonc` 的 `vars.PUBLIC_ORIGIN` 填对外访问地址，例如 `https://mail.example.com`（协议 + 主机名，不带路径与结尾斜杠）。本地开发不改这里，在 `apps/worker/.dev.vars` 里写 `PUBLIC_ORIGIN=http://localhost:<端口>` 覆盖（见根 README）。它是以下几项的唯一来源：
 
 - 写操作的 CSRF 校验（浏览器 `Origin` 必须与它完全一致）；
 - 通行密钥的 RP ID 与 origin；
@@ -51,18 +60,27 @@ wrangler d1 migrations apply APP_DB --remote
 同时在 `wrangler.jsonc` 里配置该域名的路由（自定义域名），例如：
 
 ```jsonc
-"routes": [{ "pattern": "mail.example.com", "custom_domain": true }]
+"routes": [{ "pattern": "mail.example.com", "custom_domain": true }],
+"workers_dev": false,
+"preview_urls": false
 ```
+
+建议同时关掉 `*.workers.dev` 子域名与预览地址（上面两行）：它们的主机名与 `PUBLIC_ORIGIN` 不一致，在那里写操作会被 CSRF 校验拒绝、通行密钥与 Turnstile 也用不了，留着只会多一个入口。仓库里的 `wrangler.jsonc` 没写这两项，是为了不影响本地 `wrangler dev`，部署时自行加上。
 
 **更换域名会让所有已注册的通行密钥失效**（RP ID 变了），OAuth 提供方的回调地址与 Turnstile 控件的主机名也要同步修改。上线前定好域名。
 
 ### 3.2 secrets
 
+Worker 还没部署过时，第一次 `wrangler secret put` 会先建一个空的草稿 Worker 来挂 secret，属于正常现象，之后 `wrangler deploy` 会覆盖它。
+
 ```sh
-openssl rand -base64 48 | wrangler secret put APP_SECRET
-openssl rand -hex 24    # 记下输出，下一条命令粘贴进去，初始化时还要用
+openssl rand -base64 48 # 先存进密码管理器（永远不能换，丢了无法找回），再粘贴给下一条命令
+wrangler secret put APP_SECRET
+openssl rand -hex 24    # 同样先记下，初始化时还要用
 wrangler secret put SETUP_TOKEN
 ```
+
+不要用管道把 `openssl` 的输出直接交给 `secret put`：那样谁也看不到、也没法备份这个主密钥。
 
 - `APP_SECRET`：主密钥，至少 32 字符。由它派生密码 pepper、TOTP 密钥加密、OAuth client secret 与 Turnstile secret 加密、链接 token 加密、各类签名 Cookie。**部署后不要更换**：换了以后所有密码都无法验证、已加密的 TOTP 与第三方密钥全部无法解密、取件链接 token 无法再导出。必须轮换时等同重建站点。另找安全的地方保存一份。
 - `SETUP_TOKEN`：只在首次初始化创建管理员时校验，初始化完成后可以删除（`wrangler secret delete SETUP_TOKEN`）。
@@ -114,7 +132,15 @@ wrangler deploy
 
 - [ ] **PBKDF2 在生产可用**：初始化（§5，创建管理员时计算一次哈希）成功，并用管理员账号登录一次。密码哈希用 PBKDF2-SHA256 10 万次迭代（`apps/worker/src/constants.ts` 的 `PBKDF2_ITERATIONS`），本地 workerd 不执行生产的迭代数上限，生产上的初始化与首次登录是唯一的验证。若返回 500 且日志（`wrangler tail`）里是 WebCrypto 的 `NotSupportedError`，说明生产上限更低：调低该常量、重新部署后再初始化（此时库里还没有可用的哈希）。
 - [ ] **健康检查**：`GET /api/admin/system/health`（管理员会话）返回 200，`mail_db.probe.healthy` 为 `true`、`missing_required` 为空、`db_version` 是 temp_email 的版本号（如 `v0.0.11`）；`warnings` 有内容时按提示核对。MAIL_DB 不健康时该接口返回 503，邮件相关接口一律 503（失败关闭）。
-- [ ] **限流已配置**：同一接口返回里 `rate_limit.configured` 与 `rate_limit.link_configured` 都为 `true`。连续 11 次错误登录，第 11 次应为 429 并带 `Retry-After`。
+- [ ] **限流已配置**：同一接口返回里 `rate_limit.configured` 与 `rate_limit.link_configured` 都为 `true`。用错误密码连续登录多次（阈值 10 次 / 60 秒，按 IP 与用户名分别计数，边缘计数有延迟），之后应出现 429 并带 `Retry-After`：
+
+  ```sh
+  B=https://mail.example.com
+  for i in $(seq 1 15); do
+    curl -s -o /dev/null -w "%{http_code} " -H "Origin: $B" -H "X-MailLink-Csrf: 1" -H "Content-Type: application/json" \
+      -X POST $B/api/auth/login -d '{"username":"smoke-test-nobody","password":"wrong-password-123"}'
+  done; echo   # 先是一串 401，之后变成 429
+  ```
 - [ ] **cron 已触发**：等过 5 分钟后再看健康检查的 `cron.prewarm`，应有上次运行时间且没有错误；每日清理（UTC 03:17）次日看 `cron.cleanup`。控制台 Worker → Settings → Triggers 里应能看到两条 cron。
 - [ ] **页面安全头**：
 
@@ -131,9 +157,8 @@ wrangler deploy
 
 1. 在 Cloudflare 控制台 → Turnstile 新建控件，**主机名**填 `PUBLIC_ORIGIN` 的主机名（如 `mail.example.com`）。服务端校验时会比对 siteverify 返回的 `hostname` 与 `PUBLIC_ORIGIN` 主机名，不一致即拒绝。
 2. 在 MailLink "系统设置 → 人机验证"里填 site key 与 secret（secret 加密存在 APP_DB，读取接口只回"已设置"），勾选作用范围：登录、注册、取件页。启用时三项都要齐。
-3. 控件的 `action` 必须等于作用范围：`login` / `register` / `pickup`，服务端会核对。
-4. 取件页只有在链接自己开启了"人机验证"时才校验，系统设置的取件页范围只决定"是否允许链接开启"。已登记的设备再次取码不再要求验证。
-5. 页面 CSP 已放行 `https://challenges.cloudflare.com`（`script-src` 与 `frame-src`）。这是取件页"不加载第三方资源"的唯一例外，只在需要时按需加载。
+3. 取件页只有在链接自己开启了"人机验证"时才校验，系统设置的取件页范围只决定"是否允许链接开启"。已登记的设备再次取码不再要求验证。
+4. 页面 CSP 已放行 `https://challenges.cloudflare.com`（`script-src` 与 `frame-src`）。这是取件页"不加载第三方资源"的唯一例外，只在需要时按需加载。
 
 ## 8. OAuth 提供方
 
@@ -167,7 +192,7 @@ wrangler deploy
 
 ## 11. 已知限制（运维相关）
 
-- **PBKDF2 迭代数**：见 §6 第一项，生产首次登录前无法本地验证。
+- **PBKDF2 迭代数**：本地无法验证生产上限，以生产上的初始化为准，见 §6 第一项。
 - **限流粒度**：Workers Rate Limiting 的 simple binding 不能只数失败请求。任何人从多个 IP 每分钟发 10 次即可让某个用户名暂时登录不了；NAT 后的多个用户共用 IP 维度的配额。按用户的第二因素失败上限（15 分钟 10 次，锁 15 分钟）在应用层实现，知道密码的人可以故意输错锁住某用户的 2FA 15 分钟（有审计）。
 - **限流 namespace_id** 是占位值，见 §3.3。
 - **cron 清理有单次上限**：日志每张表每次最多删 5 万行、孤儿索引每次最多扫 1 万行，超出时留到下一天；`last_run` 不会标出"本次被截断"。
