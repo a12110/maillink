@@ -100,7 +100,7 @@ function Body(props: UserTableProps) {
   return (
     <>
       {errorBlock}
-      <table className="table" aria-busy={props.loading}>
+      <table className="table user-table" aria-busy={props.loading}>
         <TableHead />
         <tbody>
           {users ? (

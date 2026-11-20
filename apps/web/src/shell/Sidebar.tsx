@@ -3,7 +3,7 @@ import { LogOut } from "lucide-react";
 import type { SessionUser } from "@maillink/shared";
 import { displayNameOf, initialOf } from "../lib/format";
 import { Button } from "../ui";
-import { BrandMark, SiteName } from "./Brand";
+import { BrandMark, SiteFooter, SiteName } from "./Brand";
 import { navFor } from "./nav";
 
 type SidebarContentProps = {
@@ -50,6 +50,7 @@ function UserBlock({ user, loggingOut, onLogout, onNavigate }: SidebarContentPro
           <LogOut />
         </Button>
       </div>
+      <SiteFooter className="sidebar-note" />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Mail } from "lucide-react";
 import type { ReactNode } from "react";
+import { logoSource } from "./brand-logo";
 
 export type PickupBrand = {
   name?: string;
@@ -17,8 +18,6 @@ type PickupShellProps = {
   wide?: boolean;
 };
 
-const DATA_IMAGE_PREFIX = "data:image/";
-
 /**
  * 取件页外壳：无导航、手机优先单栏（--pickup-max-width）。不加载任何第三方资源。
  * 品牌（名称、data URI Logo、公告）来自 `GET /api/s/:token` 的 `site`，本组件不查询配置；
@@ -27,7 +26,7 @@ const DATA_IMAGE_PREFIX = "data:image/";
  * 子节点由页面用 PickupMain / PickupBar 组合。根节点同时带 `pk-page`，设计脚本 design/scripts/hit-area.js 按这个类名选可点元素。
  */
 export function PickupShell({ children, brand, topRight, wide }: PickupShellProps) {
-  const logo = brand?.logo?.startsWith(DATA_IMAGE_PREFIX) ? brand.logo : undefined;
+  const logo = logoSource(brand?.logo, "pickup");
   return (
     <div className="pickup-shell pk-page" data-wide={wide ? "true" : undefined}>
       <header className="pickup-top">

@@ -19,6 +19,7 @@
 
   .brand { display: flex; align-items: center; gap: var(--space-2); height: var(--nav-item-height); padding: 0 var(--space-2); min-width: 0; border-radius: var(--radius-md); }
   .brand-mark { display: grid; place-items: center; flex: none; width: var(--brand-mark-size); height: var(--brand-mark-size); background: var(--color-selected); color: var(--color-selected-fg); border-radius: var(--radius-md); }
+  .brand-logo { flex: none; display: block; width: var(--brand-mark-size); height: var(--brand-mark-size); object-fit: contain; border-radius: var(--radius-md); }
   .brand-name { font-weight: var(--weight-strong); font-size: var(--text-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .brand-skeleton { width: 6em; }
   .nav-group { display: grid; gap: 2px; }
@@ -40,6 +41,7 @@
   }
   .sidebar-foot { margin-top: auto; display: grid; gap: var(--space-1); padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
   .user-row { display: flex; align-items: center; gap: var(--space-1); }
+  .sidebar-note { margin: var(--space-2) 0 0; padding: 0 var(--space-2); font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--color-text-muted); white-space: pre-line; overflow-wrap: anywhere; }
   .user-chip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: var(--space-2); border-radius: var(--radius-md); }
   .user-chip:hover { background: var(--color-row-selected); }
   .avatar { display: grid; place-items: center; flex: none; width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%; background: var(--color-surface); border: 1px solid var(--color-border-control); font-size: var(--text-sm); font-weight: var(--weight-strong); }
@@ -62,7 +64,13 @@
   /* ── 认证 ── */
   .auth-shell { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-6) var(--space-4); }
   .auth-col { width: min(var(--auth-max-width), 100%); display: grid; gap: var(--space-5); }
-  .auth-brand { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-height); }
+  .auth-head { display: grid; justify-items: center; gap: var(--space-2); text-align: center; }
+  .auth-brand { display: flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-height); max-width: 100%; }
+  .auth-brand .brand-mark, .auth-brand .brand-logo { width: var(--auth-logo-size); height: var(--auth-logo-size); }
+  .auth-brand .brand-mark svg { width: var(--auth-logo-icon-size); height: var(--auth-logo-icon-size); }
+  .auth-brand .brand-name { font-size: var(--text-lg); }
+  .auth-desc { margin: 0; font-size: var(--text-sm); line-height: var(--leading-normal); color: var(--color-text-muted); white-space: pre-line; overflow-wrap: anywhere; }
+  .auth-footer { margin: 0; text-align: center; font-size: var(--text-xs); line-height: var(--leading-normal); color: var(--color-text-muted); white-space: pre-line; overflow-wrap: anywhere; }
   .auth-card { padding: var(--space-6); display: grid; gap: var(--space-4); }
   .auth-card h1 { font-size: var(--text-xl); line-height: var(--leading-tight); }
   .auth-lead { color: var(--color-text-muted); font-size: var(--text-sm); margin-top: calc(var(--space-2) * -1); }

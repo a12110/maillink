@@ -31,7 +31,7 @@ describe("导入输入的本地检查", () => {
   });
 
   it("合法内容通过", () => {
-    expect(checkImportInput("alias@icloud.com,备注,标签 一;二")).toBeNull();
+    expect(checkImportInput("alias@icloud.com,平台 一;二,备注")).toBeNull();
   });
 });
 

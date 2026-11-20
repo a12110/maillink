@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { AdminShareLink } from "@maillink/shared";
 import { formatDateTime, formatFullDateTime } from "../../lib/format";
 import { Callout, Status } from "../../ui";
-import { ANOMALY_HINT, ANOMALY_LABEL, STATE_LABEL, STATE_TONE, devicesText } from "./labels";
+import { ANOMALY_HINT, ANOMALY_LABEL, STATE_LABEL, STATE_TONE, deliveriesCell, devicesText } from "./labels";
 
 const DASH = <span className="dim">—</span>;
 const SEC_PER_HOUR = 3600;
@@ -112,6 +112,11 @@ export function AccessSection({ link }: { link: AdminShareLink }) {
   );
 }
 
+function DeliveriesValue({ link, count }: { link: AdminShareLink; count: number }) {
+  const cell = deliveriesCell(link, count, "");
+  return cell.count === null ? <span className="dim" title={cell.title}>—</span> : <>{cell.count}</>;
+}
+
 export function StatsSection({ link }: { link: AdminShareLink }) {
   return (
     <section className="panel-section" aria-labelledby="link-stats">
@@ -122,9 +127,9 @@ export function StatsSection({ link }: { link: AdminShareLink }) {
         <dt>访问国家数</dt>
         <dd className="num">{link.country_count}</dd>
         <dt>近 24 小时取码</dt>
-        <dd className="num">{link.deliveries_24h}</dd>
+        <dd className="num"><DeliveriesValue link={link} count={link.deliveries_24h} /></dd>
         <dt>累计取码</dt>
-        <dd className="num">{link.deliveries_total}</dd>
+        <dd className="num"><DeliveriesValue link={link} count={link.deliveries_total} /></dd>
         <dt>起始时间重置</dt>
         <dd>{link.anchor_reset_at === null ? DASH : formatDateTime(link.anchor_reset_at)}</dd>
       </dl>

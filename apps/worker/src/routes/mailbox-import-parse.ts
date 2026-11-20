@@ -3,7 +3,7 @@ import { ApiError } from "../errors";
 import { HTTP_BAD_REQUEST } from "../http-status";
 import { lowerDomain } from "../mail-source";
 
-// 收件地址导入的解析（纯函数）：每行 `地址[,备注[,标签]]`，逗号或制表符分隔，支持 CSV 双引号。
+// 收件地址导入的解析（纯函数）：每行 `地址[,平台[,备注]]`（06 §8），平台列映射成标签（可多个），逗号或制表符分隔，支持 CSV 双引号。
 // 地址规范化：去掉所有空白（含零宽字符）、域名小写（与 temp_email 写库规则一致）；address_lc 全小写，用于去重。
 
 type Reason = NonNullable<MailboxImportItem["reason"]>;
@@ -80,7 +80,7 @@ function parseTags(cell: string | undefined, extra: readonly string[]): { tags: 
 }
 
 function parseLine(lineNo: number, cells: string[], extraTags: readonly string[]): ImportLine {
-  const [input = "", noteCell = "", tagCell] = cells;
+  const [input = "", tagCell, noteCell = ""] = cells;
   const base = { line: lineNo, input, address: null, address_lc: null, note: null, tags: [] };
   const normalized = normalizeMailboxAddress(input);
   if ("error" in normalized) return { ...base, error: normalized.error };

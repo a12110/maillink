@@ -14,6 +14,7 @@ import { AccessStep } from "./CreateAccessStep";
 import { EMPTY_DRAFT } from "./create-form";
 import type { CreateDraft } from "./create-form";
 import { LinkTable } from "./LinkTable";
+import { StatsSection } from "./PanelSections";
 
 let mounted: Mounted | null = null;
 const fetchMock = vi.fn();
@@ -182,7 +183,7 @@ describe("链接表格", () => {
 
   it("状态、设备数、24 小时取码数、异常标记与多地址数量", async () => {
     const links = [
-      link({ id: 1, anomalies: ["device_limit_reached", "multi_country"] }),
+      link({ id: 1, anomalies: ["device_limit_reached", "multi_country"], access: { has_password: false, turnstile: false, max_devices: 1, reveal: "click", ip_allow: [], country_allow: [], poll_interval_sec: 10 } }),
       link({ id: 2, state: "paused", status: "paused", mailboxes: [{ id: 1, address: "a@x.com", status: "active" }, { id: 2, address: "b@x.com", status: "active" }, { id: 3, address: "c@x.com", status: "active" }], access: { has_password: true, turnstile: false, reveal: "click", ip_allow: [], country_allow: [], poll_interval_sec: 10 } }),
     ];
     const root = await render(createElement(LinkTable, { ...props, links }));
@@ -195,6 +196,29 @@ describe("链接表格", () => {
     expect(rows[1]?.textContent).toContain("已暂停");
     expect(rows[1]?.textContent).toContain("a@x.com 等 3 个");
     expect(rows[1]?.textContent).not.toContain("设备数已满");
+  });
+
+  it("24h 取码数：auto 方式不写取码记录，显示“—”并说明，不显示 0；click 方式照常显示数字", async () => {
+    const click = { has_password: false, turnstile: false, reveal: "click" as const, max_deliveries_per_day: 5, ip_allow: [], country_allow: [], poll_interval_sec: 10 };
+    const links = [link({ id: 1, deliveries_24h: 0 }), link({ id: 2, deliveries_24h: 0, access: click }), link({ id: 3, deliveries_24h: 4, access: click })];
+    const root = await render(createElement(LinkTable, { ...props, links }));
+    const cells = Array.from(root.querySelectorAll("tbody tr")).map((row) => row.querySelectorAll("td")[7]);
+    expect(cells[0]?.textContent).toBe("—");
+    expect(cells[0]?.getAttribute("title")).toBe("自动显示模式不计取码次数");
+    expect(cells[1]?.textContent).toBe("0");
+    expect(cells[1]?.getAttribute("title")).toBe("近 24 小时取码数");
+    expect(cells[2]?.textContent).toBe("4");
+  });
+
+  it("侧板统计：auto 的 24h 与累计显示“—”并说明，click 显示数字", async () => {
+    const click = { has_password: false, turnstile: false, reveal: "click" as const, ip_allow: [], country_allow: [], poll_interval_sec: 10 };
+    const values = (root: HTMLElement) => Array.from(root.querySelectorAll("dd")).map((dd) => dd.textContent);
+    let root = await render(createElement(StatsSection, { link: link({ deliveries_24h: 0, deliveries_total: 0 }) }));
+    expect(values(root)).toEqual(["1 / 1", "1", "—", "—", "—"]);
+    expect(root.querySelector("dd .dim")?.getAttribute("title")).toBe("自动显示模式不计取码次数");
+    await mounted?.unmount();
+    root = await render(createElement(StatsSection, { link: link({ deliveries_24h: 0, deliveries_total: 7, access: click }) }));
+    expect(values(root).slice(2, 4)).toEqual(["0", "7"]);
   });
 
   it("空列表：引导创建；有筛选时给清除筛选", async () => {

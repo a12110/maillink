@@ -19,7 +19,9 @@
 wrangler d1 create mail-link
 ```
 
-把输出的 `database_id` 填进 `wrangler.jsonc` 里 `binding: "APP_DB"` 那一项，`migrations_dir` 保持 `"migrations"`（MAIL_DB 那一项的 `migrations_dir` 也保持原样，见 §2.2）。
+新版 wrangler 建库后会询问是否替你把绑定写进配置文件（"add it on your behalf" 一类的提示），**回答否**：`wrangler.jsonc` 里已经有 `APP_DB` 那一项，让它代写会再追加一条重复的 D1 绑定。
+
+把输出的 `database_id` 手动填进 `wrangler.jsonc` 里 `binding: "APP_DB"` 那一项，`migrations_dir` 保持 `"migrations"`（MAIL_DB 那一项的 `migrations_dir` 也保持原样，见 §2.2）。填完确认 `d1_databases` 里只有 `APP_DB`、`MAIL_DB` 两项。
 
 ### 2.2 MAIL_DB（temp_email 的库，只读）
 
@@ -36,6 +38,7 @@ wrangler d1 create mail-link
 
   这是唯一一处允许对 MAIL_DB 执行的写语句，只用于撤销误操作；计数不是 0 时不要删，先查明是谁写的。
 - temp_email 升级后，部署后的健康检查会重新探测表结构（见 §6）。
+- **`to_address` 迁移之前的旧邮件按别名查不到**：`raw_mails.to_address`（真实收件人，iCloud 隐私邮箱别名就记在这里）是 temp_email 的迁移 `db/2026-08-02-to-address.sql` 加的列（CHANGELOG v1.15.0；fork 独有，不改 `DB_VERSION`，仍是 `v0.0.11`）。这次迁移只加列和索引、不回填，执行之前收到的邮件 `to_address` 为空，MailLink 只能按 `address`（信封收件人，即转发链最后一跳的 temp_email 邮箱）匹配它们，所以以 iCloud 别名作为收件地址时看不到这些旧邮件，管理员"全部邮件"里不带地址筛选仍能看到。没有执行该迁移时健康检查会报缺列警告（见 §6）。
 
 ### 2.3 远程迁移（只针对 APP_DB）
 
@@ -111,6 +114,7 @@ wrangler deploy
 - `pnpm --filter web build` 的最后一步 `scripts/gen-headers.mjs` 读取 `dist/index.html`，计算每段内联脚本的 `sha256`，生成页面安全头文件 `dist/_headers`（CSP、`Referrer-Policy`、`X-Content-Type-Options`、`Permissions-Policy` 等；`/s/*` 另加 `Cache-Control: no-store` 与 `X-Robots-Tag`）。**不要手改 `dist/`**，改了 `index.html` 就重新构建。
 - 页面由 Workers Static Assets 直出，`_headers` 只作用于页面与静态资源；`/api/*` 由 Worker 处理，安全头在代码里统一加。
 - `wrangler deploy` 会同时上传 `apps/web/dist` 作为静态资源。
+- **关掉会改写 HTML 的 zone 功能**：自定义域名所在 zone 的 Rocket Loader、Web Analytics 的自动注入（"Automatic setup"/JS snippet 注入）、Email Address Obfuscation 等会往页面里插脚本或改写 `<script>`。页面 CSP 只放行构建时算好哈希的内联脚本与 Turnstile，插进来的脚本会被拦截（控制台出现 CSP 报错），Rocket Loader 还会让页面自己的脚本跑不起来。在控制台 → 该域名 → Speed / Analytics / Scrape Shield 里关掉，或用 Configuration Rules 只对 MailLink 的主机名关闭。
 
 ## 5. 首次初始化
 
@@ -151,7 +155,22 @@ wrangler deploy
   ```
 
   首页与 `/s/*` 都应带 CSP（含 `frame-ancestors 'none'`）、`Referrer-Policy: no-referrer`、`X-Content-Type-Options: nosniff`；`/s/*` 另有 `Cache-Control: no-store` 与 `X-Robots-Tag: noindex, nofollow`；API 响应带 `nosniff` 与 `no-referrer`。
-- [ ] **浏览器里看一眼**：打开一封 HTML 邮件的详情与一个开启了人机验证的取件链接，开发者工具控制台不应有 `Content-Security-Policy` 报错（`postMessage … target origin` 一类是 Turnstile 自身的提示，可忽略）。
+- [ ] **浏览器里看一眼**：打开一封 HTML 邮件的详情与一个开启了人机验证的取件链接，开发者工具控制台不应有 `Content-Security-Policy` 报错（`postMessage … target origin` 一类是 Turnstile 自身的提示，可忽略）。有 CSP 报错且来源是 `cloudflareinsights`、`rocket-loader`、`email-decode` 一类脚本时，按 §4 关掉对应的 zone 功能。
+- [ ] **真实邮件能解析**：在"全部邮件"里各打开一封
+  - temp_email 以 gzip 存储的真实邮件（`raw_blob` 有值、`raw` 为空的那类），正文与验证码正常显示，不是"解析失败"；
+  - 经 iCloud 隐私邮箱转发的真实邮件：收件地址是别名本身，发件人候选里有原平台的域名（规则白名单靠它，见 06 §4）。顺手用"以此邮件创建规则"生成该平台的规则草稿，在测试器里确认判为可见。
+- [ ] **手机走一遍真实取件链接**：用手机（建议走移动网络，不连办公室 Wi-Fi）打开一个真实取件链接，点"开始取码"，在登录页触发一次验证码并在取件页取到。回到后台该链接详情的"访问日志"，应能看到这次访问的 IP 与国家（国家为空说明请求没有经过 Cloudflare 边缘，检查域名是否走了代理）。
+- [ ] **正式域名上登记通行密钥**：在 `PUBLIC_ORIGIN` 的域名上为管理员登记一把通行密钥，退出后用它登录一次。通行密钥绑定 RP ID，本地或其他域名登记的不能用（§3.1）。
+- [ ] **初始化入口已关闭**：`GET /api/setup/status` 返回 `{"needs_setup":false}`，`POST /api/setup` 返回 404；`wrangler secret list` 的输出里不再有 `SETUP_TOKEN`（§3.2）。
+
+  ```sh
+  B=https://mail.example.com
+  curl -s $B/api/setup/status; echo                                     # {"needs_setup":false}
+  curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: $B" -H "X-MailLink-Csrf: 1" -H "Content-Type: application/json" \
+    -X POST $B/api/setup -d '{}'                                         # 404
+  wrangler secret list                                                   # 不应再有 SETUP_TOKEN
+  ```
+- [ ] **`workers.dev` 与预览地址已关**：`wrangler.jsonc` 里有 `"workers_dev": false` 与 `"preview_urls": false`（§3.1），控制台 Worker → Settings → Domains & Routes 里两项都显示停用；访问 `https://mail-link.<你的子域>.workers.dev/` 不再返回本站页面。
 
 ## 7. Turnstile（人机验证）
 
@@ -159,6 +178,36 @@ wrangler deploy
 2. 在 MailLink "系统设置 → 人机验证"里填 site key 与 secret（secret 加密存在 APP_DB，读取接口只回"已设置"），勾选作用范围：登录、注册、取件页。启用时三项都要齐。
 3. 取件页只有在链接自己开启了"人机验证"时才校验，系统设置的取件页范围只决定"是否允许链接开启"。已登记的设备再次取码不再要求验证。
 4. 页面 CSP 已放行 `https://challenges.cloudflare.com`（`script-src` 与 `frame-src`）。这是取件页"不加载第三方资源"的唯一例外，只在需要时按需加载。
+5. **建议上线即对"登录"启用 Turnstile**，或在 Cloudflare 控制台 → 该域名 → Security → WAF → Rate limiting rules 加一条规则（例如匹配 `http.request.method eq "POST" and http.request.uri.path eq "/api/auth/login"`，按 IP 计数，超过阈值就 Block 或 Managed Challenge）。原因：每次密码登录失败都会写一行审计（`audit_logs`，动作 `auth.login_failed`）；应用内限流按 IP 与用户名分别计数（§3.3），换着 IP 与用户名刷就绕得过去，审计表会快速增长。审计默认保留 `AUDIT_LOG_RETENTION_DAYS_DEFAULT` = 365 天（"系统设置 → 日志"可改），每日清理每张表最多删 `CLEANUP_DELETE_BATCH_SIZE × CLEANUP_MAX_BATCHES` = 1000 × 50 = 5 万行（`apps/worker/src/constants.ts`），而且只删超过保留期的行，挡不住短期刷量。
+
+### 7.1 Turnstile 配错导致无法密码登录时的自救
+
+登录范围用了错误的 secret（或 site key 与 secret 不是同一个控件、控件主机名没填对）时，**所有密码登录都会失败**：登录接口返回 400 `turnstile_failed`（"人机验证未通过"），`wrangler tail` 里能看到 `Turnstile 校验未通过` 与 siteverify 的 `error-codes`（如 `invalid-input-secret`）。注册与开启了人机验证的取件链接同样受影响。
+
+1. **先试不经过 Turnstile 的登录方式**：通行密钥登录与 OAuth 登录不做人机验证。能登进去就直接在"系统设置 → 人机验证"里改正 secret 或取消"登录"范围，不用动数据库。
+2. **都不行时改 APP_DB**（只针对 APP_DB）。Turnstile 设置存在 `settings` 表，每个键一行、`value` 是 JSON 文本：`turnstile.enabled`（`true`/`false`）、`turnstile.scopes`（如 `["login","register","pickup"]`）、`turnstile.site_key`、`turnstile.secret_enc`（密文）。没有缓存，改完下一次请求即生效。执行前先备份并确认当前值：
+
+   ```sh
+   wrangler d1 time-travel info APP_DB                                   # 记下当前书签，出错时可恢复（§10）
+   wrangler d1 export APP_DB --remote --table settings --output=settings-before-turnstile-fix.sql
+   wrangler d1 execute APP_DB --remote --command "SELECT key, value FROM settings WHERE key IN ('turnstile.enabled', 'turnstile.scopes')"
+   ```
+
+   推荐只从作用范围里去掉 `login`（取件页的人机验证不受影响）：
+
+   ```sh
+   wrangler d1 execute APP_DB --remote --command "UPDATE settings SET value = (SELECT json_group_array(s.value) FROM json_each(settings.value) AS s WHERE s.value <> 'login'), updated_at = unixepoch() WHERE key = 'turnstile.scopes'"
+   wrangler d1 execute APP_DB --remote --command "SELECT key, value FROM settings WHERE key = 'turnstile.scopes'"   # 确认已没有 login
+   ```
+
+   若上面的 `SELECT` 里没有 `turnstile.scopes` 这一行（从未保存过作用范围，用的是默认的三项全开），`UPDATE` 不会生效，改为整体关闭：
+
+   ```sh
+   wrangler d1 execute APP_DB --remote --command "UPDATE settings SET value = 'false', updated_at = unixepoch() WHERE key = 'turnstile.enabled'"
+   ```
+
+   整体关闭后，开启了"人机验证"的取件链接在"开始取码"时会返回 503 `turnstile_not_configured`（失败关闭，不会放行），修好配置后自动恢复。**不要删除 `turnstile.scopes` 这一行**：删掉等于回到默认的三项全开。
+3. 登录后在"系统设置 → 人机验证"里填对 secret，用一个无痕窗口确认能登录，再把"登录"范围勾回来。
 
 ## 8. OAuth 提供方
 
@@ -205,3 +254,11 @@ wrangler deploy
 - **iCloud HME 转发**的发件人展示仍待真实样本确认。
 - **Safari 本地开发**：`Secure` Cookie 在 `http://localhost` 下不保存，本地联调用 Chrome；生产是 https，不受影响。
 - **Turnstile 域名**：若 Cloudflare 将来更换 Turnstile 的脚本或 iframe 域名，需同步修改 `apps/web/scripts/gen-headers.mjs` 里的 CSP 并重新构建。
+- **L2 的邮件分类靠关键词，有边界**（02 §3.6，词表在 `apps/worker/src/mail-parse/data/category-keywords.ts`，覆盖中、英、日、法、德、西、葡、意、韩、俄）。模板 A 这类"发件人域名 + `category = verification`"的规则组只能拦住词表认得的说法：
+  - 词表没覆盖的语言，或平台用了没收录的措辞，高危邮件（改密码、换邮箱、加手机号、改两步验证……）会落到 `verification`，验证码照样交给买家；
+  - 只写"Your verification code is 123456"、不说明用途的邮件，规则分不出它是登录还是敏感操作（06 §10）；
+  - 为了不把普通登录码误判，"If this wasn't you, change your password"这类登录邮件页脚常见的祈使句不算高危，因此只有这类措辞的高危邮件也会漏掉；反过来，登录邮件里若写了"to set up two-factor authentication"之类的说法会被当成高危藏起来（买家会来问，用后台预览查原因）。
+
+  **共享号、高价值号请用 L3**：在 L2 的 allow 条件里再加"主题匹配已知的登录验证码主题"（06 §3.1），主题模式用"全部邮件 → 以此邮件创建规则"从真实登录邮件生成，主题不是已知登录邮件的一律不显示。上线前每个平台都拿真实的登录、改密码、换邮箱邮件在测试器里跑一遍。
+- **内置验证码提取只认中、英、日的关键词**（`code-keywords.ts`）：法、德、西、葡、意、韩、俄等语言的验证码只有 temp_email 开了 AI 提取（`metadata.ai_extract`）或规则组配了 `code_regex` 时才提取得到，否则 `code_only` 视图里不显示这封邮件（失败关闭，买家拿不到码会来问）。
+- **发件人不做 SPF / DKIM / DMARC 校验**：`sender.domain` 取自 `From` 头与 iCloud 的 `X-ICLOUD-HME`，MailLink 不核对它们是否经过发件域的认证，`From` 头可以任意伪造。白名单只能挡住"别的平台的邮件"，挡不住有人冒充平台发信到别名；按认证结果判定（`auth.spf / dkim / dmarc` 字段）在设计里属于二期（02 §3.3）。

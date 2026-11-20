@@ -59,6 +59,8 @@
   - 附件下载写 `download` 日志是"GET 无副作用"的唯一例外：要求已登记访客 Cookie，预览机器人在写入前就被 401 挡住，且不改变激活、设备、计次。
   - M3b-2 修复时的取舍（已接受）：迁移 0006 新增表 `link_password_attempts`（IPv6 按 /64 合并计数，访问日志里的完整 IP 文本无法按网段比较），过期行由 M7b 的每日 cron 清理；新增 HKDF 用途 `linkVisitorCookie`（不让 AES-GCM 加密密钥跨算法使用）；导出行模板完全不做公式中和（输出是贴进发卡平台的纯文本，只中和行首也会改坏 `-foo@x.com`），CSV 模式照常中和；按链接的口令全局上限（15 分钟 20 次）是可被利用的锁，阈值可调。
   - 取件链接 M3b-2 的取舍（已接受）：总次数用尽在限流之后、访客 Cookie 之前判定（对外等同"已失效"，与访客无关）；IP/国家被拒归入"已失效"；拒绝日志只在 POST 上写，GET 不写（避免预览机器人与轮询刷日志）；访客 Cookie 名 `mlv_<链接id>`；撤销为终态；`access/tester.ts` 加可选 `anchors` 让管理员预览复用测试器。
+  - OAuth 绑定入口（对 04 §认证路由的修订）：`GET /api/auth/oauth/:slug/start` 只用于 `mode=login`；绑定改为 POST（经 CSRF 中间件）且要求近期再确认，服务端生成绑定到当前会话的 state 并返回 `authorize_url`，`GET …?mode=link` 明确拒绝。理由：GET 可被跨站导航发起，默认 OAuth 登录不要求本地 2FA，静默绑上的身份等于绕过 2FA。
+  - 收件地址导入列序按 06 §8："地址, 标签（平台）, 备注"（05 只说"可带备注与标签列"未定顺序，以 06 为准）；原实现"地址, 备注, 标签"由 FIN-C 改正。
   - 端到端测试用 Playwright Test 驱动本机 Google Chrome（`channel: "chrome"`，不下载浏览器），放 `apps/e2e`，以 `pnpm e2e` 单独运行、不并入 `pnpm test`；每次运行用全新本地数据目录，绝不连真实 Cloudflare。
   - 取件页 `/s/*` 不经过根路由守卫的初始化检查（不请求 `/api/setup/status`）：取件页是对外入口，买家不应多一次往返，也不应因该请求失败进入路由错误页。
   - MAIL_DB 迁移防护（对 01 §2 的修订）：wrangler 4 在 D1 绑定未配 `migrations_dir` 时默认用 `./migrations`（即本项目 APP_DB 的迁移），误敲 `wrangler d1 migrations apply MAIL_DB --remote` 会把本项目建表语句执行到 temp_email 的库。改为给 MAIL_DB 显式配置一个只含说明文件、不含 SQL 的专用空目录，并只提供针对 APP_DB 的迁移脚本；部署文档写明风险。
@@ -123,7 +125,10 @@
 | M7b-2b-2 | 取件闭环 E2E（管理端创建链接 → 口令、click 取码、设备上限、仅每日用尽保留码、总次数用尽停止轮询、撤销后失效、无第三方请求）；由 M7b-2b-1 执行者在其框架交付后接着写；并入种子脚本支持 `PERSIST_TO`（授权改 `apps/worker/scripts/seed-mail-db.ts`，删 `node --import` 钩子）、"授权给用户"E2E；轮询断言用 `page.clock` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7b-2b |
 | FIX-RL | worker `ratelimit.test.ts` 真实 binding 用例偶发失败（全量并行时 1 次，单跑 8 次全过）：查清本地限流时间窗根因后按根因修，不靠盲目重试 | sonnet-5-5#medium | 通过，已合并（根因：miniflare `ratelimit-object.worker.js` 按 `floor(Date.now()/period)` 墙钟对齐固定窗口，跨 epoch 计数清零；`withinOneWindow`：离窗口末尾不足 15s 先等到下一窗口，连发后跨窗则断言失败、不静默重试；4 个连发到上限的用例都包上；两 binding 均 60s 且测试已断言相等；执行者单跑 10 次 + 3 进程并发全量 2 轮全过，主 agent 核对 diff 后合并） | 执行会话 `ses_e086db839ffeNTq9fViNL7A9Tg` |
 | M7b-2c | 收件地址页：标签筛选候选改用标签清单接口（含次数与 `truncated` 提示）、"有没有取件链接"筛选 | sonnet-5-5#medium | 通过，已合并（见记录 2026-11-20 M7b-2c）；过程：验收"有条件通过"，修完主 agent 核对即合并：`/tags` 失败时候选静默变空——就地报错+重试；并入 `summary-filter` 可访问名称去掉伪元素"·"、"最近来信"跨年只显示日期+`title`、datalist label 改"N 个地址"、筛选首项改"取件链接：全部"。真实后端实测：40 地址/18 有链接，候选 `OpenAI（25）…` 只请求一次 `/tags`，有/无链接 18/22 行与接口一致，跨页全选"选择全部 22 项"请求带 `has_link=false`）；之前：待验收（`0f81e58`，只改 `apps/web/src/` 8 文件；web 64 文件 585 + worker 1557 通过；执行者截图只用了 mock 后端，验收须补真实后端实测；验收 opus-5-5#high `ses_e0878b045ffeQ1T8QSPd6JBfAR`，端口 8820） | 执行会话 `ses_e087db956ffecqpqtHp1OlipPo` |
-| 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
+| 终验 | 整体验收 | fable-5-2#xhigh | "有条件可以发布"，无代码级阻塞（见记录 2026-11-20 终验）；8 条"应尽快修复"分派 FIN-A/B/C，合并后由同一评审会话复核增量 | 评审会话 `ses_e0847ba58ffeGGH4p74GNU0b7K` |
+| FIN-A | 终验安全修复：OAuth 绑定改 POST + CSRF + 再确认（GET `mode=link` 拒绝）；取码记录加邮件身份字段防 id 复用误判（迁移 0010）；`/api/*` 默认 `no-store`；MAIL_DB 只读守卫扩到全仓 | opus-5-5#xhigh | 进行中（worktree `fin-a-security`，分支 `fina`，基于 `e44fb6a`，端口 8822；授权改 worker、shared（本任务所需）、web 账号页 OAuth 绑定、迁移 0010） | 执行会话 `ses_e0828e616ffe74EiyVfsPaFDrz` |
+| FIN-B | 终验前端修复：认证页与工作区显示站点 Logo（data URI 与 https，取件页仍只 data URI）/描述/页脚；390 宽管理端表格可读；`auto` 方式"24h"显示"—"；各管理页一个 `<h1>` | sonnet-5-5#high | 已合并，待终验复核（主 agent 核对：共用 `logoSource(value, "app"\|"pickup")`，取件页只认 `data:image/` 且有测试；认证页 Logo/描述/页脚、侧栏 Logo 与页脚，加载失败回退默认图标；≤520px 面板横向滚动 + 各表最小宽度，390 下关键列宽实测；`auto` 链接"24h"与"累计取码"显示"—"；规则组编辑页 `sr-only` `<h1>`，9 个管理页各一个 h1；web 66 文件 603 + worker 1557 通过；看 `login-390`、`links-390` 截图。遗留：设置页 OAuth 提供方表与账号页会话表未加窄屏滚动） | 执行会话 `ses_e0828800fffeQY0b2pqdsRUezd` |
+| FIN-C | 终验规则与文档：模板 A 高危分类词表补措辞与多语言（验收 13 封高危样本做夹具，3 封曾漏判）；导入列序按 06 §8 改为"地址, 标签, 备注"；`docs/deploy.md` 补冒烟项、Turnstile 配错自救 SQL、zone 功能与 CSP、`d1 create` 答"否"、登录失败审计刷量建议、已知限制 | opus-5-5#high | 已合并，待终验复核（`0ecb858`；`PARSER_VERSION` 2→3 已升：旧版本索引行访问时按 `isFresh` 判过期重建、未重建前返回未就绪不参与判定，cron 预热不回补旧行；每请求最多现场解析 10 封、扫描 200 行，升级后首次打开大列表靠 partial 重取补齐）；交付：高危 46 封（验收 13 + 新增 33，10 种语言）全部被模板 A 拦下、登录码 23 封全部可见，每封高危另以"假定 `ai_extract` 必提到码"再跑一遍；换回旧词表 13 封中 8 封失败（验收只发现 3 封，另 5 封只是碰巧没提取到码）；页脚祈使句不算高危有测试；导入列序改"地址, 平台→标签, 备注"，e2e 04 断言备注与标签；deploy.md 补 §2.1/§2.2/§4/§6/§7/§7.1（Turnstile 自救 SQL 本地 sqlite 试跑）/§11；web 590 + worker 1656、e2e 25 passed。收尾：授权改 `PARSER_VERSION` 2→3（不升则已索引邮件保留旧分类）与 shared 注释列序） | 执行会话 `ses_e0827eac5ffeRHjt1W23QusPx1` |
 
 ## 记录
 
@@ -327,3 +332,13 @@
 - 主 agent 复跑（`87d0c24`）：typecheck/lint 四包 Done；web 589 + node:test 7、worker 1557 通过；`pnpm e2e` 连跑 2 次 25 passed（43.5s/43.9s），8817 无残留；单独跑 `test/10` 135ms 快速失败并提示依赖。
 - 未覆盖（README 已写明原因）：取件 Turnstile（测试 key 的 hostname 与 `PUBLIC_ORIGIN` 不符会被后端严格拒绝）、OAuth（需真实提供方）、partial 退避（本地无法稳定制造未解析完的邮件）；登录页没有"密码 + 通行密钥"第二步（通行密钥是独立登录入口），按实际行为测试。
 - 注意：`login:ip` 已用满预算，新增登录类用例须复用会话。运行 `pnpm e2e` 需设 `TEMP_EMAIL_SCHEMA`。
+
+### 2026-11-20 终验（fable-5-2#xhigh）
+
+- 评审会话 `ses_e0847ba58ffeGGH4p74GNU0b7K`，对象 main `e44fb6a`（只读 worktree `final-review`，端口 8821）。结论：**有条件可以发布**，无代码级阻塞。
+- 复跑：`pnpm e2e` 25 passed（52.0s）；typecheck/lint exit 0；web 589、worker 1557 通过；`wrangler deploy --dry-run` 通过（gzip 464 KiB，5 个 binding）。浏览器 1440/390 走通初始化 → 导入 → 规则组 → 建链接 → 买家取码 → 撤销，及用户授权与 `/inbox`。
+- 安全实测（API 断言 209 过、6 未过：5 条为评审脚本预期错误已复核，1 条为邮件 id 复用）：越权读邮件、跨用户授权、token 猜测/大小写、规则绕过、口令锁定与设备/次数并发、410 五种原因响应逐字节相同、CSRF 各变体、会话固定、登录枚举（耗时 9.9/9.7 ms）与限流、约 40 个 XSS 向量、规则组配置损坏 503、审计/日志无 token/密码——均通过。
+- 发布前置条件（需用户）：每个在售平台用真实邮件验证规则（模板 A 的 L2 关键词分类在 13 封高危样本中漏判 3 封；共享号/高价值号用 L3 主题白名单）；完成生产冒烟；启用 OAuth 前先修 OAuth 绑定（FIN-A）或开启"OAuth 后仍需两步验证"。
+- 应尽快修复（已分派）：OAuth 绑定可被跨站发起（FIN-A）；邮件 id 复用后取码记录误判（FIN-A）；站点 Logo/描述/页脚不显示（FIN-B）；13 个已登录 GET 缺 `no-store`（FIN-A）；只读守卫只扫 `mail-source/`（FIN-A）；高危词表缺措辞与语言（FIN-C）；登录失败审计刷量增长（FIN-C 文档建议）；390 宽管理表格不可读、`auto` 链接"24h"恒 0（FIN-B）。另：导入列序与 06 §8 不符（FIN-C）；规则组编辑页无 `<h1>`（FIN-B）；部署文档缺若干冒烟项与自救办法（FIN-C）。
+- 设计覆盖：01–06 主体均已实现；按设计留二期：`mailboxes/discover`、API 令牌、高危邮件提醒、发件人 SPF/DKIM 校验；按裁定取消：drizzle。未实测：OAuth 全流程、Turnstile 真实挑战、partial 退避、生产 PBKDF2 与限流。
+- 产物：`/private/var/folders/2r/l2vqrhns69bd3pr0hltlzyn80000gn/T/opencode/final-review/`（81 张截图、脚本、`e2e.log`、`api-attack.log`、`browser-walk.log`）。
