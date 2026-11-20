@@ -27,10 +27,11 @@ const HEADER = [
   'import { getRawBatch, getRawBatch as raw } from "../mail-source";',
   'import type { MailDbBinding } from "../mail-source";',
   'import { helper } from "../helper";',
-  'import type { Bindings, Ctx } from "../env";',
+  'import type { Bindings, Ctx, D1 } from "../env";',
   "declare const env: Bindings;",
   "declare const c: Ctx;",
   "void [getRawBatch, raw, helper, c];",
+  "export type _D1 = D1;",
   "export type _Uses = MailDbBinding;",
 ].join("\n");
 
@@ -89,6 +90,47 @@ const BYPASSES: Array<[string, string, string]> = [
   ["字符串键", 'export type Picked = Pick<Bindings, "MAIL_DB">;', "mail_db_string"],
   ["断言成 unknown", "const hidden = env as unknown;\nvoid hidden;", "env_erasure"],
   ["交给 unknown 形参", "function sink(x: unknown) {\n  return x;\n}\nsink(c.env);", "env_erasure"],
+  // 终验复核（fable）的三种泛型写法，原样搬来（D1Database 换成夹具里的 D1）
+  [
+    "终验复核 1：无约束泛型 pick 取属性",
+    [
+      "function pick<T, K extends keyof T>(o: T, k: K): T[K] {",
+      "  return o[k];",
+      "}",
+      'const key = ("MAIL" + "_DB") as "APP_DB";',
+      'void pick(c.env, key).prepare("DELETE FROM raw_mails");',
+    ].join("\n"),
+    "env_erasure",
+  ],
+  [
+    "终验复核 2：无约束泛型里洗成 Record",
+    [
+      "function launder<T>(x: T): Record<string, D1> {",
+      "  return x as unknown as Record<string, D1>;",
+      "}",
+      'void launder(c.env)["MAIL" + "_DB"]?.prepare("DELETE FROM raw_mails");',
+    ].join("\n"),
+    "env_erasure",
+  ],
+  [
+    "终验复核 3：泛型类持有 env",
+    [
+      "class Holder<T> {",
+      "  constructor(readonly value: T) {}",
+      "  read<K extends keyof T>(k: K): T[K] {",
+      "    return this.value[k];",
+      "  }",
+      "}",
+      "const holder = new Holder(c.env);",
+      'void holder.read(("MAIL_" + "DB") as "APP_DB").prepare("DROP TABLE raw_mails");',
+    ].join("\n"),
+    "env_erasure",
+  ],
+  ["类型参数约束为 object", "function wide<T extends object>(x: T) {\n  return x;\n}\nwide(env);", "env_erasure"],
+  ["类型参数约束为 Record", "function rec<T extends Record<string, unknown>>(x: T) {\n  return x;\n}\nrec(env);", "env_erasure"],
+  ["类型参数约束为 unknown", "function unk<T extends unknown>(x: T) {\n  return x;\n}\nunk(env);", "env_erasure"],
+  ["rest 形参是泛型数组", "function many<T>(...xs: T[]) {\n  return xs;\n}\nmany(env);", "env_erasure"],
+  ["实参多于形参（经 arguments 取）", "function none() {\n  return arguments[0];\n}\nnone(env);", "env_erasure"],
 ];
 
 describe("MAIL_DB 守卫：每种绕过都会被报出", () => {
@@ -108,6 +150,14 @@ describe("MAIL_DB 守卫：允许的写法不报", () => {
       "  return getRawBatch(source.MAIL_DB, [3]);",
       "}",
       "viaBinding(env);",
+      "export function viaGeneric<E extends MailDbBinding>(source: E) {",
+      "  return getRawBatch(source.MAIL_DB, [4]);",
+      "}",
+      "viaGeneric(env);",
+      "export function viaBindings<E extends Bindings>(source: E) {",
+      "  return source.APP_DB;",
+      "}",
+      "viaBindings(c.env);",
       "// env.MAIL_DB.prepare('DELETE')",
       'console.error("health check: MAIL_DB 探测失败");',
       "void env.APP_DB.prepare('SELECT 1');",

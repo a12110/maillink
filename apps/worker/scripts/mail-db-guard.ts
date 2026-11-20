@@ -13,7 +13,15 @@
 //   env_computed_access：计算属性访问（env[k]、env["MAIL" + "_DB"]）；env_spread：展开、剩余解构、计算键解构；
 //   env_escape：交给声明在 src 之外的函数（Object.values/entries/assign、JSON.stringify、console.log、new Proxy…）或 for…in；
 //   env_erasure：断言或上下文类型把它变成不再是 env 类值的类型（as unknown、传给 unknown 形参等），之后就跟踪不到了。
-// 已知限制：类型已经是 any 的值不再跟踪；故意用 any 绕过类型系统的写法不在防线之内（代码评审兜底）。
+//   作为实参传给 src 里的函数 / 构造器时，看的是声明里（未实例化）的形参类型：无约束类型参数（pick<T>(o: T)、
+//   class Holder<T> { constructor(v: T) }），或约束是 unknown / object / Record<…> 这类不含 env 属性的宽类型，都算擦除——
+//   推断后的实参类型虽然还是 env，函数体内按 T 处理，o[k] 之类的访问就看不到了。约束为 MailDbBinding / Bindings 的类型参数不算。
+//
+// 两层防线：本守卫是静态的第一层；第二层是运行时只读包装（src/mail-source/readonly-db.ts，入口处把 env.MAIL_DB 换掉），
+// 静态守卫漏掉的写法也只能执行 select 与 pragma table_info。
+// 已知限制：类型已经是 any 的值不再跟踪；故意用 any 绕过类型系统的写法不在防线之内（代码评审兜底）；
+// env 先放进别的对象或数组（{ e: c.env }、[c.env]）再交给泛型函数时只看外层对象，不往里追；
+// 解析不到声明的调用（动态 import、eval 一类）按"src 之外"处理报 env_escape。这些由运行时包装兜底。
 
 import path from "node:path";
 import ts from "typescript";
@@ -109,9 +117,17 @@ function assertionErases(ctx: Ctx, node: ts.AsExpression | ts.TypeAssertion | ts
   return isEnvLike(ctx, node.expression) && !isEnvLikeType(ctx, ctx.checker.getTypeFromTypeNode(node.type));
 }
 
-/** 值表达式的上下文类型（形参、带注解的变量、返回值等）不再是 env 类值 */
+/** 去掉外层括号后是调用 / new 的实参（这类位置由 argumentRule 按声明的形参类型判定） */
+function isCallArgument(node: ts.Node): boolean {
+  let current = node;
+  while (ts.isParenthesizedExpression(current.parent)) current = current.parent;
+  const parent = current.parent;
+  return (ts.isCallExpression(parent) || ts.isNewExpression(parent)) && (parent.arguments ?? []).some((arg) => arg === current);
+}
+
+/** 值表达式的上下文类型（带注解的变量、返回值等）不再是 env 类值 */
 function contextErases(ctx: Ctx, node: ts.Expression): boolean {
-  if (!isEnvLike(ctx, node)) return false;
+  if (isCallArgument(node) || !isEnvLike(ctx, node)) return false;
   const contextual = ctx.checker.getContextualType(node);
   return contextual !== undefined && !isEnvLikeType(ctx, contextual);
 }
@@ -125,7 +141,43 @@ function erasureRule(ctx: Ctx, node: ts.Node): string | null {
   return valueLike && contextErases(ctx, node) ? "env_erasure" : null;
 }
 
-const RULES = [tokenRule, spreadRule, escapeRule, erasureRule];
+/**
+ * 第 index 个实参在声明里（未实例化）的形参类型；rest 形参取元素类型。
+ * 实参多于形参（只能经 arguments 取到）时返回 null，按擦除处理。
+ */
+function isRestParameter(parameter: ts.Symbol): boolean {
+  const declared = parameter.valueDeclaration;
+  return declared !== undefined && ts.isParameter(declared) && declared.dotDotDotToken !== undefined;
+}
+
+function declaredParameterType(ctx: Ctx, declaration: ts.SignatureDeclaration, index: number): ts.Type | null {
+  const parameters = ctx.checker.getSignatureFromDeclaration(declaration)?.parameters ?? [];
+  const last = parameters.length - 1;
+  const parameter = parameters[Math.min(index, last)];
+  if (parameter === undefined) return null;
+  const isRest = isRestParameter(parameter);
+  if (index > last && !isRest) return null;
+  const type = ctx.checker.getTypeOfSymbol(parameter);
+  return isRest ? (ctx.checker.getIndexInfoOfType(type, ts.IndexKind.Number)?.type ?? type) : type;
+}
+
+/** env 类值作实参交给 src 里的函数 / 构造器，而声明的形参类型（含无约束或宽约束的类型参数）不是 env 类值 */
+function argumentRule(ctx: Ctx, node: ts.Node): string | null {
+  if (!ts.isCallExpression(node) && !ts.isNewExpression(node)) return null;
+  const args = node.arguments ?? [];
+  if (!args.some((arg) => isEnvLike(ctx, arg))) return null;
+  const declaration = ctx.checker.getResolvedSignature(node)?.getDeclaration();
+  // src 之外或解析不到的由 escapeRule 报 env_escape
+  if (declaration === undefined || !within(declaration.getSourceFile().fileName, ctx.srcDir)) return null;
+  const erased = args.some((arg, index) => {
+    if (!isEnvLike(ctx, arg)) return false;
+    const declared = declaredParameterType(ctx, declaration, index);
+    return declared === null || !isEnvLikeType(ctx, declared);
+  });
+  return erased ? "env_erasure" : null;
+}
+
+const RULES = [tokenRule, spreadRule, escapeRule, erasureRule, argumentRule];
 
 function checkFile(ctx: Ctx, file: ts.SourceFile): Violation[] {
   const violations: Violation[] = [];

@@ -113,7 +113,7 @@ export const PASSWORD_HASH_ALGORITHM = "pbkdf2-sha256";
  * 解析器版本。解析逻辑、词表（验证码关键词、分类关键词）任何改动都要递增：
  * mail_index 里版本不符的行会在下次访问时重建（01 §4.2）。
  */
-export const PARSER_VERSION = 3;
+export const PARSER_VERSION = 4;
 
 /** 每封邮件最多保留的链接数，超出的丢弃（正文里的原文仍在 body 中，body 类规则照常命中） */
 export const MAIL_LINKS_MAX_COUNT = 50;

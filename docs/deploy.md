@@ -257,7 +257,7 @@ wrangler deploy
 - **L2 的邮件分类靠关键词，有边界**（02 §3.6，词表在 `apps/worker/src/mail-parse/data/category-keywords.ts`，覆盖中、英、日、法、德、西、葡、意、韩、俄）。模板 A 这类"发件人域名 + `category = verification`"的规则组只能拦住词表认得的说法：
   - 词表没覆盖的语言，或平台用了没收录的措辞，高危邮件（改密码、换邮箱、加手机号、改两步验证……）会落到 `verification`，验证码照样交给买家；
   - 只写"Your verification code is 123456"、不说明用途的邮件，规则分不出它是登录还是敏感操作（06 §10）；
-  - 为了不把普通登录码误判，"If this wasn't you, change your password"这类登录邮件页脚常见的祈使句不算高危，因此只有这类措辞的高危邮件也会漏掉；反过来，登录邮件里若写了"to set up two-factor authentication"之类的说法会被当成高危藏起来（买家会来问，用后台预览查原因）。
+  - 为了不把普通登录码误判，"If this wasn't you, change your password"这类登录邮件页脚常见的祈使句不算高危；以"If you didn't request this / If this wasn't you / 如非本人操作"等开头的条件句，逗号后的建议（如"…, you can reset your password"）也不参与判定。因此高危用途只写在这两种句式里的邮件会漏掉；反过来，登录邮件里若写了"to set up two-factor authentication""to change your password""update your payment method"之类的说法会被当成高危藏起来（买家会来问，用后台预览查原因）。
 
   **共享号、高价值号请用 L3**：在 L2 的 allow 条件里再加"主题匹配已知的登录验证码主题"（06 §3.1），主题模式用"全部邮件 → 以此邮件创建规则"从真实登录邮件生成，主题不是已知登录邮件的一律不显示。上线前每个平台都拿真实的登录、改密码、换邮箱邮件在测试器里跑一遍。
 - **内置验证码提取只认中、英、日的关键词**（`code-keywords.ts`）：法、德、西、葡、意、韩、俄等语言的验证码只有 temp_email 开了 AI 提取（`metadata.ai_extract`）或规则组配了 `code_regex` 时才提取得到，否则 `code_only` 视图里不显示这封邮件（失败关闭，买家拿不到码会来问）。

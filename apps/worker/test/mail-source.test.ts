@@ -10,11 +10,13 @@ import {
   listAfter,
   listCandidates,
   MAIL_DB_UNHEALTHY_CODE,
+  readonlyMailDb,
 } from "../src/mail-source";
 import { d1Time, gzipBytes, insertMail } from "./mail-helpers";
 import { setupMailDb } from "./helpers";
 
-const db = () => env.MAIL_DB;
+// 经运行时只读包装调用，顺带确认 mail-source 的查询都不会被包装误拦
+const db = () => readonlyMailDb(env.MAIL_DB);
 const ids = (rows: Array<{ id: number }>) => rows.map((row) => row.id);
 
 describe("地址的两种形式", () => {

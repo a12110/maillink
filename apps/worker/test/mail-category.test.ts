@@ -79,6 +79,19 @@ describe("分类：顺序与边界", () => {
     expect(classify("Your sign-in code", "Code 482913. If this wasn't you, change your password.", "482913")).toBe("verification");
   });
 
+  it("页脚条件句：逗号后的建议不算高危，前半句与同封邮件其他句子照常匹配", () => {
+    const code = "140140";
+    expect(classify("Your code", "Code 140140. If you didn’t request this, you can reset your password.", code)).toBe("verification");
+    expect(classify("Your code", "Code 140140. If this wasn't you, sign out of all other devices.", code)).toBe("verification");
+    expect(classify("验证码", "验证码 140140。如非本人操作，请立即重置密码。", code)).toBe("verification");
+    // 前半句本身点明用途
+    expect(classify("Your code", "Code 140140. If you didn't request a password reset, ignore this email.", code)).toBe("password_reset");
+    // 建议句之外另有高危说法
+    expect(classify("Your code", "If you didn't request this, ignore it. Use code 140140 to reset your password.", code)).toBe("password_reset");
+    // 没有逗号的条件句不处理
+    expect(classify("Your code", "Code 140140. If you did not request this reset your password.", code)).toBe("password_reset");
+  });
+
   it("营销页脚里的 subscription / 订阅 / サブスクリプション 不会把登录码判成 billing", () => {
     expect(classify("Your sign-in code", "Code 482913. Manage your email subscription preferences.", "482913")).toBe("verification");
     expect(classify("登录验证码", "验证码 704512。管理订阅偏好。", "704512")).toBe("verification");
