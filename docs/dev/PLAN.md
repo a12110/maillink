@@ -119,8 +119,9 @@
 | INT-1 | M3b-2 × M6 集成：链接允许 Turnstile、"开始取码"接入 Turnstile、`GET /api/s/:token` 带出品牌/公告/data URI Logo/site key、创建链接用默认值、cron 清理 `link_password_attempts` 与 `auth_flow_tokens` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 INT-1 |
 | M7b-1 | 安全加固（页面 `_headers` 构建时生成含内联脚本哈希的 CSP、API 安全头、管理员强制 2FA 口径收紧）、后端缺口（收件箱列表 `mailbox_id`/`view`、标签清单、有无链接筛选与计数、测试器不可见邮件发件人主题、`draft-from-mail` schema、公开配置 `password_min_length`、用户列表 `total`）、`docs/deploy.md` | opus-5-5#high（含安全加固，按复杂任务） | 通过，已合并（见记录 2026-11-20 M7b-1）；过程：`ac07fb1` 交付 → `75a2a37` 合入 UI-3/UI-4b → `831e0dc` 前端适配 → `016b4a7` 合入 UI-4a → `011c37a` 适配 UI-4a、`/inbox` 改用列表项 `mailbox_id`/`view`；worker 1554 + web 459 通过；`_headers` 含 1 个内联脚本哈希；安全加固 opus-5-5#xhigh `ses_e08b851b9ffewKye8kbyRH6pZr`、缺口与部署文档 opus-5-5#high `ses_e08b826a9ffewKZ8R01m2zsWbU`；执行者另修 UI-3 偶发测试 `ImportDialog.test.ts`（点击后立即断言异步错误，单跑 6 次败 2 次；改为等待提示出现后断言，`e51482d`，主 agent 连跑 5 次全过）；未用迁移号） | 执行会话 `ses_e08e1db45ffe0KGf6OaDUOE0g9` |
 | M7b-2a | 前端收尾：UI-4b 验收 5 条小改；接线用户列表 `total`、测试器不可见邮件发件人/主题、`/inbox`"全部"详情带 `mailbox_id`（不碰 mailboxes/links/pickup，避开 UI-5） | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7b-2a |
-| M7b-2b-1 | 端到端测试框架（`apps/e2e`，Playwright Test + 本机 Chrome，不下载浏览器；`pnpm e2e` 不并入 `pnpm test`）+ 已合并流程用例：初始化、TOTP/恢复码、通行密钥、收件地址导入、规则组测试器、用户授权与 `/inbox`、HTML 邮件 sandbox、权限/CSRF/Origin/安全头；全局断言无 CSP 违规与第三方请求 | sonnet-5-5#high | 进行中（worktree `m7b2b-e2e`，分支 `m7b2b`，基于 `09547d3`，端口 8817；授权改根 `package.json`/lockfile） | 执行会话 `ses_e088a8e64ffezLMaPnWuSA0dk2` |
-| M7b-2b-2 | UI-5 合并后：取件闭环 E2E（口令、click 取码、设备上限、次数用尽停止轮询、撤销后失效、无第三方请求）；收件地址页接线标签清单与 `has_link` 筛选 | sonnet-5-5#high | 待办（等 UI-5 合并） | |
+| M7b-2b-1 | 端到端测试框架（`apps/e2e`，Playwright Test + 本机 Chrome，不下载浏览器；`pnpm e2e` 不并入 `pnpm test`）+ 已合并流程用例：初始化、TOTP/恢复码、通行密钥、收件地址导入、规则组测试器、用户授权与 `/inbox`、HTML 邮件 sandbox、权限/CSRF/Origin/安全头；全局断言无 CSP 违规与第三方请求 | sonnet-5-5#high | 已交付，与 2b-2 合并验收（`eb13472`：`apps/e2e` 11 用例 + 1 守卫自检，执行者连跑 3 次 12 passed 19–27s；`.dev.vars` 会盖过 `--var`，密钥改走临时 `--env-file`；`eab40e1` 合入 UI-5/M7b-2a 后主 agent 复跑 typecheck/lint 四包 Done、web 579 + worker 1557、`pnpm e2e` 12 passed 20.5s、无残留进程；未发现功能 bug，小无障碍问题：收件地址页 `summary-filter` 可访问名称带 CSS 伪元素"·"，交 M7b-2c） | 执行会话 `ses_e088a8e64ffezLMaPnWuSA0dk2` |
+| M7b-2b-2 | 取件闭环 E2E（管理端创建链接 → 口令、click 取码、设备上限、仅每日用尽保留码、总次数用尽停止轮询、撤销后失效、无第三方请求）；由 M7b-2b-1 执行者在其框架交付后接着写；并入种子脚本支持 `PERSIST_TO`（授权改 `apps/worker/scripts/seed-mail-db.ts`，删 `node --import` 钩子）、"授权给用户"E2E；轮询断言用 `page.clock` | sonnet-5-5#high | 进行中（同 worktree `m7b2b-e2e`，基于 `eab40e1`） | 执行会话 `ses_e088a8e64ffezLMaPnWuSA0dk2` |
+| M7b-2c | 收件地址页：标签筛选候选改用标签清单接口（含次数与 `truncated` 提示）、"有没有取件链接"筛选 | sonnet-5-5#medium | 通过，已合并（见记录 2026-11-20 M7b-2c）；过程：验收"有条件通过"，修完主 agent 核对即合并：`/tags` 失败时候选静默变空——就地报错+重试；并入 `summary-filter` 可访问名称去掉伪元素"·"、"最近来信"跨年只显示日期+`title`、datalist label 改"N 个地址"、筛选首项改"取件链接：全部"。真实后端实测：40 地址/18 有链接，候选 `OpenAI（25）…` 只请求一次 `/tags`，有/无链接 18/22 行与接口一致，跨页全选"选择全部 22 项"请求带 `has_link=false`）；之前：待验收（`0f81e58`，只改 `apps/web/src/` 8 文件；web 64 文件 585 + worker 1557 通过；执行者截图只用了 mock 后端，验收须补真实后端实测；验收 opus-5-5#high `ses_e0878b045ffeQ1T8QSPd6JBfAR`，端口 8820） | 执行会话 `ses_e087db956ffecqpqtHp1OlipPo` |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
 ## 记录
@@ -304,3 +305,12 @@
 - 主 agent 复跑（`2928cea`）：typecheck/lint 三包 Done；web 63 文件 579 + node:test 7、worker 75 文件 1557 通过；web build 成功；截图核对链接表表头完整，执行者脚本确认所有 `th` 无截断。
 - 实测（评审 8814 + headless Chrome 390×844）：口令前无地址、标题无 token、卖家说明 HTML 原样为文字；错误口令就地提示；click 取码剩余次数递减；第二上下文设备已满（"最多可在 1 台设备上使用"）；总次数用尽后 25 秒内 `/mails` 请求增量 0 且码保留；仅每日用尽码保留且继续轮询；撤销后两上下文均"已失效"；`/S/<token>` 为页面不存在；取件页对 `/api/setup/status` 与第三方请求数 0；Turnstile 仅 required 时加载、拿到 token 前禁用、Referer 为空；命中区全部 ≥44×44；HTML 详情 iframe sandbox 精确；2×2 批量授权全部成功、再次"跳过"全部 skipped、用户 `/inbox` 可见。
 - 遗留：管理页窄屏（<1024）表格与侧板未专门看图；复制到剪贴板成功路径只靠单测（headless 权限拒绝）；Turnstile 真实挑战需部署后用正式 site key 冒烟；默认不过期的链接无法"延长"（提示目前没有截止时间）；授权用户选择器超过 50 人时靠搜索。
+
+### 2026-11-20 M7b-2c 通过
+
+- 执行：sonnet-5-5#medium（`ses_e087db956ffecqpqtHp1OlipPo`）；验收：opus-5-5#high（`ses_e0878b045ffeQ1T8QSPd6JBfAR`），"有条件通过"，修复由主 agent 核对后合并。
+- 过程：`0f81e58` 交付 → `0ba1e0f` 验收修复。只改 `apps/web/src/`。
+- 内容：标签筛选候选改用 `GET /api/admin/mailboxes/tags`（schema 校验、label 为"N 个地址"、`truncated` 提示、查询键在 `adminMailboxes` 下随写操作失效，失败时就地报错+重试）；"取件链接：全部/有/无"筛选映射 `has_link`，与跨页全选、批量层同一筛选；页头摘要分隔点改 `content: "·" / ""`（读屏名称"启用 N"）；窄列时间用 `formatCompactDateTime`（今年 `MM-DD HH:mm`，跨年只显示日期，`title` 为完整时间），用于收件地址表与链接表。
+- 验收实测（8820 真实后端 + headless Chrome）：40 地址/18 有链接，候选 `OpenAI（25）、GitHub（10）、Apple（5）`，首屏只请求一次 `/tags`，翻页与切筛选不重取；有/无链接 18/22 行与接口一致，叠加标签一致；无链接下跨页全选"选择全部 22 项"请求带 `has_link=false`；有选中项时工具栏换为批量条，不能在已选状态下改筛选。
+- 主 agent 复跑（`0ba1e0f`）：typecheck/lint 三包 Done；web 65 文件 589 + node:test 7、worker 75 文件 1557 通过；web build 成功。首次全量时 worker `ratelimit.test.ts`"按 IP 超限"偶发失败 1 次（单跑 8 次全过，与本线无关，疑为本地限流固定时间窗被跨越，另行修复）。
+- 遗留：执行者两轮 Chrome 核对都用 vite + mock 后端（真实后端由验收实测补齐）；`/tags` 失败错误条未截图，窄屏下工具栏可能换行；datalist 下拉的实际观感需人工在 Chrome/Safari 看一眼。
