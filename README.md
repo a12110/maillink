@@ -80,4 +80,6 @@ pnpm test        # 单元测试（vitest + @cloudflare/vitest-plugin，本地 D1
 
 部署到 Cloudflare Workers 的完整步骤（创建 APP_DB、绑定 temp_email 的库为只读 MAIL_DB、secrets、限流、远程迁移、首次初始化、部署后冒烟检查、Turnstile 与 OAuth 配置、备份回滚、已知限制）见 [`docs/deploy.md`](docs/deploy.md)。
 
+不想装命令行工具的话，可以全程在 Cloudflare 控制台网页上部署：GitHub Actions（`.github/workflows/release.yml`，推送 `v*` 标签触发）生成单文件 `worker.js` 与 D1 控制台用的 SQL，然后在控制台上传，带截图的步骤见 [`docs/deploy-gui.md`](docs/deploy-gui.md)。本地生成同样的产物：`pnpm --filter web build && pnpm --filter worker build:single`（输出到 `apps/worker/dist/single/`）。
+
 `pnpm --filter web build` 的最后一步会根据 `dist/index.html` 生成页面安全头 `dist/_headers`（CSP 内联脚本哈希自动计算，不要手改 `dist/`）。本地 `wrangler dev` 同样会应用它。

@@ -10,7 +10,8 @@
     "test": "vitest run && node --test scripts/*.test.ts",
     "types": "wrangler types",
     "db:migrate": "wrangler d1 migrations apply APP_DB --local",
-    "db:seed-mail": "node scripts/seed-mail-db.ts"
+    "db:seed-mail": "node scripts/seed-mail-db.ts",
+    "build:single": "node scripts/build-single-worker.ts"
   },
   "dependencies": {
     "@maillink/shared": "workspace:*",
