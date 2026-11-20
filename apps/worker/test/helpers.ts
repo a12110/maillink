@@ -136,12 +136,19 @@ function buildHeaders(method: string, options: ApiOptions): Headers {
   return headers;
 }
 
+/**
+ * 默认放行的限流替身：绝大多数测试不关心限流，而 wrangler.jsonc 里的真实 binding 在同一个测试文件内
+ * 共享计数（本地无 CF-Connecting-IP 时共用一个桶），登录次数一多会互相干扰。
+ * 限流本身的测试通过 `bindings.RATE_LIMITER` 显式传入真实 binding 或自己的替身。
+ */
+export const ALLOW_ALL_RATE_LIMITER: RateLimit = { limit: async () => ({ success: true }) };
+
 /** 直接调用 Hono app 的请求封装 */
 export async function api(path: string, options: ApiOptions = {}): Promise<Response> {
   const method = options.method ?? (options.json === undefined ? "GET" : "POST");
   const init: RequestInit = { method, headers: buildHeaders(method, options) };
   if (options.json !== undefined) init.body = JSON.stringify(options.json);
-  return await app.request(path, init, { ...env, ...options.bindings });
+  return await app.request(path, init, { ...env, RATE_LIMITER: ALLOW_ALL_RATE_LIMITER, LINK_RATE_LIMITER: ALLOW_ALL_RATE_LIMITER, ...options.bindings });
 }
 
 /** 从响应的 Set-Cookie 里取 sid 的完整 Set-Cookie 行 */

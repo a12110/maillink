@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { HealthResponse, MailSchemaProbe } from "@maillink/shared";
 import type { AppEnv } from "../env";
+import { getLastRun } from "../db/cron-state";
 import { getMailSchema } from "../mail-source";
 import { HTTP_OK, HTTP_SERVICE_UNAVAILABLE } from "../http-status";
 
@@ -39,7 +40,20 @@ export const adminSystemRoutes = new Hono<AppEnv>();
 // 管理员鉴权由 index.ts 对 /api/admin/* 统一挂载的 requireAdmin 保证
 adminSystemRoutes.get("/health", async (c) => {
   const [appDb, mailDb] = await Promise.all([checkAppDb(c.env.APP_DB), checkMailDb(c.env.MAIL_DB)]);
-  const body: HealthResponse = { ok: appDb.ok && mailDb.ok, app_db: appDb, mail_db: mailDb };
+  // ok 只反映两个库；cron 失败与限流未配置作为状态字段展示，由管理员处理
+  const cron = appDb.ok
+    ? { prewarm: await getLastRun(c.env.APP_DB, "prewarm"), cleanup: await getLastRun(c.env.APP_DB, "cleanup") }
+    : { prewarm: null, cleanup: null };
+  const body: HealthResponse = {
+    ok: appDb.ok && mailDb.ok,
+    app_db: appDb,
+    mail_db: mailDb,
+    rate_limit: {
+      configured: c.env.RATE_LIMITER !== undefined,
+      link_configured: c.env.LINK_RATE_LIMITER !== undefined,
+    },
+    cron,
+  };
   // 不健康时返回 503，让监控与前端都能直接感知；响应体结构不变
   return c.json(body, body.ok ? HTTP_OK : HTTP_SERVICE_UNAVAILABLE);
 });
