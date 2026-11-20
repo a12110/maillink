@@ -14,6 +14,13 @@
 | 数据库迁移 | `wrangler d1 migrations apply APP_DB --remote` | 在 D1 控制台粘贴 Release 里的 SQL。同时会写入 `d1_migrations` 表，以后改用命令行也能接着用 |
 | 绑定、变量、cron、域名 | 写在 `wrangler.jsonc` 里 | 在控制台逐项手动配置（见 §2 对照表） |
 
+单文件模式与 Static Assets 在页面行为上有几处无害的差异，不影响使用：
+
+- 带哈希的资源（`/assets/*`）缓存一年（`immutable`）。哈希随内容变化，升级后浏览器会自动拿新文件。
+- 直接访问 `/index.html` 返回 200，不会像 Static Assets 那样跳转到 `/`。
+- 带百分号编码的路径不做规范化，按原样匹配；找不到文件就回退 `index.html`。
+- `index.html` 用 `Cache-Control: no-cache`，没有 ETag，每次都会重新下载（很小），不会返回 304。
+
 ## 1. 前提
 
 - **Workers 付费套餐（Paid）**。登录时的 PBKDF2、HTML 清洗、邮件解析都按 Paid 的 CPU 时间设计，Free 套餐会在登录或打开邮件时超时，原因见 deploy.md §1。在"计算 → Workers 计划"里升级。
@@ -64,7 +71,7 @@
   之后在仓库的 Releases 页下载，或直接用固定的"最新版"地址：
   `https://github.com/<你的用户名>/<仓库名>/releases/latest/download/worker.js`（`app-db-init.sql` 同理）。
 
-- **只想先试一下**：仓库页面 → Actions → `Release worker.js` → Run workflow。运行完成后，在这次运行页面底部的 Artifacts 里下载 `maillink-single`（解压后就是上面三个文件），这种方式不会创建 Release。
+- **只想先试一下**：仓库页面 → Actions → `Release worker.js` → Run workflow。运行完成后，在这次运行页面底部的 Artifacts 里下载 `maillink-single`（解压后就是上面三个文件）。手动运行只构建、不创建 Release，哪怕运行时选的是 `v` 开头的标签也一样。
 
 说明：
 
@@ -100,7 +107,7 @@
 注意：
 
 - **只执行一次**。再执行会报 `table users already exists`。
-- **粘错库时会直接失败**：第一句就是 `CREATE TABLE users`，temp_email 的库里已经有 `users` 表，所以会立即报 `table users already exists` 并停止，不会多建出任何表。看到这个报错时，先确认当前库是不是 `mail-link`。
+- **粘错库时第一句就会失败**：第一句是 `CREATE TABLE users`，temp_email 的库里已经有 `users` 表，所以会报 `table users already exists`。看到这个报错时，先确认当前库是不是 `mail-link`。D1 控制台遇到错误后是否会停止执行后面的语句，没有实测过，所以不要依赖它兜底：粘贴前一定先看面包屑。
 - **不要直接粘贴仓库 `apps/worker/migrations/` 下的原始文件**。控制台是单行输入框，粘贴时换行会被吞掉，原始文件里的 `--` 注释会把后面所有语句注释掉。Release 里的 SQL 已经去掉注释，并把每条语句压成一行。
 - 中途报了其他错误时，先看是哪一句出错。这一步只建表、没有数据，最稳妥的做法是在库的"设置"里删掉 `mail-link`，重新创建后再执行一次。
 
@@ -251,12 +258,14 @@ openssl rand -hex 24      # SETUP_TOKEN
 - 看日志（代替 `wrangler tail`）：Worker → Observability；
 - 健康检查：登录管理员后，在浏览器里打开 `https://<你的域名>/api/admin/system/health`，`mail_db.probe.healthy` 应为 `true`，`rate_limit.configured` 与 `rate_limit.link_configured` 都应为 `true`；
 - cron：过 5 分钟后再看同一个健康检查接口，`cron.prewarm` 里应有上次运行时间且没有错误；
-- 确认 `SETUP_TOKEN` 已删除：打开 `https://<你的域名>/api/setup/status`，应返回 `"needs_setup":false`。
+- 初始化入口已关闭：打开 `https://<你的域名>/api/setup/status` 应返回 `"needs_setup":false`，`POST /api/setup` 返回 404。这只说明初始化已经完成（该接口只看 `users` 表），**不能**证明 `SETUP_TOKEN` 已删除；确认删除要在"设置 → 变量和密钥"里看列表，其中不应再有 `SETUP_TOKEN`。
 
 ## 14. 升级
 
 1. 看新版本 Release 的说明，下载新的 `worker.js` 与 `app-db-migrations.zip`。
-2. **先迁移**：打开 `mail-link` 库的控制台，执行 `SELECT name FROM d1_migrations ORDER BY id;`，与 zip 里的文件名对比。没有出现在结果里的，按文件名从小到大逐个打开、复制、粘贴、执行。每个文件末尾都带着自己的 `d1_migrations` 记录，执行一次就会被记为"已执行"。
+2. **先迁移**：打开 `mail-link` 库的控制台，**先看页面顶部的面包屑 / 库名，确认是 `mail-link`**，不是 temp_email 的库。执行 `SELECT name FROM d1_migrations ORDER BY id;`，与 zip 里的文件名对比。没有出现在结果里的，按文件名从小到大逐个打开、复制、粘贴、执行。每个文件末尾都带着自己的 `d1_migrations` 记录，执行一次就会被记为"已执行"。
+
+   每个单独迁移文件的第一句是 `SELECT username_lc FROM users LIMIT 0;`。`username_lc` 只有 `mail-link` 的 `users` 表才有，粘到 temp_email 的库里这句会报 `no such column: username_lc`，后面的语句不应再执行。这只是兜底：D1 控制台遇到错误后是否会停止执行后面的语句没有实测过（本地 D1 用 `--file` 执行时整个文件是一个事务，错误会整体回滚，但控制台不一定相同），所以仍以执行前确认库名为准。看到这个报错，先确认当前库是不是 `mail-link`。`app-db-init.sql` 没有这句探测（全新库里 `users` 还不存在），它靠首句 `CREATE TABLE users` 在 temp_email 的库上失败。
 3. **再更新代码**：按 §10 上传新的 `worker.js` 并部署。
 
 迁移只会加表、加列、加索引，所以先迁移再换代码不会影响正在运行的旧版本。
@@ -274,6 +283,7 @@ openssl rand -hex 24      # SETUP_TOKEN
 | 邮件相关页面返回 503 `mail_db_unhealthy` | `MAIL_DB` 绑错了库，或 temp_email 的表结构不符合要求；看健康检查里的 `mail_db` 字段（§13） |
 | 页面打不开，Observability 里出现 `no such table` | `mail-link` 库没有执行 `app-db-init.sql`，或者 `APP_DB` 绑错了库（§4.2、§7.1） |
 | D1 控制台报 `table users already exists` | 初始化 SQL 粘到了 temp_email 的库，或者 `mail-link` 已经初始化过（§4.2） |
+| 升级时 D1 控制台报 `no such column: username_lc` | 迁移 SQL 粘到了 temp_email 的库，不是 `mail-link`（§14） |
 | D1 控制台报语法错误 | 粘贴的是仓库里的原始迁移文件，换成 Release 里的 SQL（§4.2） |
 | 登录或打开邮件时偶尔报 CPU 超时（Exceeded CPU Limit） | 账号是 Free 套餐，需要升级到 Workers Paid（§1） |
 | 页面控制台出现 `Content-Security-Policy` 报错，来源是 `rocket-loader`、`cloudflareinsights` 等 | zone 的功能往页面里注入了脚本，按 §11 最后一段关掉 |

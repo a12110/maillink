@@ -69,10 +69,12 @@ export function createAssetResponder(manifest: EmbeddedAssetManifest): (request:
   if (fallback === undefined) throw new Error(`内嵌静态资源缺少回退页 ${manifest.spaFallback}`);
 
   return (request) => {
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      return new Response(null, { status: HTTP_METHOD_NOT_ALLOWED, headers: { Allow: ALLOWED_METHODS } });
-    }
     const { pathname } = new URL(request.url);
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      const headers = new Headers({ Allow: ALLOWED_METHODS });
+      applyHeaderRules(headers, manifest.headerRules, pathname);
+      return new Response(null, { status: HTTP_METHOD_NOT_ALLOWED, headers });
+    }
     const filePath = pathname.endsWith("/") ? `${pathname}index.html` : pathname;
     const hit = files.get(filePath);
     const asset = hit ?? fallback;

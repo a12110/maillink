@@ -7,13 +7,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import {
+  APP_DB_PROBE,
   assetFor,
   buildAssetManifest,
   buildConsoleSql,
+  buildSingleMigrationSql,
   parseHeadersFile,
   readMigrations,
   toConsoleStatements,
 } from "./build-single-worker.ts";
+
+const migrationsPath = join(import.meta.dirname, "../migrations");
 
 const HEADERS = [
   "/*",
@@ -166,5 +170,44 @@ describe("buildConsoleSql", () => {
     const sql = buildConsoleSql(real);
     assert.ok(sql.startsWith("CREATE TABLE users "), "第一句必须是 CREATE TABLE users（误粘到 temp_email 库时立即失败）");
     for (const { name } of real) assert.ok(sql.includes(`VALUES ('${name}');`), name);
+  });
+});
+
+describe("buildSingleMigrationSql", () => {
+  it("首句是只能在 APP_DB 上通过的探测语句，其后是迁移语句与自己的记录", () => {
+    const lines = buildSingleMigrationSql({ name: "0002_more.sql", sql: "-- x\nCREATE TABLE b (id INTEGER);\n" })
+      .trimEnd()
+      .split("\n");
+    assert.equal(lines[0], APP_DB_PROBE);
+    assert.equal(lines[1], "CREATE TABLE b (id INTEGER);");
+    assert.equal(lines.at(-1), "INSERT INTO d1_migrations (name) VALUES ('0002_more.sql');");
+    assert.ok(lines.every((line) => !line.includes("--")));
+  });
+
+  it("首句已是 CREATE TABLE users 的 0001 不加探测（全新库上要能单独执行）", () => {
+    const sql = buildSingleMigrationSql({ name: "0001_init.sql", sql: "CREATE TABLE users (username_lc TEXT);\n" });
+    assert.ok(sql.startsWith("CREATE TABLE users (username_lc TEXT);\n"));
+  });
+
+  it("探测的列由 0001 建在 users 表上", () => {
+    const [first] = readMigrations(migrationsPath);
+    assert.ok(first !== undefined);
+    const create = (first.sql.match(/CREATE TABLE users \(([\s\S]*?)\n\);/) ?? [])[1] ?? "";
+    assert.match(create, /\busername_lc\b/);
+    assert.equal(APP_DB_PROBE, "SELECT username_lc FROM users LIMIT 0;");
+  });
+
+  it("仓库里每个单独迁移文件的首句都是探测语句（0001 除外，首句是 CREATE TABLE users）", () => {
+    for (const migration of readMigrations(migrationsPath)) {
+      const first = buildSingleMigrationSql(migration).split("\n")[0];
+      if (migration.name.startsWith("0001_")) assert.ok(first?.startsWith("CREATE TABLE users "), migration.name);
+      else assert.equal(first, APP_DB_PROBE, migration.name);
+    }
+  });
+
+  it("app-db-init.sql 不含探测语句，首句是 CREATE TABLE users", () => {
+    const sql = buildConsoleSql(readMigrations(migrationsPath));
+    assert.ok(!sql.includes(APP_DB_PROBE));
+    assert.ok(sql.startsWith("CREATE TABLE users "));
   });
 });

@@ -1,7 +1,7 @@
 // 生成控制台（GUI）部署用的产物，见 docs/deploy-gui.md：
 // - dist/single/worker.js：前端打进 bundle 的单文件 Worker，在控制台"编辑代码"里上传；
 // - dist/single/sql/app-db-init.sql：APP_DB 全部迁移，粘贴到 D1 控制台执行一次；
-// - dist/single/sql/<迁移文件名>：单个迁移，升级时只执行新增的那几个。
+// - dist/single/sql/<迁移文件名>：单个迁移，升级时只执行新增的那几个（除 0001 外首句是只能在 APP_DB 上通过的探测语句）。
 // 用法（仓库根目录，先 pnpm --filter web build）：pnpm --filter worker build:single
 // 打包用仓库里的 wrangler（deploy --dry-run，只在本地打包，不连接 Cloudflare），兼容日期等配置沿用 wrangler.jsonc。
 
@@ -159,18 +159,39 @@ export function toConsoleStatements(sql: string, label: string): string[] {
   return statements;
 }
 
-/** 迁移语句在前，迁移记录表在最后：误粘到 temp_email 的库时第一句 CREATE TABLE users 就会失败，不会先建出别的表 */
-export function buildConsoleSql(migrations: Migration[]): string {
-  const lines: string[] = [];
-  for (const { name, sql } of migrations) {
-    if (!MIGRATION_NAME.test(name)) throw new Error(`迁移文件名不合规：${name}`);
-    const statements = toConsoleStatements(sql, name);
-    if (statements.length === 0) throw new Error(`${name} 里没有任何语句`);
-    lines.push(...statements);
-  }
-  lines.push(MIGRATIONS_TABLE_DDL);
+/**
+ * 单个迁移文件的首句探测：users.username_lc 由 0001 建在 APP_DB 上，temp_email 的 users 表没有这一列。
+ * 误粘到 temp_email 的库时这句就报 no such column，后面的语句不会再执行。
+ * 说明只能写在这里：输出的 SQL 不能带注释（见 toConsoleStatements）。
+ */
+export const APP_DB_PROBE = "SELECT username_lc FROM users LIMIT 0;";
+/** 0001 的首句本身就是 CREATE TABLE users：temp_email 的库里已有 users，它自己会失败；且它在全新库上必须能单独执行，所以不加探测 */
+const SELF_GUARDED_FIRST_STATEMENT = "CREATE TABLE users ";
+
+function migrationStatements({ name, sql }: Migration): string[] {
+  if (!MIGRATION_NAME.test(name)) throw new Error(`迁移文件名不合规：${name}`);
+  const statements = toConsoleStatements(sql, name);
+  if (statements.length === 0) throw new Error(`${name} 里没有任何语句`);
+  return statements;
+}
+
+/** 迁移语句在前，迁移记录表在最后：误粘到别的库时失败发生在建任何表之前 */
+function withMigrationRecords(statements: string[], migrations: Migration[]): string {
+  const lines = [...statements, MIGRATIONS_TABLE_DDL];
   for (const { name } of migrations) lines.push(`INSERT INTO d1_migrations (name) VALUES ('${name}');`);
   return `${lines.join("\n")}\n`;
+}
+
+/** app-db-init.sql：全部迁移。全新 APP_DB 上 users 还不存在，不能加探测；首句 CREATE TABLE users 在 temp_email 的库上会失败 */
+export function buildConsoleSql(migrations: Migration[]): string {
+  return withMigrationRecords(migrations.flatMap(migrationStatements), migrations);
+}
+
+/** 升级时单独执行的迁移：除 0001 外，首句都是 APP_DB_PROBE */
+export function buildSingleMigrationSql(migration: Migration): string {
+  const statements = migrationStatements(migration);
+  const selfGuarded = statements[0]?.startsWith(SELF_GUARDED_FIRST_STATEMENT) === true;
+  return withMigrationRecords(selfGuarded ? statements : [APP_DB_PROBE, ...statements], [migration]);
 }
 
 export function readMigrations(dir: string): Migration[] {
@@ -203,7 +224,7 @@ function writeSql(migrations: Migration[]): void {
   const sqlDir = join(outDir, "sql");
   mkdirSync(sqlDir, { recursive: true });
   writeFileSync(join(sqlDir, "app-db-init.sql"), buildConsoleSql(migrations));
-  for (const migration of migrations) writeFileSync(join(sqlDir, migration.name), buildConsoleSql([migration]));
+  for (const migration of migrations) writeFileSync(join(sqlDir, migration.name), buildSingleMigrationSql(migration));
 }
 
 function main(): void {

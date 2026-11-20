@@ -1,6 +1,6 @@
 # 生成控制台（GUI）部署用的单文件 worker.js 与 APP_DB 的 SQL，用法见 docs/deploy-gui.md。
 # - 推送 v* 标签：构建并发布到 GitHub Releases（已有同名 Release 时覆盖附件）；
-# - 在 Actions 页手动运行：只构建，产物在本次运行的 Artifacts 里下载。
+# - 在 Actions 页手动运行（哪怕选的是 v* 标签）：只构建不发布，产物在本次运行的 Artifacts 里下载。
 # 只在 GitHub 上构建，不连接任何 Cloudflare 账号，不需要配置任何 secrets。
 
 name: Release worker.js
@@ -65,7 +65,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     permissions:

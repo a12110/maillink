@@ -120,6 +120,19 @@ describe("内嵌静态资源", () => {
     expect(post.headers.get("Allow")).toBe("GET, HEAD");
   });
 
+  it("405 也套用 _headers：页面安全头，/s/* 另带 no-store 与 noindex", async () => {
+    const page = await get("/admin", "POST");
+    expect(page.status).toBe(405);
+    expect(page.headers.get("Allow")).toBe("GET, HEAD");
+    expect(page.headers.get("Content-Security-Policy")).toBe(CSP);
+    expect(page.headers.get("X-Robots-Tag")).toBe("noarchive");
+    const share = await get("/s/token-abc", "DELETE");
+    expect(share.status).toBe(405);
+    expect(share.headers.get("Cache-Control")).toBe("no-store");
+    expect(share.headers.get("X-Robots-Tag")).toBe("noarchive, noindex, nofollow");
+    expect(share.headers.get("Content-Security-Policy")).toBe(CSP);
+  });
+
   it("_headers 本身不会被当成文件下发", async () => {
     const res = await get("/_headers");
     expect(await res.text()).toContain("<p>app</p>");
