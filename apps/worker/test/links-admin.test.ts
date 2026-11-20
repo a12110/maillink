@@ -88,7 +88,7 @@ describe("POST /api/admin/links", () => {
     expect(ok.id).toBeGreaterThan(0);
   });
 
-  it("turnstile=true：400 turnstile_not_configured（M6 之前不假装校验）", async () => {
+  it("turnstile=true 且系统未配置 Turnstile：400 turnstile_not_configured（已配置的情形见 links-pickup-integration）", async () => {
     const res = await api("/api/admin/links", { cookie, json: { mailbox_ids: [box("a@example.com")], rule_group_id: groupId, access: { turnstile: true } } });
     expect(await errorOf(res)).toEqual({ status: 400, code: "turnstile_not_configured" });
   });

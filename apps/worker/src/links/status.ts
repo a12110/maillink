@@ -5,6 +5,7 @@ import { ApiError, notFoundError } from "../errors";
 import { HTTP_SERVICE_UNAVAILABLE } from "../http-status";
 import type { MailIndexDbs } from "../mail-index";
 import { maskAddress } from "../render";
+import { loadPickupSettings } from "./pickup-settings";
 import type { LinkRequest } from "./request";
 import { deliveryQuota } from "./request";
 import type { LinkScope } from "./scope";
@@ -37,6 +38,7 @@ export async function buildPublicStatus(db: D1Database, req: LinkRequest, scope:
     visitor_registered: visitor.registered,
     requires_password: access.password_hash !== undefined,
     requires_turnstile: access.turnstile,
+    ...(await loadPickupSettings(db, access)),
     view: scope.compiled.config.present.view,
     reveal: access.reveal,
     deliveries: quota,

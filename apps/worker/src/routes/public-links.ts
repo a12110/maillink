@@ -26,13 +26,14 @@ import { claimPasswordAttempt, passwordIpBucket, releasePasswordAttempt } from "
 import type { AppEnv } from "../env";
 import { ApiError, notFoundError } from "../errors";
 import { HTTP_CONFLICT, HTTP_OK } from "../http-status";
-import { LinkDenied, denial } from "../links/guard";
+import { LinkDenied, denial, type DenyReason } from "../links/guard";
 import { deliveryQuota, loadLinkRequest, rejectWith, type LinkRequest } from "../links/request";
 import { loadLinkScope, type LinkScope } from "../links/scope";
 import { buildPublicStatus, findVisibleListItem } from "../links/status";
 import { hashLinkToken } from "../links/token";
 import { identifyVisitor, issueVisitorCookie, newVisitorValue, requireVisitor } from "../links/visitor";
 import { onError } from "../middleware/error";
+import { enforceTurnstile } from "../turnstile/verify";
 import { lockPresentedMail } from "../render";
 import { parseIdParam, parseJsonBody, parseQuery, parseWith } from "../validate";
 import { attachmentDisposition } from "./content-disposition";
@@ -92,12 +93,26 @@ async function checkPassword(c: Parameters<typeof loadLinkRequest>[0], req: Link
   await rejectWith(c, req, "bad_password", true);
 }
 
+/**
+ * 人机验证：只看链接自己的开关（enforceTurnstile 的 forced）。失败沿用 M6 的错误码原样抛出，并写 denied 日志；
+ * 此时 loadLinkRequest 已经限流，写日志不会被无限刷。放在口令占位之前，失败的请求不进 PBKDF2、不占口令名额。
+ */
+async function checkTurnstile(c: Parameters<typeof loadLinkRequest>[0], req: LinkRequest, token: string | undefined): Promise<void> {
+  try {
+    await enforceTurnstile(c, "pickup", token, { forced: req.access.turnstile });
+  } catch (error) {
+    if (error instanceof ApiError) {
+      const reason: DenyReason = error.code === "turnstile_failed" ? "turnstile_failed" : "turnstile_unavailable";
+      await insertAccessLog(c.env.APP_DB, { link_id: req.row.id, event: "denied", mail_id: null, reason, created_at: req.now, ...req.client });
+    }
+    throw error;
+  }
+}
+
 publicLinkRoutes.post("/:token/start", async (c) => {
   const req = await loadLinkRequest(c, true);
   const body = await parseJsonBody(c, linkStartRequestSchema);
   const db = c.env.APP_DB;
-  // 保存时已拒绝 turnstile=true；库里若仍出现（M6 之前），失败关闭
-  if (req.access.turnstile) await rejectWith(c, req, "turnstile_unavailable", true);
   const scope = await requireMailboxScope(c, req, true);
   const existing = await identifyVisitor(c, req.row.id);
   if (existing.registered && existing.hash !== null && existing.value !== null) {
@@ -106,6 +121,7 @@ publicLinkRoutes.post("/:token/start", async (c) => {
     await issueVisitorCookie(c, activated, existing.value, req.now);
     return c.json(await buildPublicStatus(db, { ...req, row: activated }, scope, existing), HTTP_OK);
   }
+  await checkTurnstile(c, req, body.turnstile_token);
   await checkPassword(c, req, body.password);
   const value = newVisitorValue();
   const hash = await hashLinkToken(value);

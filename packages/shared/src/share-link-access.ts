@@ -55,9 +55,11 @@ const countrySchema = z
 
 const positiveUpTo = (max: number) => z.number().int().min(1).max(max);
 
+const pollIntervalSchema = z.number().int().min(LINK_ACCESS_LIMITS.pollIntervalMinSec).max(LINK_ACCESS_LIMITS.pollIntervalMaxSec);
+
 /** 口令以外的约束（三种形态共用） */
 const commonFields = {
-  /** 人机验证；M6 接入 Turnstile 之前保存时一律拒绝 */
+  /** 人机验证；保存时要求系统 Turnstile 已启用、范围含 pickup 且密钥齐全 */
   turnstile: z.boolean().default(false),
   /** 设备数上限；1 = 首个访问者绑定；不设 = 不限 */
   max_devices: positiveUpTo(LINK_ACCESS_LIMITS.maxDevicesMax).optional(),
@@ -70,12 +72,7 @@ const commonFields = {
   ip_allow: z.array(cidrSchema).max(LINK_ACCESS_LIMITS.ipAllowMax).default([]),
   /** 允许的国家（request.cf.country）；空 = 不限 */
   country_allow: z.array(countrySchema).max(LINK_ACCESS_LIMITS.countryAllowMax).default([]),
-  poll_interval_sec: z
-    .number()
-    .int()
-    .min(LINK_ACCESS_LIMITS.pollIntervalMinSec)
-    .max(LINK_ACCESS_LIMITS.pollIntervalMaxSec)
-    .default(LINK_ACCESS_LIMITS.pollIntervalDefaultSec),
+  poll_interval_sec: pollIntervalSchema.default(LINK_ACCESS_LIMITS.pollIntervalDefaultSec),
 };
 
 /** 首尾空白去掉后再检查长度（保存与"开始取码"用同一个 schema，两边口径一致） */
@@ -87,10 +84,12 @@ export const linkPasswordSchema = z
 
 /**
  * 接口入参。`password`：不给 = 保持原口令（创建时即无口令）；null = 清除；字符串 = 设为新口令（服务端哈希）。
+ * `poll_interval_sec` 不给 = 用系统设置 links.default_poll_interval_sec（服务端补，所以这里不带默认值）。
  */
 export const linkAccessInputSchema = z.strictObject({
   password: linkPasswordSchema.nullable().optional(),
   ...commonFields,
+  poll_interval_sec: pollIntervalSchema.optional(),
 });
 export type LinkAccessInput = z.input<typeof linkAccessInputSchema>;
 export type LinkAccessInputParsed = z.output<typeof linkAccessInputSchema>;
