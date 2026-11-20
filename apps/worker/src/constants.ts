@@ -145,6 +145,76 @@ export const ADMIN_DETAIL_BODY_CAP_BYTES = 262_144;
  */
 export const IMPORTED_SCOPE_MAX_ADDRESSES = 10_000;
 
+// ---- 用户授权与收件箱（M4） ----
+
+// 批量授权的上限（定义在 shared，zod schema 要用），业务代码统一从这里取
+export {
+  GRANT_BATCH_MAX_MAILBOXES,
+  GRANT_BATCH_MAX_PAIRS,
+  GRANT_BATCH_MAX_USERS,
+} from "@maillink/shared";
+
+/**
+ * "全部"邮件一次最多合并的作用域数（同规则组、同时间下界的授权合成一个；设了 max_mails 的授权各占一个）。
+ * 作用域顺序扫描，共用一份解析预算，所以一次请求的工作量上界是：
+ *   - 现场解析 ≤ MAX_PARSE_PER_REQUEST 封（与单个作用域相同，不随作用域数放大）；
+ *   - 扫描候选行 ≤ ME_ALL_MAX_SCOPES × SCAN_CAP_PER_REQUEST（最坏情况：每个作用域都扫满上限仍凑不够一页）。
+ * 超出作用域数时明确拒绝，让用户改选具体邮箱，不静默截断。
+ */
+export const ME_ALL_MAX_SCOPES = 20;
+// ---- 取件链接（M3b-2） ----
+
+/** token_hint 的长度（token 前几位，列表里辨认用） */
+export const LINK_TOKEN_HINT_LENGTH = 6;
+
+/** token_enc 的 AES-GCM IV 长度（字节） */
+export const LINK_TOKEN_IV_BYTES = 12;
+
+/** 公开取件页路径前缀：完整链接 = PUBLIC_ORIGIN + 前缀 + token */
+export const LINK_PUBLIC_PATH_PREFIX = "/s/";
+
+/** 访客 Cookie：名字 = 前缀 + 链接 id；值是随机串，库里只存 SHA-256 */
+export const LINK_VISITOR_COOKIE_PREFIX = "mlv_";
+export const LINK_VISITOR_COOKIE_PATH = "/api/s/";
+export const LINK_VISITOR_ID_BYTES = 32;
+
+/** 链接没有任何过期时间时访客 Cookie 的有效期：180 天（有过期时间时取剩余有效期，两者取小） */
+export const LINK_VISITOR_COOKIE_MAX_SEC = 180 * SECONDS_PER_DAY;
+
+/** 每日取码上限的滚动窗口（02 §6：滚动 24 小时） */
+export const LINK_DELIVERY_WINDOW_SEC = SECONDS_PER_DAY;
+
+/** 访问口令错误次数上限：同一链接 + 同一 IP 在窗口内错满即锁定到窗口滚过 */
+export const LINK_PASSWORD_MAX_FAILURES = 5;
+export const LINK_PASSWORD_FAILURE_WINDOW_SEC = 15 * 60;
+
+/** 按链接的全局上限：同一链接在窗口内累计这么多次口令错误后，对所有新设备锁定（已登记设备 start 时不再要口令） */
+export const LINK_PASSWORD_MAX_FAILURES_PER_LINK = 20;
+
+/** 口令错误按 IP 计数时 IPv6 合并到的网段字节数：8 字节 = /64（一个用户通常拿到整个 /64） */
+export const LINK_PASSWORD_IPV6_BUCKET_BYTES = 8;
+
+/** 拿不到来源 IP 时共用的计数桶 */
+export const LINK_PASSWORD_UNKNOWN_IP_BUCKET = "unknown";
+
+/** 访客 Cookie 名里 HMAC(链接 id) 的 base64url 字符数（16 字符 = 96 位，不可枚举、不暴露自增 id） */
+export const LINK_VISITOR_COOKIE_NAME_CHARS = 16;
+
+/** 批量创建链接时单个 JSON 参数的字节上限（D1 单个值上限 2 MB，留一半余量）；超出说明调用方没控制好批量大小，直接报错 */
+export const LINK_INSERT_PAYLOAD_MAX_BYTES = 1_000_000;
+
+/**
+ * 链接列表的异常标记（06 §7"设备数、国家数异常的行做标记"）：
+ *   - device_limit_reached：设了 max_devices 且已登记设备数达到上限；
+ *   - multi_country：已登记设备来自的不同国家数 ≥ 这个阈值。
+ */
+export const LINK_ANOMALY_COUNTRY_THRESHOLD = 2;
+
+/** 访问日志与设备记录里 user_agent 的最大长度 */
+export const LINK_USER_AGENT_MAX_LENGTH = 255;
+
+/** 管理员预览里 visitor_hash 显示的前几位 */
+export const LINK_VISITOR_HINT_LENGTH = 8;
 // ---- 两步验证、通行密钥、OAuth（M5） ----
 
 // 前后端共用的认证输入上限定义在 packages/shared/src/auth-limits.ts
@@ -340,3 +410,22 @@ export const CRON_SETTING_KEYS = {
 
 /** last_run.error 的长度上限 */
 export const CRON_ERROR_MAX_LENGTH = 1000;
+
+// ---- 系统设置、注册与 Turnstile（M6） ----
+
+export { TURNSTILE_TOKEN_MAX_LENGTH } from "@maillink/shared";
+
+/** Cloudflare Turnstile 服务端校验端点（固定地址，不来自任何配置） */
+export const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+/** 校验请求的超时与响应体上限 */
+export const TURNSTILE_FETCH_TIMEOUT_MS = 5000;
+export const TURNSTILE_FETCH_MAX_BYTES = 16_384;
+
+/** 取件链接默认轮询间隔（秒）的设置默认值 */
+export const LINK_DEFAULT_POLL_INTERVAL_SEC = 30;
+
+/** 审计里记录设置变更时，超过这个长度的字符串（如 data URI Logo）只记长度 */
+export const SETTINGS_AUDIT_VALUE_MAX_LENGTH = 256;
+
+/** links.default_expires_in_days 换算成秒的单位（一天） */
+export const LINK_DEFAULT_EXPIRES_UNIT_SEC = SECONDS_PER_DAY;

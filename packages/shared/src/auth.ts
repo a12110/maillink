@@ -47,15 +47,6 @@ export const publicOAuthProviderSchema = z.object({
 });
 export type PublicOAuthProvider = z.infer<typeof publicOAuthProviderSchema>;
 
-export const publicConfigSchema = z.object({
-  site_name: z.string(),
-  registration_enabled: z.boolean(),
-  login_methods: z.array(loginMethodSchema),
-  /** 已启用的提供方，按 sort 排序；login_methods 不含 oauth 时为空 */
-  oauth_providers: z.array(publicOAuthProviderSchema),
-});
-export type PublicConfig = z.infer<typeof publicConfigSchema>;
-
 export const setupStatusSchema = z.object({ needs_setup: z.boolean() });
 export type SetupStatus = z.infer<typeof setupStatusSchema>;
 
@@ -68,9 +59,15 @@ export type SetupRequest = z.infer<typeof setupRequestSchema>;
 
 // ---- 认证 ----
 
+/** Cloudflare 文档给出的 Turnstile token 长度上限 */
+export const TURNSTILE_TOKEN_MAX_LENGTH = 2048;
+export const turnstileTokenSchema = z.string().min(1).max(TURNSTILE_TOKEN_MAX_LENGTH);
+
 export const loginRequestSchema = z.object({
   username: z.string().min(1, "请输入用户名").max(USERNAME_MAX_LENGTH),
   password: existingPasswordSchema,
+  /** 系统开启登录人机验证时必填 */
+  turnstile_token: turnstileTokenSchema.optional(),
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 
@@ -108,5 +105,11 @@ export const sessionResponseSchema = z.object({
   auth_methods: z.array(z.string()),
   /** 绝对过期时间（Unix 秒） */
   expires_at: z.number().int(),
+  /**
+   * 服务端总会带出。true = 系统要求管理员启用两步验证，而本会话是管理员、未启用 TOTP 且不是通行密钥登录：
+   * 访问 /api/admin/* 会得到 403 admin_2fa_required，前端应引导去账号安全页启用。
+   * 声明为可选只是为了不破坏已有的前端测试夹具。
+   */
+  admin_2fa_required: z.boolean().optional(),
 });
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;

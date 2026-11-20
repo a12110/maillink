@@ -14,6 +14,8 @@ import { utf8 } from "./crypto";
 export const KEY_PURPOSES = {
   passwordPepper: "password-pepper",
   sessionPublicId: "session-public-id",
+  linkToken: "link-token",
+  linkVisitorCookie: "link-visitor-cookie",
   /** AES-GCM：users.totp_secret_enc */
   totpSecret: "totp-secret",
   /** HMAC：恢复码的库内摘要 */
@@ -24,6 +26,8 @@ export const KEY_PURPOSES = {
   encryptedCookie: "encrypted-cookie",
   /** AES-GCM：oauth_providers.client_secret_enc */
   oauthClientSecret: "oauth-client-secret",
+  /** AES-GCM：settings 表里的 turnstile.secret_enc */
+  turnstileSecret: "turnstile-secret",
   /** HMAC：WebAuthn user handle（不把用户 id 直接交给认证器） */
   passkeyUserHandle: "passkey-user-handle",
 } as const;

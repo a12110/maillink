@@ -61,9 +61,16 @@ describe("公开接口", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       site_name: "MailLink",
+      site_logo: "",
+      site_description: "",
+      site_footer: "",
+      login_notice: "",
+      pickup_notice: "",
+      appearance: { preset: "default", accent: "#c8432b", mode: "system", radius: "4" },
       registration_enabled: false,
       login_methods: ["password", "passkey"],
       oauth_providers: [],
+      turnstile: { enabled: false, site_key: "", scopes: ["login", "register", "pickup"] },
     });
   });
 
@@ -71,7 +78,7 @@ describe("公开接口", () => {
     await env.APP_DB
       .prepare("INSERT INTO settings (key, value, updated_at) VALUES ('site.name', '\"我的站点\"', 1), ('registration.enabled', 'true', 1)")
       .run();
-    expect(await (await api("/api/public/config")).json()).toEqual({
+    expect(await (await api("/api/public/config")).json()).toMatchObject({
       site_name: "我的站点",
       registration_enabled: true,
       login_methods: ["password", "passkey"],

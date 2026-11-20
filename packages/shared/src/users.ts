@@ -4,6 +4,7 @@ import {
   newPasswordSchema,
   userRoleSchema,
   userStatusSchema,
+  turnstileTokenSchema,
   usernameSchema,
 } from "./auth";
 import {
@@ -148,3 +149,12 @@ export const adminSessionsRevokedSchema = z.object({
   status: z.literal("ok"),
   revoked: z.number().int(),
 });
+
+/** POST /api/auth/register：只要用户名和密码，邮箱可选且不验证（空串视为没填）；系统开启注册人机验证时带 turnstile_token */
+export const registerRequestSchema = z.object({
+  username: usernameSchema,
+  password: newPasswordSchema,
+  email: optionalEmailSchema.optional(),
+  turnstile_token: turnstileTokenSchema.optional(),
+});
+export type RegisterRequest = z.input<typeof registerRequestSchema>;

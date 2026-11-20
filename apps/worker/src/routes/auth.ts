@@ -2,9 +2,11 @@ import { Hono } from "hono";
 import { loginRequestSchema, mfaRecoveryRequestSchema, mfaTotpRequestSchema } from "@maillink/shared";
 import type { LoginResponse, OkResponse, SessionResponse } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
+import { adminTwoFactorMissing } from "../auth/admin-2fa";
+import { requireLoginMethod } from "../auth/login-method-gate";
 import { completeSecondFactor, issuePendingAuth } from "../auth/mfa";
 import { burnPasswordCheck, verifyPassword } from "../auth/password";
-import { endSession, startSession } from "../auth/session";
+import { endSession, sessionLimits, startSession } from "../auth/session";
 import { recoveryFactor, totpFactor } from "../auth/second-factors";
 import { nowSec } from "../clock";
 import { findUserByUsername, touchLastLogin } from "../db/users";
@@ -12,20 +14,26 @@ import type { UserRow } from "../db/users";
 import type { AppEnv } from "../env";
 import { ApiError } from "../errors";
 import { requireUser } from "../middleware/auth";
+import { enforceTurnstile } from "../turnstile/verify";
 import { parseJsonBody } from "../validate";
 import { HTTP_UNAUTHORIZED } from "../http-status";
 import { authOAuthRoutes } from "./auth-oauth";
 import { authPasskeyRoutes } from "./auth-passkey";
+import { authRegisterRoutes } from "./auth-register";
 
 type LoginFailure = "unknown_user" | "no_password" | "bad_password" | "disabled";
 
 export const authRoutes = new Hono<AppEnv>();
 authRoutes.route("/passkey", authPasskeyRoutes);
 authRoutes.route("/oauth", authOAuthRoutes);
+authRoutes.route("/register", authRegisterRoutes);
 
 authRoutes.post("/login", async (c) => {
   const body = await parseJsonBody(c, loginRequestSchema);
   const db = c.env.APP_DB;
+  // 设置关闭密码登录时直接拒绝；人机验证在哈希计算之前，机器人不会消耗 CPU
+  await requireLoginMethod(db, "password");
+  await enforceTurnstile(c, "login", body.turnstile_token);
   const user = await findUserByUsername(db, body.username);
 
   // 无论用户是否存在都做一次等量的哈希计算，响应耗时不泄露用户名是否存在
@@ -92,7 +100,7 @@ authRoutes.post("/logout", async (c) => {
   return c.json(response);
 });
 
-authRoutes.get("/session", requireUser, (c) => {
+authRoutes.get("/session", requireUser, async (c) => {
   const { user, session } = c.var.auth;
   const response: SessionResponse = {
     user: {
@@ -103,7 +111,9 @@ authRoutes.get("/session", requireUser, (c) => {
       role: user.role,
     },
     auth_methods: session.authMethods,
-    expires_at: session.expiresAt,
+    // 管理员缩短绝对时长后，已有会话实际到期时间以"创建时间 + 当前设置"为准（与 sessionExpired 一致）
+    expires_at: Math.min(session.expiresAt, session.createdAt + (await sessionLimits(c.env.APP_DB)).absoluteSec),
+    admin_2fa_required: await adminTwoFactorMissing(c.env.APP_DB, c.var.auth),
   };
   return c.json(response);
 });
