@@ -2,7 +2,7 @@ import { SCAN_CAP_PER_REQUEST } from "../constants";
 import type { MailIndexDbs } from "../mail-index";
 import { listCandidates } from "../mail-source";
 import { limitToNewest, type CompiledRuleGroup } from "../rules";
-import { scanVisible, type ScanResult, type VisibleEntry } from "./scan";
+import { scanVisible, type ParseBudget, type ScanResult, type VisibleEntry } from "./scan";
 
 // limits.max_mails（02 §3.1"过滤后只保留最新的 N 封，没有更多分页"）的唯一判定：
 // 从新到旧扫描凑够 N 封可见邮件，再按 limitToNewest（received_at 降序、同秒 mail_id 降序，与测试器同一口径）截取。
@@ -16,6 +16,7 @@ export async function scanNewestVisible(
   compiled: CompiledRuleGroup,
   lowerBound: number | null,
   maxMails: number,
+  parseBudget?: ParseBudget,
 ): Promise<NewestVisible> {
   const scan = await scanVisible(
     dbs,
@@ -23,6 +24,7 @@ export async function scanNewestVisible(
     lowerBound,
     (last, limit) => listCandidates(dbs.MAIL_DB, { addresses, since: lowerBound, beforeId: last, limit }),
     Math.min(maxMails, SCAN_CAP_PER_REQUEST),
+    parseBudget,
   );
   return { entries: limitToNewest(scan.visible, maxMails), scan };
 }

@@ -15,6 +15,12 @@ export type VisibleEntry = { mail_id: number; received_at: number; facts: MailFa
 /** 取下一批候选：afterCursor 为上一批最后一封的 id（首批为 null），返回按扫描方向排好序的候选 */
 export type FetchBatch = (afterCursor: number | null, limit: number) => Promise<MailCandidate[]>;
 
+/**
+ * 解析预算：一次请求里可以现场解析的邮件数，剩余量随解析递减。
+ * 一次请求要扫描多个作用域时（用户收件箱的"全部"），各作用域共用同一个，总解析量不随作用域数放大。
+ */
+export type ParseBudget = { remaining: number };
+
 export type ScanResult = {
   visible: VisibleEntry[];
   /** 按扫描顺序第一封未就绪的邮件；有它时 partial */
@@ -27,7 +33,7 @@ export type ScanResult = {
   exhausted: boolean;
 };
 
-type ScanState = ScanResult & { scanned: number; parseBudget: number };
+type ScanState = ScanResult & { scanned: number; parseBudget: ParseBudget };
 
 export async function scanVisible(
   dbs: MailIndexDbs,
@@ -35,6 +41,7 @@ export async function scanVisible(
   lowerBound: number | null,
   fetch: FetchBatch,
   target: number,
+  parseBudget: ParseBudget = { remaining: MAX_PARSE_PER_REQUEST },
 ): Promise<ScanResult> {
   const state: ScanState = {
     visible: [],
@@ -43,7 +50,7 @@ export async function scanVisible(
     lastScannedId: null,
     exhausted: false,
     scanned: 0,
-    parseBudget: MAX_PARSE_PER_REQUEST,
+    parseBudget,
   };
   while (state.visible.length < target && state.scanned < SCAN_CAP_PER_REQUEST) {
     const limit = Math.min(LIST_PAGE_SIZE, SCAN_CAP_PER_REQUEST - state.scanned);
@@ -73,8 +80,8 @@ async function processBatch(
   target: number,
   state: ScanState,
 ): Promise<boolean> {
-  const built = await getOrBuild(dbs, batch, { maxParse: state.parseBudget });
-  state.parseBudget -= built.attempted;
+  const built = await getOrBuild(dbs, batch, { maxParse: state.parseBudget.remaining });
+  state.parseBudget.remaining -= built.attempted;
   const items = new Map(built.items.map((item) => [item.candidate.id, item]));
   for (const candidate of batch) {
     state.scanned += 1;

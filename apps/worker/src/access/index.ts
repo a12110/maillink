@@ -11,5 +11,6 @@ export {
   type EffectivePolicy,
 } from "./policy";
 export { listVisibleMails, type ListVisibleOptions } from "./list";
+export type { ParseBudget } from "./scan";
 export { getVisibleAttachment, getVisibleMailDetail, type DetailOptions, type VisibleAttachment } from "./detail";
 export { testRuleGroup, type TestOptions, type TestResult, type TestTargets } from "./tester";

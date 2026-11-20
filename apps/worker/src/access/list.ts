@@ -6,7 +6,7 @@ import { presentListItem } from "../render";
 import { limitToNewest, type CompiledRuleGroup } from "../rules";
 import { effectivePolicy, type AccessScope } from "./policy";
 import { scanNewestVisible } from "./newest";
-import { scanVisible, type FetchBatch, type ScanResult, type VisibleEntry } from "./scan";
+import { scanVisible, type FetchBatch, type ParseBudget, type ScanResult, type VisibleEntry } from "./scan";
 
 // 邮件列表（02 §5）：时间下界 + 地址 + 游标下推 → getOrBuild → 状态分流 → evaluate → 循环 → max_mails → present。
 //
@@ -23,6 +23,8 @@ export type ListVisibleOptions = {
   afterId?: number;
   /** 当前时间，Unix 秒 */
   now: number;
+  /** 可选：与同一请求里的其他作用域共用的解析预算；不给时本次调用独享 MAX_PARSE_PER_REQUEST */
+  parseBudget?: ParseBudget;
 };
 
 const CURSOR_PATTERN = /^[1-9]\d{0,14}$/u;
@@ -54,14 +56,14 @@ export async function listVisibleMails(
   const empty: VisibleMailListResponse = { items: [], next_cursor: null, partial: false, next_after_id: options.afterId ?? null };
   if (scope.addresses.length === 0 || (maxMails !== undefined && beforeId !== null)) return empty;
   if (maxMails !== undefined) {
-    const { entries, scan } = await scanNewestVisible(dbs, scope.addresses, compiled, lowerBound, maxMails);
+    const { entries, scan } = await scanNewestVisible(dbs, scope.addresses, compiled, lowerBound, maxMails, options.parseBudget);
     const afterId = options.afterId ?? 0;
     const items = present(compiled, entries.filter((entry) => entry.mail_id > afterId));
     return { items, next_cursor: null, partial: scan.pending !== null, next_after_id: firstPageWatermark(scan, null) };
   }
 
   const fetch = batchFetcher(dbs, scope.addresses, lowerBound, options.afterId, beforeId);
-  const scan = await scanVisible(dbs, compiled, lowerBound, fetch, LIST_PAGE_SIZE);
+  const scan = await scanVisible(dbs, compiled, lowerBound, fetch, LIST_PAGE_SIZE, options.parseBudget);
   const items = present(compiled, limitToNewest(scan.visible, undefined));
   const partial = scan.pending !== null;
   if (options.afterId !== undefined) {
