@@ -36,7 +36,7 @@ const MAILBOX = (id: number, address: string) => ({
 async function open() {
   const server = installFakeFetch({
     "GET /api/admin/grants": { json: { items: GRANTS, next_cursor: null } },
-    "GET /api/admin/mailboxes": { json: { items: [MAILBOX(1, "a@x.com"), MAILBOX(3, "c@x.com"), MAILBOX(4, "d@x.com")], next_cursor: null, total: 3 } },
+    "GET /api/admin/mailboxes": { json: { items: [MAILBOX(1, "a@x.com"), MAILBOX(3, "c@x.com"), MAILBOX(4, "d@x.com")], next_cursor: null, total: 3, active_count: 3, disabled_count: 0 } },
     "GET /api/admin/rule-groups": {
       json: {
         items: [

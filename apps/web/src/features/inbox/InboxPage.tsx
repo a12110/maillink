@@ -125,7 +125,7 @@ function Workspace({ mailboxes }: { mailboxes: readonly MyMailbox[] }) {
         <div className="mail-split">
           <section className="mail-list-col" aria-label="邮件列表">
             <div className="panel">
-              <InboxList state={state} scope={scope} mailboxes={mailboxes} selectedId={selectedId} nowSec={nowSec}
+              <InboxList state={state} scope={scope} selectedId={selectedId} nowSec={nowSec}
                 onSelect={select} onLoadMore={() => store.loadMore()} onRetry={() => store.retry()} />
             </div>
           </section>

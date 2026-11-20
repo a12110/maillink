@@ -1,4 +1,4 @@
-import type { MyMailbox, PresentedMail, ViewMode } from "@maillink/shared";
+import type { MyMailbox, MyMailListItem, PresentedMail, ViewMode } from "@maillink/shared";
 import { formatSender, isHttpUrl } from "../mail";
 
 /** 邮箱切换的选择：`all` 或某个收件地址 id（`mailbox_id` 参数） */
@@ -44,22 +44,17 @@ export function viewHasDetail(view: ViewMode | null): boolean {
   return view === "full" || view === "text";
 }
 
-/** 验证码卡片：只有 code_only 视图的条目带 code / login_link，且没有主题 */
-export function isCodeItem(mail: PresentedMail): boolean {
-  return mail.code !== undefined || mail.login_link !== undefined;
+/**
+ * 验证码卡片：条目所属授权的视图是 code_only（列表项自带 view，“全部”里各封各按自己的授权）。
+ * 点击取码方式下尚未显示的条目（locked）没有验证码，按普通只读行显示。
+ */
+export function isCodeItem(mail: MyMailListItem): boolean {
+  return mail.view === "code_only" && mail.locked !== true;
 }
 
-/**
- * 这封邮件能不能打开详情。单个邮箱按它的视图；“全部”里条目不带视图：
- * 能从完整收件地址对上邮箱就按那个邮箱，对不上就只要有任何一个可看详情的邮箱就放行（点进去若 404，详情页会说明）。
- */
-export function canOpenDetail(mail: PresentedMail, scope: InboxScope, mailboxes: readonly MyMailbox[]): boolean {
-  if (isCodeItem(mail) || mail.locked === true) return false;
-  if (scope.kind === "mailbox") return viewHasDetail(scope.mailbox.view);
-  if (scope.kind === "missing") return false;
-  const byAddress = mail.recipient === undefined ? undefined : mailboxes.find((m) => m.available && m.address === mail.recipient);
-  if (byAddress) return viewHasDetail(byAddress.view);
-  return mailboxes.some((m) => m.available && viewHasDetail(m.view));
+/** 这封邮件能不能打开详情：只看条目自带的 view（full / text 才有详情），locked 的不行 */
+export function canOpenDetail(mail: MyMailListItem): boolean {
+  return mail.locked !== true && viewHasDetail(mail.view);
 }
 
 /** 邮件详情接口的 `mailbox_id`：单个邮箱时带上，“全部”不带（后端按邮件自己的收件地址定位授权） */

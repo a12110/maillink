@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MyMailbox, PresentedMail } from "@maillink/shared";
+import type { MyMailbox, MyMailListItem } from "@maillink/shared";
 import {
   buildOptions,
   canOpenDetail,
@@ -27,8 +27,8 @@ const HIDDEN = box(4, { address: null, recipient: "hidden", view: "text" });
 const BROKEN = box(5, { address: null, label: null, recipient: null, view: null, available: false });
 const ALL = [FULL, CODE_ONLY, META_ONLY, HIDDEN, BROKEN];
 
-const row: PresentedMail = { id: 1, received_at: 1, subject: "你好", sender: { name: "X" } };
-const card: PresentedMail = { id: 2, received_at: 1, code: "123456" };
+const row: MyMailListItem = { id: 1, received_at: 1, subject: "你好", sender: { name: "X" }, mailbox_id: 1, view: "full" };
+const card: MyMailListItem = { id: 2, received_at: 1, code: "123456", mailbox_id: 2, view: "code_only" };
 
 describe("邮箱切换的选项", () => {
   it("第一项是“全部”（只数可用的），不可用的灰显并提示联系管理员，地址隐藏的写“地址已隐藏”", () => {
@@ -77,28 +77,26 @@ describe("详情入口：code_only / meta_only 没有", () => {
     expect(viewHasDetail(null)).toBe(false);
   });
 
-  it("单个邮箱按它的视图", () => {
-    expect(canOpenDetail(row, { kind: "mailbox", mailbox: FULL }, ALL)).toBe(true);
-    expect(canOpenDetail(row, { kind: "mailbox", mailbox: META_ONLY }, ALL)).toBe(false);
-    expect(canOpenDetail(card, { kind: "mailbox", mailbox: CODE_ONLY }, ALL)).toBe(false);
+  it("只看条目自带的 view：full / text 有详情，code_only / meta_only 没有（“全部”里各按各的授权，不再按地址猜）", () => {
+    expect(canOpenDetail({ ...row, view: "full" })).toBe(true);
+    expect(canOpenDetail({ ...row, view: "text" })).toBe(true);
+    expect(canOpenDetail({ ...row, view: "meta_only" })).toBe(false);
+    expect(canOpenDetail({ ...card, view: "code_only" })).toBe(false);
+    // 收件地址显示的是另一个邮箱也不影响：以 view 为准
+    expect(canOpenDetail({ ...row, recipient: "a3@x.com", view: "full" })).toBe(true);
   });
 
-  it("验证码条目与 locked 条目永远没有详情入口", () => {
-    expect(canOpenDetail(card, { kind: "all" }, ALL)).toBe(false);
-    expect(canOpenDetail({ id: 3, received_at: 1, locked: true }, { kind: "all" }, ALL)).toBe(false);
+  it("locked 条目永远没有详情入口", () => {
+    expect(canOpenDetail({ id: 3, received_at: 1, locked: true, mailbox_id: 1, view: "full" })).toBe(false);
   });
 
-  it("“全部”里能用完整收件地址对上邮箱就按那个邮箱；对不上时只要有能看详情的邮箱就放行", () => {
-    const toMeta: PresentedMail = { ...row, recipient: "a3@x.com" };
-    expect(canOpenDetail(toMeta, { kind: "all" }, ALL)).toBe(false);
-    expect(canOpenDetail(row, { kind: "all" }, ALL)).toBe(true);
-    expect(canOpenDetail(row, { kind: "all" }, [CODE_ONLY, META_ONLY])).toBe(false);
-  });
-
-  it("条目形态：带 code 或 login_link 才是验证码卡片", () => {
+  it("验证码卡片：view 为 code_only 且未 locked（即使这封没提取到验证码）", () => {
     expect(isCodeItem(card)).toBe(true);
-    expect(isCodeItem({ id: 4, received_at: 1, login_link: "https://a.example/x" })).toBe(true);
+    expect(isCodeItem({ id: 4, received_at: 1, mailbox_id: 2, view: "code_only", login_link: "https://a.example/x" })).toBe(true);
+    expect(isCodeItem({ id: 5, received_at: 1, mailbox_id: 2, view: "code_only" })).toBe(true);
+    expect(isCodeItem({ id: 6, received_at: 1, mailbox_id: 2, view: "code_only", locked: true })).toBe(false);
     expect(isCodeItem(row)).toBe(false);
+    expect(isCodeItem({ ...row, code: "123456" })).toBe(false);
   });
 });
 
