@@ -3,13 +3,14 @@ import type { ReactNode } from "react";
 import type { LinkDeliveryQuota, PresentedMail } from "@maillink/shared";
 import { PICKUP_OLDER_CODES_SHOWN, PICKUP_STALE_CODE_SEC } from "../../constants";
 
-const SEC_PER_MINUTE = 60;
 import { PickupBar, PickupMain } from "../../shell/PickupShell";
 import { Button, Tag } from "../../ui";
 import { isHttpUrl } from "../mail";
 import type { ExhaustedKind } from "./mail-model";
 import { kindOf, linkDomain, originOf, quotaLines, remainingSuffix, speakCode } from "./mail-model";
 import { formatAgo, isStale } from "./time";
+
+const SEC_PER_MINUTE = 60;
 
 type Actions = {
   copy: (text: string, doneMessage: string) => Promise<void>;

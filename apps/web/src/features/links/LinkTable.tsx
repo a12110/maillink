@@ -113,7 +113,7 @@ function TableHead({ allChecked, onToggleAll }: { allChecked: boolean; onToggleA
           <th>状态</th>
           <th className="col-secondary">过期时间</th>
           <th className="col-optional col-num">设备数</th>
-          <th className="col-optional col-num">24h 取码</th>
+          <th className="col-optional col-num" title="近 24 小时取码数">24h</th>
           <th className="col-secondary">最近访问</th>
           <th>
             <span className="sr-only">操作</span>
