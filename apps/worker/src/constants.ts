@@ -144,3 +144,42 @@ export const ADMIN_DETAIL_BODY_CAP_BYTES = 262_144;
  * 1 万个地址约 0.8 MB，留足余量。超出时明确报错，不静默截断。
  */
 export const IMPORTED_SCOPE_MAX_ADDRESSES = 10_000;
+
+// ---- 取件链接（M3b-2） ----
+
+/** token_hint 的长度（token 前几位，列表里辨认用） */
+export const LINK_TOKEN_HINT_LENGTH = 6;
+
+/** token_enc 的 AES-GCM IV 长度（字节） */
+export const LINK_TOKEN_IV_BYTES = 12;
+
+/** 公开取件页路径前缀：完整链接 = PUBLIC_ORIGIN + 前缀 + token */
+export const LINK_PUBLIC_PATH_PREFIX = "/s/";
+
+/** 访客 Cookie：名字 = 前缀 + 链接 id；值是随机串，库里只存 SHA-256 */
+export const LINK_VISITOR_COOKIE_PREFIX = "mlv_";
+export const LINK_VISITOR_COOKIE_PATH = "/api/s/";
+export const LINK_VISITOR_ID_BYTES = 32;
+
+/** 链接没有任何过期时间时访客 Cookie 的有效期：180 天（有过期时间时取剩余有效期，两者取小） */
+export const LINK_VISITOR_COOKIE_MAX_SEC = 180 * SECONDS_PER_DAY;
+
+/** 每日取码上限的滚动窗口（02 §6：滚动 24 小时） */
+export const LINK_DELIVERY_WINDOW_SEC = SECONDS_PER_DAY;
+
+/** 访问口令错误次数上限：同一链接 + 同一 IP 在窗口内错满即锁定到窗口滚过 */
+export const LINK_PASSWORD_MAX_FAILURES = 5;
+export const LINK_PASSWORD_FAILURE_WINDOW_SEC = 15 * 60;
+
+/**
+ * 链接列表的异常标记（06 §7"设备数、国家数异常的行做标记"）：
+ *   - device_limit_reached：设了 max_devices 且已登记设备数达到上限；
+ *   - multi_country：已登记设备来自的不同国家数 ≥ 这个阈值。
+ */
+export const LINK_ANOMALY_COUNTRY_THRESHOLD = 2;
+
+/** 访问日志与设备记录里 user_agent 的最大长度 */
+export const LINK_USER_AGENT_MAX_LENGTH = 255;
+
+/** 管理员预览里 visitor_hash 显示的前几位 */
+export const LINK_VISITOR_HINT_LENGTH = 8;

@@ -3,6 +3,8 @@ import type { AppEnv } from "./env";
 import { requireAdmin } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
+import { adminLinkOpsRoutes } from "./routes/admin-link-ops";
+import { adminLinkRoutes } from "./routes/admin-links";
 import { adminMailboxRoutes } from "./routes/admin-mailboxes";
 import { adminMailRoutes } from "./routes/admin-mails";
 import { adminRuleGroupRoutes } from "./routes/admin-rule-groups";
@@ -11,6 +13,7 @@ import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
 import { meRoutes } from "./routes/me";
 import { publicRoutes } from "./routes/public";
+import { publicLinkRoutes } from "./routes/public-links";
 import { setupRoutes } from "./routes/setup";
 
 export const app = new Hono<AppEnv>();
@@ -32,6 +35,10 @@ app.route("/api/admin/system", adminSystemRoutes);
 app.route("/api/admin/mails", adminMailRoutes);
 app.route("/api/admin/mailboxes", adminMailboxRoutes);
 app.route("/api/admin/rule-groups", adminRuleGroupRoutes);
+app.route("/api/admin/links", adminLinkOpsRoutes);
+app.route("/api/admin/links", adminLinkRoutes);
+// 公开取件接口：链接 token 鉴权（外加访客 Cookie），写操作同样经过上面的 CSRF 检查
+app.route("/api/s", publicLinkRoutes);
 
 export default {
   fetch: app.fetch,

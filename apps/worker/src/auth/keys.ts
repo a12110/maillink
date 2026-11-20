@@ -14,6 +14,7 @@ import { utf8 } from "./crypto";
 export const KEY_PURPOSES = {
   passwordPepper: "password-pepper",
   sessionPublicId: "session-public-id",
+  linkToken: "link-token",
 } as const;
 export type KeyPurpose = (typeof KEY_PURPOSES)[keyof typeof KEY_PURPOSES];
 

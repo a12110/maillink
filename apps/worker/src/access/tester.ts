@@ -2,7 +2,7 @@ import type { RuleEvaluation, RuleGroupTestItem } from "@maillink/shared";
 import { getOrBuild, type IndexedItem, type MailIndexDbs } from "../mail-index";
 import { getCandidatesByIds, listCandidates } from "../mail-source";
 import { presentListItem } from "../render";
-import { computeTimeLowerBound, limitToNewest, type CompiledRuleGroup } from "../rules";
+import { computeTimeLowerBound, limitToNewest, type CompiledRuleGroup, type TimeAnchors } from "../rules";
 import { evaluateIndexed } from "./policy";
 
 // 规则测试器（02 §8）：用未保存的配置对最近 N 封邮件试跑，逐封给出结果、原因、命中规则与访问者视角的预览。
@@ -16,12 +16,15 @@ export type TestOptions = {
   now: number;
   /** 模拟链接 / 授权的创建与首次访问时间；不给时按"刚创建、尚未激活"计算 */
   anchorAt?: number;
+  /** 真实主体的锚点（管理员预览链接时用）；给了就忽略 anchorAt */
+  anchors?: TimeAnchors;
   limit: number;
 };
 
 export type TestResult = { items: RuleGroupTestItem[]; partial: boolean; time_lower_bound: number | null };
 
 function testLowerBound(compiled: CompiledRuleGroup, options: TestOptions): number | null {
+  if (options.anchors !== undefined) return computeTimeLowerBound(compiled.config.time, options.anchors, options.now);
   const anchors =
     options.anchorAt === undefined
       ? { created_at: options.now, first_access_at: null, anchor_reset_at: null }
