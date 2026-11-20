@@ -18,7 +18,6 @@ const e2eDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(e2eDir, "../..");
 const workerDir = join(repoRoot, "apps/worker");
 const wranglerBin = join(workerDir, "node_modules/.bin/wrangler");
-const hookPath = join(e2eDir, "scripts/persist-to-hook.ts");
 
 function requireSchemaPath(): string {
   const schema = process.env["TEMP_EMAIL_SCHEMA"];
@@ -50,9 +49,9 @@ function prepare(dataDir: string, schemaPath: string, logFile: string): void {
   step("构建前端（pnpm --filter web build）", logFile, "pnpm", ["--filter", "web", "build"], { cwd: repoRoot });
   // 只迁移 APP_DB；MAIL_DB 由种子脚本建表
   step("迁移 APP_DB", logFile, wranglerBin, ["d1", "migrations", "apply", "APP_DB", "--local", "--persist-to", dataDir], { cwd: workerDir });
-  step("灌 MAIL_DB 种子", logFile, process.execPath, ["--import", hookPath, join(workerDir, "scripts/seed-mail-db.ts")], {
+  step("灌 MAIL_DB 种子", logFile, process.execPath, [join(workerDir, "scripts/seed-mail-db.ts")], {
     cwd: workerDir,
-    env: { ...process.env, E2E_PERSIST_TO: dataDir, TEMP_EMAIL_SCHEMA: schemaPath },
+    env: { ...process.env, PERSIST_TO: dataDir, TEMP_EMAIL_SCHEMA: schemaPath },
   });
 }
 

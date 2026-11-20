@@ -8,12 +8,16 @@ import { installGuard } from "./guard";
 export const WRITE_HEADERS = { Origin: ORIGIN, "X-MailLink-Csrf": "1" } as const;
 
 const EMPTY_STATE = { cookies: [], origins: [] };
+/** 买家的手机：390×844、2 倍屏、触屏 */
+const MOBILE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } as const;
+
+export type OpenContextOptions = { storageState?: string; mobile?: boolean };
 
 type Fixtures = {
   /** 本用例内所有上下文收集到的违规；auto：每个用例都生效，结束时断言为空 */
   violations: string[];
-  /** 打开一个新的、带全局断言的浏览器上下文（可带会话文件）；用例结束自动关闭 */
-  openContext: (storageState?: string) => Promise<BrowserContext>;
+  /** 打开一个新的、带全局断言的浏览器上下文（可带会话文件、可用手机视口）；用例结束自动关闭 */
+  openContext: (options?: OpenContextOptions) => Promise<BrowserContext>;
   /** 以管理员会话发请求（带 Origin 与 CSRF 头），用来准备数据 */
   adminApi: APIRequestContext;
 };
@@ -34,9 +38,14 @@ export const test = base.extend<Fixtures>({
   },
   openContext: async ({ browser, violations }, use) => {
     const opened: BrowserContext[] = [];
-    await use(async (storageState) => {
+    await use(async ({ storageState, mobile } = {}) => {
       // 不带会话文件时显式给空会话：否则 `test.use({ storageState })` 会被新上下文继承
-      const context = await browser.newContext({ baseURL: ORIGIN, locale: "zh-CN", storageState: storageState ?? EMPTY_STATE });
+      const context = await browser.newContext({
+        baseURL: ORIGIN,
+        locale: "zh-CN",
+        storageState: storageState ?? EMPTY_STATE,
+        ...(mobile ? MOBILE : {}),
+      });
       await installGuard(context, violations);
       opened.push(context);
       return context;

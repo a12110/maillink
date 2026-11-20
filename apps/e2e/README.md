@@ -25,7 +25,7 @@ Playwright 的 `webServer` 执行 `scripts/serve.ts`，依次：
 1. 在系统临时目录建一个全新的数据目录 `maillink-e2e-*`（本次运行独占，结束时删除；`E2E_KEEP_DATA=1` 可保留，路径会打印出来）；
 2. `pnpm --filter web build`（Worker 的静态资源指向 `apps/web/dist`）；
 3. 只对 **APP_DB** 应用迁移（`wrangler d1 migrations apply APP_DB --local --persist-to <目录>`）；
-4. 用 `apps/worker/scripts/seed-mail-db.ts` 给本地 MAIL_DB 灌种子。该脚本把 wrangler 参数写死、没有 `--persist-to` 入口，所以经 `scripts/persist-to-hook.ts`（`node --import`）包一层，只允许它执行 `wrangler d1 execute MAIL_DB --local`，并追加 `--persist-to`；
+4. 用 `apps/worker/scripts/seed-mail-db.ts` 给本地 MAIL_DB 灌种子（环境变量 `PERSIST_TO=<目录>`，脚本据此给 wrangler 追加 `--persist-to`）；
 5. `wrangler dev --port 8817 --persist-to <目录> --env-file <目录>/e2e.env --var PUBLIC_ORIGIN:http://localhost:8817`。
 
 `APP_SECRET` / `SETUP_TOKEN` 是 `support/env.ts` 里的测试专用假值，写进临时目录里的 `e2e.env`。用 `--env-file` 而不是只靠 `--var`：wrangler 里 `apps/worker/.dev.vars` 的优先级**高于** `--var`，传了 `--env-file` 后才不会读它。所以本机有没有 `.dev.vars`、里面是什么，都不影响 e2e，e2e 也不会读写它。
@@ -37,7 +37,6 @@ Playwright 的 `webServer` 执行 `scripts/serve.ts`，依次：
 ```
 playwright.config.ts   单 worker 串行；setup 项目（初始化）→ flows 项目（其余用例）
 scripts/serve.ts       构建 → 迁移 → 种子 → wrangler dev
-scripts/persist-to-hook.ts
 support/
   env.ts               端口、来源、测试用 APP_SECRET / SETUP_TOKEN
   accounts.ts          管理员账号、管理员会话文件（.auth/admin.json）、普通用户账号
@@ -45,6 +44,7 @@ support/
   guard.ts             全局断言的监听实现
   actions.ts           登录、退出、API 建用户
   data.ts              种子地址、等待邮件索引解析完
+  links.ts             创建向导驱动、请求计数、settleNetwork
   totp.ts              RFC 6238（node:crypto）
 test/                  用例，按序号执行
 ```
@@ -64,6 +64,8 @@ test/                  用例，按序号执行
 | `07-admin-mails` | 全部邮件里的 HTML 邮件：iframe `sandbox` 精确匹配、不发远程图片请求 |
 | `08-security` | 未登录 401、普通用户 403 与页面被挡、CSRF 头与 Origin、`/api/*` 安全头、页面 CSP 与 `dist/_headers` 一致 |
 | `09-guard-selfcheck` | 全局断言自检：故意制造违规，确认守卫会记录 |
+| `10-pickup` | 取件闭环（文件内串行，依赖 04–06 的地址与规则组）：向导建链接（口令、1 台设备、总次数 2 自动切为点击取码，完整链接只在结果页出现一次）→ 手机买家口令 / 点击取码 / 剩余次数 → 第二台设备被挡 → 总次数用尽后停止刷新；仅每日用尽；撤销；`/S/` 大写、setup 请求、响应头；完整视图详情 iframe |
+| `11-mailbox-bulk` | 收件地址页多选 →「生成取件链接」预选地址；→「授权给用户」逐条结果，用户 `/inbox` 看到新授权的地址（依赖 06 的用户） |
 
 ## 全局断言
 
@@ -75,6 +77,10 @@ test/                  用例，按序号执行
 - `/api/*` 返回 5xx。
 
 预期内的 4xx（如未登录时 `/api/auth/session` 的 401）不算失败。
+
+## 取件页的时间
+
+取件页轮询、倒计时、无操作暂停都靠页面里的 `setTimeout` / `Date.now()`，所以用 Playwright 的 `page.clock`（`install()` 后用 `runFor` 推进）而不是真等：先记 `/mails` 请求数，推进一个轮询间隔，再数。`clock` 只推进页面里的定时器，网络是真的，推进后先调 `settleNetwork`（一次同源真实往返）再数，才不会漏掉刚发出的请求。"继续轮询"用同一个办法做正向对照，所以"不再请求"的断言是有效的。买家用 390×844、2 倍屏、触屏上下文（`openContext({ mobile: true })`），按钮用 `tap()`。
 
 ## 写用例时注意
 
