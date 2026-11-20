@@ -19,7 +19,8 @@ import { authenticate, startSession } from "./session";
 // OAuth 回调拿到可信的 (provider, subject) 之后决定结果（03 §4.4）。
 //
 // 已绑定 → 登录（auth_methods 记 oauth:<slug>）。D7：默认不再要求本地 2FA；
-//   设置 auth.oauth_require_2fa = true 时，已启用 TOTP 的用户改走 pending_auth。
+//   设置 auth.oauth_require_2fa = true 时，已启用 TOTP 的用户改走 pending_auth；
+//   设置 security.admin_require_2fa = true 时，已启用 TOTP 的管理员同样改走 pending_auth。
 // 未绑定 + link → 绑到当前登录用户（回调时会话必须仍是发起绑定的那个用户）；该身份已绑别人则拒绝。
 // 未绑定 + login → 依次尝试：自动关联（见下）→ 自动建号（提供方 allow_signup 且系统开启注册）→ 拒绝 not_linked。
 //
@@ -64,8 +65,10 @@ async function loginAs(ctx: LinkContext, userId: number, via: "identity" | "auto
     });
     return "account_disabled";
   }
-  const { "auth.oauth_require_2fa": require2fa } = await getSettings(db, ["auth.oauth_require_2fa"]);
-  if (require2fa && user.totp_enabled_at !== null) {
+  const settings = await getSettings(db, ["auth.oauth_require_2fa", "security.admin_require_2fa"]);
+  // 开启"管理员强制 2FA"时，对管理员等同强制 oauth_require_2fa：否则 OAuth 单因素会话进不了管理端
+  const adminForced = settings["security.admin_require_2fa"] && user.role === "admin";
+  if ((settings["auth.oauth_require_2fa"] || adminForced) && user.totp_enabled_at !== null) {
     await issuePendingAuth(c, user.id, [method]);
     return "mfa_required";
   }

@@ -71,16 +71,20 @@ describe("公开接口", () => {
       login_methods: ["password", "passkey"],
       oauth_providers: [],
       turnstile: { enabled: false, site_key: "", scopes: ["login", "register", "pickup"] },
+      password_min_length: 10,
     });
   });
 
   it("库里的设置覆盖默认值", async () => {
     await env.APP_DB
-      .prepare("INSERT INTO settings (key, value, updated_at) VALUES ('site.name', '\"我的站点\"', 1), ('registration.enabled', 'true', 1)")
+      .prepare(
+        "INSERT INTO settings (key, value, updated_at) VALUES ('site.name', '\"我的站点\"', 1), ('registration.enabled', 'true', 1), ('security.password_min_length', '14', 1)",
+      )
       .run();
     expect(await (await api("/api/public/config")).json()).toMatchObject({
       site_name: "我的站点",
       registration_enabled: true,
+      password_min_length: 14,
       login_methods: ["password", "passkey"],
       oauth_providers: [],
     });

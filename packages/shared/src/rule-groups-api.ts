@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { EMAIL_MAX_LENGTH } from "./limits";
 import { MAX_UNIX_SECONDS } from "./mails";
-import { VIEW_MODES } from "./rule-group";
+import { VIEW_MODES, ruleSchema } from "./rule-group";
 import { presentedMailSchema } from "./rule-group-presented-mail";
 import { extractedValuesSchema, matchedRuleSchema } from "./rule-group-trace";
 import type { RuleGroupIssue } from "./rule-group-issues";
@@ -122,6 +122,12 @@ export const ruleGroupTestItemSchema = z.object({
   received_at: z.number().int(),
   recipient: z.string(),
   parse_status: z.enum(["ok", "failed", "pending"]),
+  /**
+   * 管理员视角的发件人与主题，不受规则组呈现设置影响、不可见的邮件也给（测试器只有管理员能用）；
+   * 只有解析成功（parse_status = ok）时才有，failed / pending 为 null
+   */
+  sender: z.object({ address: z.string().nullable(), name: z.string().nullable() }).nullable(),
+  subject: z.string().nullable(),
   visible: z.boolean(),
   /** reason_code 之外再加 max_mails / pending */
   reason_code: z.string(),
@@ -146,3 +152,16 @@ export type RuleGroupTestResponse = z.infer<typeof ruleGroupTestResponseSchema>;
 
 export const ruleGroupDraftRequestSchema = z.object({ mail_id: z.number().int().positive() });
 export type RuleGroupDraftRequest = z.infer<typeof ruleGroupDraftRequestSchema>;
+
+/** POST /api/admin/rule-groups/draft-from-mail 的响应：一条 allow 规则草稿与建议的验证码正则 */
+export const ruleGroupDraftResponseSchema = z.strictObject({
+  /** 既没有可用的发件人域名也没有主题时为 null */
+  rule: ruleSchema.nullable(),
+  /** 草稿里主题条件用的正则（`^…$` 整句匹配） */
+  subject_pattern: z.string().nullable(),
+  /** 建议填到 present.code_regex 的正则 */
+  code_regex: z.string().nullable(),
+  /** 给管理员看的说明：泛化了什么、哪里需要人工确认 */
+  notes: z.array(z.string()),
+});
+export type RuleGroupDraftResponse = z.infer<typeof ruleGroupDraftResponseSchema>;

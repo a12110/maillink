@@ -21,10 +21,13 @@
       "migrations_dir": "migrations"
     },
     {
-      // 只读使用，且永远不配置 migrations_dir
+      // temp_email 的库，只读使用，本项目永不迁移它。
+      // migrations_dir 指向一个必须保持为空的目录：不配置时 wrangler 默认用 ./migrations（即 APP_DB 的迁移），
+      // 误敲 `wrangler d1 migrations apply MAIL_DB` 会把本项目的建表语句执行到 temp_email 的库。见该目录的 README。
       "binding": "MAIL_DB",
       "database_name": "temp-email-db",
-      "database_id": "00000000-0000-0000-0000-00000000a002"
+      "database_id": "00000000-0000-0000-0000-00000000a002",
+      "migrations_dir": "mail-db-no-migrations"
     }
   ],
   // Workers Rate Limiting：limit 与 period 是每个 binding 一组（period 只能是 10 或 60），

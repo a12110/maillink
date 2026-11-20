@@ -59,6 +59,8 @@
   - 附件下载写 `download` 日志是"GET 无副作用"的唯一例外：要求已登记访客 Cookie，预览机器人在写入前就被 401 挡住，且不改变激活、设备、计次。
   - M3b-2 修复时的取舍（已接受）：迁移 0006 新增表 `link_password_attempts`（IPv6 按 /64 合并计数，访问日志里的完整 IP 文本无法按网段比较），过期行由 M7b 的每日 cron 清理；新增 HKDF 用途 `linkVisitorCookie`（不让 AES-GCM 加密密钥跨算法使用）；导出行模板完全不做公式中和（输出是贴进发卡平台的纯文本，只中和行首也会改坏 `-foo@x.com`），CSV 模式照常中和；按链接的口令全局上限（15 分钟 20 次）是可被利用的锁，阈值可调。
   - 取件链接 M3b-2 的取舍（已接受）：总次数用尽在限流之后、访客 Cookie 之前判定（对外等同"已失效"，与访客无关）；IP/国家被拒归入"已失效"；拒绝日志只在 POST 上写，GET 不写（避免预览机器人与轮询刷日志）；访客 Cookie 名 `mlv_<链接id>`；撤销为终态；`access/tester.ts` 加可选 `anchors` 让管理员预览复用测试器。
+  - 取件页 `/s/*` 不经过根路由守卫的初始化检查（不请求 `/api/setup/status`）：取件页是对外入口，买家不应多一次往返，也不应因该请求失败进入路由错误页。
+  - MAIL_DB 迁移防护（对 01 §2 的修订）：wrangler 4 在 D1 绑定未配 `migrations_dir` 时默认用 `./migrations`（即本项目 APP_DB 的迁移），误敲 `wrangler d1 migrations apply MAIL_DB --remote` 会把本项目建表语句执行到 temp_email 的库。改为给 MAIL_DB 显式配置一个只含说明文件、不含 SQL 的专用空目录，并只提供针对 APP_DB 的迁移脚本；部署文档写明风险。
   - 限流拆成两个 binding（对 01 §2 的修订）：`RATE_LIMITER`（登录、初始化、注册、再确认类接口，10 次/60 秒）与 `LINK_RATE_LIMITER`（取件链接公开接口，阈值容纳正常轮询）。原因：Workers Rate Limiting 一个 binding 只有一组阈值，共用会让正常取件被误拦。
   - 限流的已知取舍：simple binding 不能只数失败，任何人从多个 IP 每分钟发 10 次即可锁住某个用户名的登录；NAT 后多人共用 `login:ip` 配额。按用户的第二因素失败上限由 M5 在应用层实现，不依赖 binding。
   - M2 / M3a 分工：内置验证码提取与 `category` 分类在 `mail-parse`（M2，符合 01 §1）；规则组级的 `code_regex` 与 `login_link` 提取在 `rules`（M3a）。两边以 01 §4.1 的 `MailFacts` 对接，具体 TS 结构由主 agent 在两份派发说明里写成同一份，M3b 合并时去重。
@@ -81,6 +83,8 @@
 - "全部邮件"详情的"以此邮件创建规则"（05 §3）：等规则组编辑页（UI-3+）时补，后端 `draft-from-mail` 已在 M3b-1。
 - 管理员"全部邮件"列表无总数（同用户列表）。
 - UI-3 提出的后端缺口：收件地址标签清单接口；收件地址列表"有链接/无链接"筛选与启用/停用计数；测试器对不可见邮件不返回发件人与主题；shared 缺 `draft-from-mail` 响应 schema；父页面 CSP（`style-src 'unsafe-inline'`、`img-src data: https:`）与 `Referrer-Policy` 响应头（M7b 加固时统一设）。
+- 取件页路由大小写：TanStack Router 默认不区分大小写，`/S/<token>` 也能打开取件页但拿不到 `_headers` 的 `no-store`/`noindex`；UI-5 合并时给 `/s/$token` 设 `caseSensitive: true`（或 `_headers` 补规则）。
+- M7b-1 新增但前端尚未接线的后端字段（M7b-2 处理）：标签清单接口（收件地址页标签筛选候选）、`has_link` 筛选、测试器不可见邮件的发件人与主题、用户列表 `total`（页头"共 N 个"）；`/inbox`"全部"打开详情时带上列表项自己的 `mailbox_id`。
 - 用户收件箱"全部"的列表项不带 `mailbox_id`/`view`，前端分不清 `meta_only` 与 `full/text` 的邮件（目前点进去 404 时说明）；M7b 在列表项补 `mailbox_id`。
 
 ## 需要用户提供（不阻塞开发）
@@ -109,10 +113,10 @@
 | UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-3 |
 | UI-4a | 登录两步验证/通行密钥/OAuth、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、我的邮件 `/inbox` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4a |
 | UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4b |
-| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 进行中（worktree `ui5-links-pickup`，分支 `ui5`，基于 `6a0b86e`，端口 8808；Turnstile 先本地最小实现，合并时改用 UI-4b 的 `TurnstileWidget`） | 执行会话 `ses_e08e993e4ffe95V74xCD1eCriH` |
+| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 待验收（`6ca86ff` 交付 → `544e05e` 合入含 UI-3/UI-4a/UI-4b 的 main：Turnstile 统一为 `TurnstileWidget`、收件地址页"生成取件链接"入口、取件页跳过 setup 守卫、`/s/$token` 区分大小写；web 547 + worker 1536 通过；opus-5-5#xhigh `ses_e08a86aafffe8vwiuHxrf4hIIE`） | 执行会话 `ses_e08e993e4ffe95V74xCD1eCriH` |
 | M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7a |
 | INT-1 | M3b-2 × M6 集成：链接允许 Turnstile、"开始取码"接入 Turnstile、`GET /api/s/:token` 带出品牌/公告/data URI Logo/site key、创建链接用默认值、cron 清理 `link_password_attempts` 与 `auth_flow_tokens` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 INT-1 |
-| M7b-1 | 安全加固（页面 `_headers` 构建时生成含内联脚本哈希的 CSP、API 安全头、管理员强制 2FA 口径收紧）、后端缺口（收件箱列表 `mailbox_id`/`view`、标签清单、有无链接筛选与计数、测试器不可见邮件发件人主题、`draft-from-mail` schema、公开配置 `password_min_length`、用户列表 `total`）、`docs/deploy.md` | opus-5-5#high（含安全加固，按复杂任务） | 合并适配中（交付 `ac07fb1`：worker 74 文件 1554 通过、本地 wrangler 应用 `_headers`、headless 验证 srcdoc 与 Turnstile 未被 CSP 拦；合入含 UI-3/UI-4b 的 main 为 `75a2a37` 后新增必填字段使 web typecheck 4 处、注册页测试 8 条失败，执行者在适配并确认 `_headers` 带上首屏内联脚本哈希；未用迁移号） | 执行会话 `ses_e08e1db45ffe0KGf6OaDUOE0g9` |
+| M7b-1 | 安全加固（页面 `_headers` 构建时生成含内联脚本哈希的 CSP、API 安全头、管理员强制 2FA 口径收紧）、后端缺口（收件箱列表 `mailbox_id`/`view`、标签清单、有无链接筛选与计数、测试器不可见邮件发件人主题、`draft-from-mail` schema、公开配置 `password_min_length`、用户列表 `total`）、`docs/deploy.md` | opus-5-5#high（含安全加固，按复杂任务） | 通过，已合并（见记录 2026-11-20 M7b-1）；过程：`ac07fb1` 交付 → `75a2a37` 合入 UI-3/UI-4b → `831e0dc` 前端适配 → `016b4a7` 合入 UI-4a → `011c37a` 适配 UI-4a、`/inbox` 改用列表项 `mailbox_id`/`view`；worker 1554 + web 459 通过；`_headers` 含 1 个内联脚本哈希；安全加固 opus-5-5#xhigh `ses_e08b851b9ffewKye8kbyRH6pZr`、缺口与部署文档 opus-5-5#high `ses_e08b826a9ffewKZ8R01m2zsWbU`；执行者另修 UI-3 偶发测试 `ImportDialog.test.ts`（点击后立即断言异步错误，单跑 6 次败 2 次；改为等待提示出现后断言，`e51482d`，主 agent 连跑 5 次全过）；未用迁移号） | 执行会话 `ses_e08e1db45ffe0KGf6OaDUOE0g9` |
 | M7b-2 | 端到端测试（真实浏览器走核心闭环与关键安全路径） | sonnet-5-5#high | 待办（等前端各页合并） | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
@@ -267,3 +271,13 @@
 - 复验实测（8810 + headless Chrome，管理员强制 2FA 开启）：启用 TOTP 后不刷新直接进 `/admin/users` 立即可用、提示条消失；登录页未启用 Turnstile 时对 challenges.cloudflare.com 请求数 0，启用后拿到 token 前禁用（回车也绕不过），`turnstile_failed` 后控件重置并显示中文说明，site key 为空时禁用不降级；`/account?oauth=` 读后清参数；恢复码阶段单主按钮。
 - 首轮已确认：恢复码只在内存（确认后 DOM 无、不入任何存储/URL/日志）；`uqr` 本地生成二维码无网络请求；OAuth 结果码读后 replace 清除、未知码纯文本限长；登录状态机各错误码；再确认三种请求体；`admin_2fa_required` 时 `/admin/*` 不发请求；`/inbox` 的 `mailbox_id`、"全部"、`available=false`、`code_only`/`meta_only` 无详情、partial 不推进游标；新依赖 `@simplewebauthn/browser`、`uqr`。
 - 遗留：`/inbox`"全部"按收件地址猜邮箱的逻辑待 M7b-1 合并后改用列表项的 `mailbox_id`/`view`；公开配置读取失败时密码表单不带 Turnstile（服务端会返回 `turnstile_failed` 并显示，可接受）。
+
+### 2026-11-20 M7b-1 通过
+
+- 执行：opus-5-5#high（`ses_e08e1db45ffe0KGf6OaDUOE0g9`）。验收拆为安全加固 opus-5-5#xhigh（`ses_e08b851b9ffewKye8kbyRH6pZr`，"通过"）与缺口/部署文档 opus-5-5#high（`ses_e08b826a9ffewKZ8R01m2zsWbU`，"有条件通过"，2 项文档必修）。
+- 过程：`ac07fb1` 交付 → `75a2a37` 合入 UI-3/UI-4b → `831e0dc` 前端适配新必填字段 → `016b4a7` 合入 UI-4a → `011c37a` 适配并让 `/inbox` 改用列表项 `mailbox_id`/`view` → `e51482d` 修 UI-3 偶发测试 → `4cb5adc` 验收修复。
+- 内容：构建后脚本从 `dist/index.html` 计算内联脚本哈希生成 `dist/_headers`（CSP、`Referrer-Policy`、`nosniff`、`X-Frame-Options`、`Permissions-Policy`，`/s/*` 另加 `no-store`/`noindex`），遇到内联事件属性、`javascript:` 链接或 script 属性含 `>` 时构建失败；`/api/*` 统一安全头；管理员强制 2FA 只认会话 `auth_methods` 含 totp/recovery/passkey，开启时有 TOTP 的管理员走 OAuth 也进 pending_auth，防锁死在两处检查；后端缺口 7 处；`docs/deploy.md`。
+- 验收修复：`APP_SECRET` 先生成并存密码管理器再 `secret put`；**MAIL_DB 迁移防护**——`wrangler.jsonc` 给 MAIL_DB 配专用空目录 `mail-db-no-migrations`（只有 README），测试断言目录无 `.sql` 且配置指向它（执行者已在本地复现未配置时 `migrations list MAIL_DB` 列出的正是本项目 0001–0008）；误操作时 wrangler 仍会建空的 `d1_migrations` 表，文档给出确认计数为 0 后删除的方法；zod `jitless`（需动态导入 bootstrap 才生效）；`gen-headers` 7 个 node:test 用例。
+- 主 agent 复跑（`4cb5adc`）：typecheck/lint 三包 Done；web 52 文件 459 用例 + node:test 7 通过；worker 75 文件 1557 用例通过；web build 生成 `_headers`（1 个内联哈希）；`wrangler.jsonc` MAIL_DB `migrations_dir` 为 `mail-db-no-migrations`，目录只含 README；deploy.md 的 `APP_SECRET` 写法已改。
+- 安全验收实测（8813 + headless Chrome）：5 个页面安全头齐全，`/_headers` 不外泄；登录页 Turnstile 测试 key 渲染与外部请求不被 CSP 拦；HTML 邮件 srcdoc 与远程图片正常；CDP 虚拟认证器注册与登录通行密钥成功，`publickey-credentials-*` 与 `clipboard-write` 未被 Permissions-Policy 误伤；`/api/*` 各类响应带安全头。
+- 遗留：只登记通行密钥未开 TOTP 的管理员可用单因素会话自行启用 TOTP 进入管理端（"谁能启用 TOTP"的老问题，非本次引入）；停用 OAuth 提供方与清除凭据不做防锁死检查（deploy.md 已写应急办法）；入口 chunk 拆分后首屏多一次顺序加载。

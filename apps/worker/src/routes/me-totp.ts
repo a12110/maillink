@@ -4,6 +4,7 @@ import { z } from "zod";
 import { reauthRequestSchema, totpEnableRequestSchema } from "@maillink/shared";
 import type { OkResponse, RecoveryCodesResponse, TotpSetupResponse } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
+import { withTotpFactor, withoutTotpFactors } from "../auth/admin-2fa";
 import { FLOW_COOKIES, clearFlowCookie, readFlowCookie, setFlowCookie } from "../auth/flow-cookies";
 import { newJti } from "../auth/mfa";
 import { reauthenticate } from "../auth/reauth";
@@ -14,7 +15,7 @@ import { encryptTotpSecret } from "../auth/totp-service";
 import { randomBytes } from "../auth/crypto";
 import { nowSec } from "../clock";
 import { TOTP_ISSUER_MAX_LENGTH, TOTP_SECRET_BYTES, TOTP_SETUP_SEC } from "../constants";
-import { deleteUserSessions } from "../db/sessions";
+import { deleteUserSessions, setSessionAuthMethods } from "../db/sessions";
 import { getSettings } from "../db/settings";
 import { disableTotp, enableTotpWithRecoveryCodes, replaceRecoveryCodes } from "../db/totp";
 import { findUserById } from "../db/users";
@@ -117,6 +118,8 @@ meTotpRoutes.post("/totp/enable", async (c) => {
   const enabled = await enableTotpWithRecoveryCodes(db, user.id, { secretEnc, usedStep: step, recoveryHashes: hashes }, now);
   if (!enabled) throw totpAlreadyEnabled();
   clearFlowCookie(c, FLOW_COOKIES.totpSetup);
+  // 本请求当场校验过一次验证码：当前会话补记 totp（管理员强制 2FA 只认会话的 auth_methods）
+  await setSessionAuthMethods(db, auth.session.idHash, withTotpFactor(auth.session.authMethods));
   const revoked = await deleteUserSessions(db, user.id, auth.session.idHash);
   await recordAudit(c, {
     action: AUDIT_ACTIONS.totpEnable,
@@ -137,6 +140,7 @@ meTotpRoutes.delete("/totp", async (c) => {
   await reauthWithFactor(c, user, "totp_disable");
 
   if (!(await disableTotp(db, user.id, nowSec()))) throw totpNotEnabled();
+  await setSessionAuthMethods(db, auth.session.idHash, withoutTotpFactors(auth.session.authMethods));
   const revoked = await deleteUserSessions(db, user.id, auth.session.idHash);
   await recordAudit(c, {
     action: AUDIT_ACTIONS.totpDisable,

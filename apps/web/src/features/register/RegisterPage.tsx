@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { PASSWORD_MIN_LENGTH, registerRequestSchema, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@maillink/shared";
+import { registerRequestSchema, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@maillink/shared";
 import type { PublicConfig, RegisterRequest } from "@maillink/shared";
 import { isApiError } from "../../api/errors";
 import { api } from "../../api/instance";
@@ -74,6 +74,17 @@ function buildBody(values: Record<Field, string>, token: string | null): Registe
   };
 }
 
+/**
+ * 客户端校验：zod 管格式与硬下限；管理员调高的最小长度取公开配置 password_min_length，
+ * 与服务端 assertPasswordPolicy 同口径（按字符串 length）。服务端照常再校验一次。
+ */
+function validate(body: RegisterRequest, minLength: number): FieldErrors<Field> {
+  const parsed = registerRequestSchema.safeParse(body);
+  const fields = parsed.success ? {} : fieldErrorsFromZod(parsed.error, FIELDS).fields;
+  if (fields.password === undefined && body.password.length < minLength) return { ...fields, password: `密码至少 ${minLength} 个字符` };
+  return fields;
+}
+
 function RegisterForm({ config, loader }: FormProps) {
   const register = useRegister();
   const [values, setValues] = useState<Record<Field, string>>({ username: "", password: "", email: "" });
@@ -94,9 +105,9 @@ function RegisterForm({ config, loader }: FormProps) {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const body = buildBody(values, needsToken ? token : null);
-    const parsed = registerRequestSchema.safeParse(body);
-    setErrors(parsed.success ? {} : fieldErrorsFromZod(parsed.error, FIELDS).fields);
-    if (!parsed.success) return;
+    const fieldErrors = validate(body, config.password_min_length);
+    setErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) return;
     // token 一次性：无论成败都让控件重新出题
     register.mutate(body, { onError: () => { setToken(null); setResetKey((key) => key + 1); } });
   };
@@ -109,7 +120,7 @@ function RegisterForm({ config, loader }: FormProps) {
       <TextField label="用户名" autoComplete="username" autoFocus
         hint={`${USERNAME_MIN_LENGTH}–${USERNAME_MAX_LENGTH} 个字符，字母或数字开头，可含 . _ -`} {...bind("username")} />
       <TextField label="密码" type="password" autoComplete="new-password"
-        hint={`至少 ${PASSWORD_MIN_LENGTH} 个字符（管理员可能要求更长）`} {...bind("password")} />
+        hint={`至少 ${config.password_min_length} 个字符`} {...bind("password")} />
       <TextField label="邮箱（可选）" type="email" autoComplete="email" hint="不会验证，也不会发送邮件" {...bind("email")} />
       <TurnstileSlot config={config} loader={loader} onToken={setToken} resetKey={resetKey} />
       {register.isError && !fieldLevel ? <ErrorCallout title="注册失败" {...describeRegisterError(register.error)} /> : null}

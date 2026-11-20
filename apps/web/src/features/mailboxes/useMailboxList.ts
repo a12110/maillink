@@ -17,11 +17,10 @@ export function parseTagFilter(tag: string): { value: string | undefined; error:
   return parsed.success ? { value: parsed.data, error: null } : { value: undefined, error: parsed.error.issues[0]?.message ?? "标签不合法" };
 }
 
-/** 页头摘要：启用 / 已停用各多少（各发一个 limit=1 的列表请求取 total，不带搜索与标签） */
+/** 页头摘要：启用 / 已停用各多少（一个不带筛选、limit=1 的列表请求，读响应里的 active_count / disabled_count） */
 function useStatusTotals() {
-  const active = useQuery(adminMailboxesQuery({ status: "active", limit: 1 }));
-  const disabled = useQuery(adminMailboxesQuery({ status: "disabled", limit: 1 }));
-  return { active: active.data?.total ?? null, disabled: disabled.data?.total ?? null };
+  const all = useQuery(adminMailboxesQuery({ limit: 1 }));
+  return { active: all.data?.active_count ?? null, disabled: all.data?.disabled_count ?? null };
 }
 
 /** 页面里出现过的标签，给筛选框的候选（后端没有“全部标签”接口） */

@@ -33,6 +33,9 @@ export const BODY_INDEX_CAP_BYTES = 32768;
 /** 单个取件链接可绑定的收件地址上限 */
 export const MAX_MAILBOXES_PER_LINK = 50;
 
+/** GET /api/admin/mailboxes/tags 一次最多返回的标签种类（按使用次数降序取前面的） */
+export const MAILBOX_TAG_LIST_MAX = 500;
+
 /** 取件链接 token 的随机字节数，编码为 base64url */
 export const LINK_TOKEN_BYTES = 32;
 

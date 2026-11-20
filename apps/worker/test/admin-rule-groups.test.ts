@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   builtinRuleGroupTemplates,
+  ruleGroupDraftResponseSchema,
   type AdminRuleGroupDetail,
   type AdminRuleGroupList,
   type RuleGroupSaveResponse,
@@ -146,6 +147,11 @@ describe("POST /api/admin/rule-groups/test", () => {
     expect(byId.get(reset)?.reason).toMatch(/^deny:|no_allow_match/u);
     expect(byId.get(old)).toMatchObject({ visible: false, reason_code: "out_of_window" });
     expect(byId.get(broken)).toMatchObject({ visible: false, reason_code: "parse_failed", parse_status: "failed" });
+    // 不可见的邮件也给管理员看发件人与主题（不受呈现设置影响）；解析失败的没有
+    expect(byId.get(old)).toMatchObject({ subject: "登录验证码 111222", sender: { address: expect.stringContaining("@") as unknown } });
+    expect(byId.get(reset)?.subject).toEqual(expect.any(String));
+    expect(byId.get(reset)?.sender).not.toBeNull();
+    expect(byId.get(broken)).toMatchObject({ sender: null, subject: null });
     // 窗口 10 分钟与 subject_created（anchor_at = 5 分钟前）取较晚者
     expect(body.time_lower_bound).toBeGreaterThanOrEqual(nowSec() - 305);
 
@@ -179,7 +185,7 @@ describe("POST /api/admin/rule-groups/draft-from-mail", () => {
     const id = await insertMail({ address: "a@example.com", raw: fixture("verification-code.eml") });
     const res = await api("/api/admin/rule-groups/draft-from-mail", { cookie, json: { mail_id: id } });
     expect(res.status).toBe(200);
-    const draft = (await res.json()) as { rule: { effect: string } | null; code_regex: string | null; notes: string[] };
+    const draft = ruleGroupDraftResponseSchema.parse(await res.json());
     expect(draft.rule?.effect).toBe("allow");
     expect((await api("/api/admin/rule-groups/draft-from-mail", { cookie, json: { mail_id: 99999 } })).status).toBe(404);
     const broken = await insertMail({ address: "a@example.com", raw: fixture("malformed.eml") });

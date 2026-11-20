@@ -1,4 +1,4 @@
-import type { PresentedMail } from "@maillink/shared";
+import type { MyMailListItem } from "@maillink/shared";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { api } from "../../api/instance";
 import { PARTIAL_RETRY_DELAYS_MS } from "../../constants";
@@ -10,7 +10,7 @@ import { MailListStore } from "../mails/list-store";
  */
 export function useInboxList(mailboxId: number | undefined, enabled: boolean) {
   const store = useMemo(
-    () => new MailListStore<PresentedMail>((cursor) => api.myMails({ mailbox_id: mailboxId, cursor }), PARTIAL_RETRY_DELAYS_MS),
+    () => new MailListStore<MyMailListItem>((cursor) => api.myMails({ mailbox_id: mailboxId, cursor }), PARTIAL_RETRY_DELAYS_MS),
     [mailboxId],
   );
   useEffect(() => {

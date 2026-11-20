@@ -32,12 +32,18 @@ function testLowerBound(compiled: CompiledRuleGroup, options: TestOptions): numb
   return computeTimeLowerBound(compiled.config.time, anchors, options.now);
 }
 
-function baseItem(item: IndexedItem): Pick<RuleGroupTestItem, "mail_id" | "received_at" | "recipient" | "parse_status"> {
+type BaseFields = "mail_id" | "received_at" | "recipient" | "parse_status" | "sender" | "subject";
+
+/** 发件人与主题按管理员视角原样给出（展示用 addresses[0]，与呈现层同一口径）；未解析成功的没有 */
+function baseItem(item: IndexedItem): Pick<RuleGroupTestItem, BaseFields> {
+  const parsed = item.status === "ok" ? item.facts : null;
   return {
     mail_id: item.candidate.id,
     received_at: item.candidate.received_at,
     recipient: item.candidate.recipient,
     parse_status: item.status,
+    sender: parsed === null ? null : { address: parsed.sender.addresses[0] ?? null, name: parsed.sender.name || null },
+    subject: parsed === null ? null : parsed.subject,
   };
 }
 

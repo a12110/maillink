@@ -1,5 +1,5 @@
 import { Inbox, Paperclip } from "lucide-react";
-import type { MyMailbox, PresentedMail } from "@maillink/shared";
+import type { MyMailListItem } from "@maillink/shared";
 import { PARTIAL_RETRY_DELAYS_MS } from "../../constants";
 import { formatDateTime } from "../../lib/format";
 import { describeError } from "../../lib/messages";
@@ -13,9 +13,9 @@ import type { InboxScope } from "./inbox-model";
 
 const SKELETON_ITEMS = 6;
 
-type RowProps = { mail: PresentedMail; selected: boolean; openable: boolean; onSelect: (id: number) => void };
+type RowProps = { mail: MyMailListItem; selected: boolean; openable: boolean; onSelect: (id: number) => void };
 
-function RowBody({ mail }: { mail: PresentedMail }) {
+function RowBody({ mail }: { mail: MyMailListItem }) {
   const sender = presentedSender(mail.sender);
   return (
     <>
@@ -65,12 +65,12 @@ function SkeletonList() {
   );
 }
 
-function Notices({ state, scope, onRetry }: { state: MailListState<PresentedMail>; scope: InboxScope; onRetry: () => void }) {
+function Notices({ state, scope, onRetry }: { state: MailListState<MyMailListItem>; scope: InboxScope; onRetry: () => void }) {
   const content = noticeContent({ state, scope, onRetry });
   return content === null ? null : <div className="mail-list-notice">{content}</div>;
 }
 
-function noticeContent({ state, scope, onRetry }: { state: MailListState<PresentedMail>; scope: InboxScope; onRetry: () => void }) {
+function noticeContent({ state, scope, onRetry }: { state: MailListState<MyMailListItem>; scope: InboxScope; onRetry: () => void }) {
   if (state.hasError) {
     if (isApiError(state.error, "too_many_scopes") && scope.kind === "all") {
       return <Callout tone="warning" title="邮箱太多，没法合并显示">你被授权的邮箱规则组组合太多，请在上方选择一个具体的邮箱查看。</Callout>;
@@ -95,9 +95,8 @@ function noticeContent({ state, scope, onRetry }: { state: MailListState<Present
 }
 
 type Props = {
-  state: MailListState<PresentedMail>;
+  state: MailListState<MyMailListItem>;
   scope: InboxScope;
-  mailboxes: readonly MyMailbox[];
   selectedId: number | null;
   nowSec: number;
   onSelect: (id: number) => void;
@@ -105,7 +104,7 @@ type Props = {
   onRetry: () => void;
 };
 
-export function InboxList({ state, scope, mailboxes, selectedId, nowSec, onSelect, onLoadMore, onRetry }: Props) {
+export function InboxList({ state, scope, selectedId, nowSec, onSelect, onLoadMore, onRetry }: Props) {
   const items = listItems(state);
   const loaded = state.pages.length > 0;
   const notices = <Notices state={state} scope={scope} onRetry={onRetry} />;
@@ -123,7 +122,7 @@ export function InboxList({ state, scope, mailboxes, selectedId, nowSec, onSelec
           isCodeItem(mail) ? (
             <li key={mail.id}><CodeCard mail={mail} nowSec={nowSec} latest={index === 0} /></li>
           ) : (
-            <MailRow key={mail.id} mail={mail} selected={mail.id === selectedId} openable={canOpenDetail(mail, scope, mailboxes)} onSelect={onSelect} />
+            <MailRow key={mail.id} mail={mail} selected={mail.id === selectedId} openable={canOpenDetail(mail)} onSelect={onSelect} />
           ),
         )}
       </ul>

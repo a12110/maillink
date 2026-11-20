@@ -80,6 +80,16 @@ describe("注册页", () => {
     expect(requests.some((request) => request.path === "/api/auth/register")).toBe(false);
   });
 
+  it("管理员调高的密码最小长度（公开配置 password_min_length）：提示与客户端校验都按它", async () => {
+    const { requests } = stubFetch({ "GET /api/public/config": publicConfig({ password_min_length: 16 }) });
+    const { container } = await openRegister();
+    await waitUntil(() => input(container, "username") !== null, "出现注册表单");
+    expect(container.textContent).toContain("至少 16 个字符");
+    await fillAndSubmit(container, { username: "newbie", password: "fifteen-chars!!" });
+    expect(container.textContent).toContain("密码至少 16 个字符");
+    expect(requests.some((request) => request.path === "/api/auth/register")).toBe(false);
+  });
+
   it("username_taken 在用户名字段下就地显示", async () => {
     stubFetch({
       "GET /api/public/config": publicConfig(),

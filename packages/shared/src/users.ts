@@ -109,7 +109,10 @@ export const adminUserDetailSchema = adminUserSchema.extend({
 });
 export type AdminUserDetail = z.infer<typeof adminUserDetailSchema>;
 
-export const adminUserListSchema = listResponseSchema(adminUserSchema);
+export const adminUserListSchema = listResponseSchema(adminUserSchema).extend({
+  /** 满足筛选条件的总数（不受游标影响），页头"共 N 个" */
+  total: z.number().int(),
+});
 export type AdminUserList = z.infer<typeof adminUserListSchema>;
 
 export const adminUserListQuerySchema = z.object({
