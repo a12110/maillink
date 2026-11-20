@@ -3,10 +3,14 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { SessionResponse } from "@maillink/shared";
 import { sessionQuery, setupStatusQuery } from "../api/queries";
 
+const PICKUP_PATH_PREFIX = "/s/";
+
 export type RouterContext = { queryClient: QueryClient };
 
 /** 根守卫：需要初始化时任何页面都跳 /setup；已初始化后 /setup 无意义（后端永久 404），跳 /login */
 export async function guardSetup({ context, location }: { context: RouterContext; location: { pathname: string } }) {
+  // 取件页（/s/:token）是对外入口：链接不可能早于初始化存在，不依赖初始化检查（省一次往返，其失败也不该拦住买家）
+  if (location.pathname.startsWith(PICKUP_PATH_PREFIX)) return;
   const { needs_setup } = await context.queryClient.ensureQueryData(setupStatusQuery());
   const onSetup = location.pathname === "/setup";
   if (needs_setup && !onSetup) throw redirect({ to: "/setup" });

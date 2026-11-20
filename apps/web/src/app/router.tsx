@@ -9,6 +9,9 @@ import { parseInboxSearch } from "../features/inbox/search";
 import { SetupPage } from "../features/auth/SetupPage";
 import { RegisterPage } from "../features/register/RegisterPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
+import { LinksPage } from "../features/links/LinksPage";
+import { parseLinksSearch } from "../features/links/search";
+import { PickupPage } from "../features/pickup/PickupPage";
 import { parseMailsSearch } from "../features/mails/search";
 import { parseNewRuleGroupSearch } from "../features/rule-groups/new-search";
 import { MailsPage } from "../features/mails/MailsPage";
@@ -16,8 +19,6 @@ import { MailsRouteError } from "../features/mails/MailsRouteError";
 import { UsersPage } from "../features/users/UsersPage";
 import { AdminLayout } from "../shell/AdminLayout";
 import { AuthShell } from "../shell/AuthShell";
-import { PickupShell } from "../shell/PickupShell";
-import { PlaceholderPage } from "../shell/PlaceholderPage";
 import { NotFoundPage, RouteErrorPage } from "../shell/StatusPages";
 import { WorkspaceShell } from "../shell/WorkspaceShell";
 import { queryClient } from "./query-client";
@@ -54,17 +55,13 @@ const registerRoute = createRoute({
   component: RegisterPage,
 });
 
-// ── 取件页外壳（页面在 M3b 之后实现） ──
-const pickupRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/s/$token",
-  component: () => (
-    <PickupShell>
-      <h1 className="page-title">取件页</h1>
-      <p className="auth-lead">取件页将在后续里程碑实现，本页暂不显示任何邮件内容。</p>
-    </PickupShell>
-  ),
-});
+// ── 取件页外壳 ──
+function PickupRoute() {
+  const { token } = pickupRoute.useParams();
+  return <PickupPage key={token} token={token} />;
+}
+// caseSensitive：路由默认不区分大小写，但页面安全头（_headers）只对小写 /s/* 生效，/S/<token> 不能渲染取件页
+const pickupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/s/$token", caseSensitive: true, component: PickupRoute });
 
 // ── 工作区外壳：需要登录 ──
 const workspaceLayout = createRoute({
@@ -101,6 +98,12 @@ const adminIndexRoute = createRoute({
   },
 });
 const usersRoute = createRoute({ getParentRoute: () => adminLayout, path: "/users", component: UsersPage });
+const linksRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/links",
+  validateSearch: parseLinksSearch,
+  component: LinksPage,
+});
 const mailsRoute = createRoute({
   getParentRoute: () => adminLayout,
   path: "/mails",
@@ -108,14 +111,6 @@ const mailsRoute = createRoute({
   component: MailsPage,
   errorComponent: MailsRouteError,
 });
-
-function placeholder<const P extends string>(path: P, title: string, description: string) {
-  return createRoute({
-    getParentRoute: () => adminLayout,
-    path,
-    component: () => <PlaceholderPage title={title} description={description} />,
-  });
-}
 
 const settingsIndexRoute = createRoute({
   getParentRoute: () => adminLayout,
@@ -156,10 +151,6 @@ const editRuleGroupRoute = createRoute({
 });
 const settingsGroupRoute = createRoute({ getParentRoute: () => adminLayout, path: "/settings/$group", component: SettingsPage });
 
-const adminPlaceholders = [
-  placeholder("/links", "取件链接", "取件链接的创建与管理将在后续里程碑实现，本页暂不显示任何数据。"),
-];
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   authLayout.addChildren([setupRoute, loginRoute, registerRoute]),
@@ -171,6 +162,7 @@ const routeTree = rootRoute.addChildren([
       adminIndexRoute,
       usersRoute,
       mailsRoute,
+      linksRoute,
       mailboxesRoute,
       ruleGroupsRoute,
       newRuleGroupRoute,
@@ -178,7 +170,6 @@ const routeTree = rootRoute.addChildren([
       auditRoute,
       settingsIndexRoute,
       settingsGroupRoute,
-      ...adminPlaceholders,
     ]),
   ]),
 ]);

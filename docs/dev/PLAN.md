@@ -59,6 +59,7 @@
   - 附件下载写 `download` 日志是"GET 无副作用"的唯一例外：要求已登记访客 Cookie，预览机器人在写入前就被 401 挡住，且不改变激活、设备、计次。
   - M3b-2 修复时的取舍（已接受）：迁移 0006 新增表 `link_password_attempts`（IPv6 按 /64 合并计数，访问日志里的完整 IP 文本无法按网段比较），过期行由 M7b 的每日 cron 清理；新增 HKDF 用途 `linkVisitorCookie`（不让 AES-GCM 加密密钥跨算法使用）；导出行模板完全不做公式中和（输出是贴进发卡平台的纯文本，只中和行首也会改坏 `-foo@x.com`），CSV 模式照常中和；按链接的口令全局上限（15 分钟 20 次）是可被利用的锁，阈值可调。
   - 取件链接 M3b-2 的取舍（已接受）：总次数用尽在限流之后、访客 Cookie 之前判定（对外等同"已失效"，与访客无关）；IP/国家被拒归入"已失效"；拒绝日志只在 POST 上写，GET 不写（避免预览机器人与轮询刷日志）；访客 Cookie 名 `mlv_<链接id>`；撤销为终态；`access/tester.ts` 加可选 `anchors` 让管理员预览复用测试器。
+  - 端到端测试用 Playwright Test 驱动本机 Google Chrome（`channel: "chrome"`，不下载浏览器），放 `apps/e2e`，以 `pnpm e2e` 单独运行、不并入 `pnpm test`；每次运行用全新本地数据目录，绝不连真实 Cloudflare。
   - 取件页 `/s/*` 不经过根路由守卫的初始化检查（不请求 `/api/setup/status`）：取件页是对外入口，买家不应多一次往返，也不应因该请求失败进入路由错误页。
   - MAIL_DB 迁移防护（对 01 §2 的修订）：wrangler 4 在 D1 绑定未配 `migrations_dir` 时默认用 `./migrations`（即本项目 APP_DB 的迁移），误敲 `wrangler d1 migrations apply MAIL_DB --remote` 会把本项目建表语句执行到 temp_email 的库。改为给 MAIL_DB 显式配置一个只含说明文件、不含 SQL 的专用空目录，并只提供针对 APP_DB 的迁移脚本；部署文档写明风险。
   - 限流拆成两个 binding（对 01 §2 的修订）：`RATE_LIMITER`（登录、初始化、注册、再确认类接口，10 次/60 秒）与 `LINK_RATE_LIMITER`（取件链接公开接口，阈值容纳正常轮询）。原因：Workers Rate Limiting 一个 binding 只有一组阈值，共用会让正常取件被误拦。
@@ -113,12 +114,13 @@
 | UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-3 |
 | UI-4a | 登录两步验证/通行密钥/OAuth、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、我的邮件 `/inbox` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4a |
 | UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4b |
-| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 修复中（验收 opus-5-5#xhigh `ses_e08a86aafffe8vwiuHxrf4hIIE`"有条件通过"：仅每日次数用尽时误显示"次数已用完，请联系卖家"；`6ca86ff` 交付 → `544e05e` 合入 UI-3/UI-4a/UI-4b → `d488048` 合入 M7b-1（web typecheck 2 处：又一份重复的 `listMailboxes`、测试夹具缺 `password_min_length`）；并入：收件地址页"授权给用户"批量入口、`create_for` 关闭后清理并带地址文本、取件页公开配置请求取舍、骨架屏内联 px 与 stale 文案常量、`device_limit` 状态返回 `max_devices`（授权改 shared/worker）） | 执行会话 `ses_e08e993e4ffe95V74xCD1eCriH` |
+| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-5 |
 | M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7a |
 | INT-1 | M3b-2 × M6 集成：链接允许 Turnstile、"开始取码"接入 Turnstile、`GET /api/s/:token` 带出品牌/公告/data URI Logo/site key、创建链接用默认值、cron 清理 `link_password_attempts` 与 `auth_flow_tokens` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 INT-1 |
 | M7b-1 | 安全加固（页面 `_headers` 构建时生成含内联脚本哈希的 CSP、API 安全头、管理员强制 2FA 口径收紧）、后端缺口（收件箱列表 `mailbox_id`/`view`、标签清单、有无链接筛选与计数、测试器不可见邮件发件人主题、`draft-from-mail` schema、公开配置 `password_min_length`、用户列表 `total`）、`docs/deploy.md` | opus-5-5#high（含安全加固，按复杂任务） | 通过，已合并（见记录 2026-11-20 M7b-1）；过程：`ac07fb1` 交付 → `75a2a37` 合入 UI-3/UI-4b → `831e0dc` 前端适配 → `016b4a7` 合入 UI-4a → `011c37a` 适配 UI-4a、`/inbox` 改用列表项 `mailbox_id`/`view`；worker 1554 + web 459 通过；`_headers` 含 1 个内联脚本哈希；安全加固 opus-5-5#xhigh `ses_e08b851b9ffewKye8kbyRH6pZr`、缺口与部署文档 opus-5-5#high `ses_e08b826a9ffewKZ8R01m2zsWbU`；执行者另修 UI-3 偶发测试 `ImportDialog.test.ts`（点击后立即断言异步错误，单跑 6 次败 2 次；改为等待提示出现后断言，`e51482d`，主 agent 连跑 5 次全过）；未用迁移号） | 执行会话 `ses_e08e1db45ffe0KGf6OaDUOE0g9` |
 | M7b-2a | 前端收尾：UI-4b 验收 5 条小改；接线用户列表 `total`、测试器不可见邮件发件人/主题、`/inbox`"全部"详情带 `mailbox_id`（不碰 mailboxes/links/pickup，避开 UI-5） | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7b-2a |
-| M7b-2b | 收件地址页接线标签清单与 `has_link` 筛选（UI-5 改过 `MailboxToolbar`/`MailboxTable`/`BatchLayer`，等其合并）；端到端测试（真实浏览器走核心闭环与关键安全路径） | sonnet-5-5#high | 待办（等 UI-5 合并） | |
+| M7b-2b-1 | 端到端测试框架（`apps/e2e`，Playwright Test + 本机 Chrome，不下载浏览器；`pnpm e2e` 不并入 `pnpm test`）+ 已合并流程用例：初始化、TOTP/恢复码、通行密钥、收件地址导入、规则组测试器、用户授权与 `/inbox`、HTML 邮件 sandbox、权限/CSRF/Origin/安全头；全局断言无 CSP 违规与第三方请求 | sonnet-5-5#high | 进行中（worktree `m7b2b-e2e`，分支 `m7b2b`，基于 `09547d3`，端口 8817；授权改根 `package.json`/lockfile） | 执行会话 `ses_e088a8e64ffezLMaPnWuSA0dk2` |
+| M7b-2b-2 | UI-5 合并后：取件闭环 E2E（口令、click 取码、设备上限、次数用尽停止轮询、撤销后失效、无第三方请求）；收件地址页接线标签清单与 `has_link` 筛选 | sonnet-5-5#high | 待办（等 UI-5 合并） | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
 ## 记录
@@ -291,3 +293,14 @@
 - 验收首轮必修：切换筛选时 `keepPreviousData` 致页头短暂显示旧总数；注册后取会话失败分支缺测试（执行者首轮汇报称已补、实际未写入文件，修复轮补上，主 agent 已在文件中核对两条用例存在）。
 - 主 agent 复跑（`ae84f03`）：typecheck/lint 三包 Done；web 54 文件 479 + node:test 7、worker 75 文件 1557 通过；web build 成功；看 `users-1440-fix.png` 表头不再重叠。
 - 遗留：`register-created-390` 截图实为"用户名已被使用"表单（同布局，风险低）；`.table th` 截断规则合入 UI-5 后需看一眼链接表表头。
+
+### 2026-11-20 UI-5 通过
+
+- 执行：sonnet-5-5#high（`ses_e08e993e4ffe95V74xCD1eCriH`）；验收：opus-5-5#xhigh（`ses_e08a86aafffe8vwiuHxrf4hIIE`）首轮"有条件通过"，同会话 opus-5-5#high 复验"有条件通过"（仅表头小修，主 agent 核对后合并）。
+- 过程：`6ca86ff` 交付 → `544e05e` 合入 UI-3/UI-4a/UI-4b（Turnstile 统一为 `TurnstileWidget`、收件地址页"生成取件链接"入口、取件页跳过 setup 守卫、`/s/$token` 区分大小写）→ `d488048` 合入 M7b-1 → `7286bab` 验收修复 → `3f1a5ab` 合入 M7b-2a → `2928cea` 表头小修。
+- 内容：取件页状态机（`needs_start`/`active`/`device_limit`/`daily_limit`/`no_mailbox` 与 404/410/403/429 映射，未知错误码不冒充失效）、口令与 Turnstile 开始取码、`code_only` 验证码/登录链接卡片、列表+详情、`click` 取码与剩余次数、`next_after_id` 增量轮询与 partial 1/2/4 秒退避、无操作 5 分钟暂停、新邮件标题前缀；自有 fetch 层（401 不跳登录、保留错误体字段）；链接管理页表格/筛选/批量、侧板、创建向导（结果页一次性显示完整链接）、导出、复制链接前提示写审计；收件地址页"生成取件链接"（`create_for`，关闭即清 URL 与 sessionStorage）与"授权给用户"（`POST /api/admin/grants/batch`，复用 UI-4a 授权件，逐条结果）。后端仅 `device_limit` 状态加 `max_devices`。
+- 首轮必修：仅每日次数用尽时误显示"次数已用完，请联系卖家"——改为显示恢复时间与"不是链接失效"，保留已取到的码并继续轮询；总次数用尽仍停止轮询。合并适配：删除第三份重复的 `listMailboxes`。复验必修：M7b-2a 的表头省略号规则把"24h 取码"截成"24h …"，改为"24h"+`title`。
+- 取舍：取件页保留 `/api/public/config` 请求（外观 `appearance` 只由它提供，同源）；410/404 页无站点数据不显示品牌；行内操作只做复制链接与预览，其余在侧板（无下拉菜单组件）。
+- 主 agent 复跑（`2928cea`）：typecheck/lint 三包 Done；web 63 文件 579 + node:test 7、worker 75 文件 1557 通过；web build 成功；截图核对链接表表头完整，执行者脚本确认所有 `th` 无截断。
+- 实测（评审 8814 + headless Chrome 390×844）：口令前无地址、标题无 token、卖家说明 HTML 原样为文字；错误口令就地提示；click 取码剩余次数递减；第二上下文设备已满（"最多可在 1 台设备上使用"）；总次数用尽后 25 秒内 `/mails` 请求增量 0 且码保留；仅每日用尽码保留且继续轮询；撤销后两上下文均"已失效"；`/S/<token>` 为页面不存在；取件页对 `/api/setup/status` 与第三方请求数 0；Turnstile 仅 required 时加载、拿到 token 前禁用、Referer 为空；命中区全部 ≥44×44；HTML 详情 iframe sandbox 精确；2×2 批量授权全部成功、再次"跳过"全部 skipped、用户 `/inbox` 可见。
+- 遗留：管理页窄屏（<1024）表格与侧板未专门看图；复制到剪贴板成功路径只靠单测（headless 权限拒绝）；Turnstile 真实挑战需部署后用正式 site key 冒烟；默认不过期的链接无法"延长"（提示目前没有截止时间）；授权用户选择器超过 50 人时靠搜索。

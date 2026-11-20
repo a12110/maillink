@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Inbox, MailX, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox, Link2, MailX, Pencil } from "lucide-react";
 import type { AdminMailbox } from "@maillink/shared";
 import { formatDateTime } from "../../lib/format";
 import { Button, Checkbox, EmptyState, ErrorCallout, SkeletonRows, Status, Tag } from "../../ui";
@@ -9,7 +9,6 @@ import type { Selection } from "./useMailboxSelection";
 const SKELETON_ROWS = 8;
 const COLUMN_COUNT = 9;
 const MAX_TAGS_SHOWN = 3;
-const LINKS_PENDING_NOTE = "取件链接页将在下一阶段提供，届时这里可点击查看";
 
 /** 窄屏折行时优先在 @ 之前断开（DESIGN：折行点放在 @ 之前） */
 function Address({ value }: { value: string }) {
@@ -40,7 +39,17 @@ function NoteCell({ mailbox }: { mailbox: AdminMailbox }) {
 }
 
 function CountCell({ value }: { value: number }) {
-  return <span className={value === 0 ? "dim" : undefined} title={value === 0 ? undefined : LINKS_PENDING_NOTE}>{value}</span>;
+  return <span className={value === 0 ? "dim" : undefined}>{value}</span>;
+}
+
+/** 链接数：大于 0 时直达带该地址筛选的取件链接列表（点状下划线），为 0 是普通灰字 */
+function LinkCountCell({ mailbox }: { mailbox: AdminMailbox }) {
+  if (mailbox.link_count === 0) return <CountCell value={0} />;
+  return (
+    <Link className="num-link" to="/admin/links" search={{ mailbox_id: mailbox.id }} title={`${mailbox.address} 的取件链接`} aria-label={`查看 ${mailbox.address} 的 ${mailbox.link_count} 个取件链接`}>
+      {mailbox.link_count}
+    </Link>
+  );
 }
 
 type RowProps = { mailbox: AdminMailbox; checked: boolean; onToggle: (checked: boolean) => void; onEdit: () => void };
@@ -58,7 +67,7 @@ function MailboxRow({ mailbox, checked, onToggle, onEdit }: RowProps) {
       <td>
         {mailbox.status === "active" ? <Status tone="success">{STATUS_LABEL.active}</Status> : <Status tone="neutral">{STATUS_LABEL.disabled}</Status>}
       </td>
-      <td className="col-optional col-num"><CountCell value={mailbox.link_count} /></td>
+      <td className="col-optional col-num"><LinkCountCell mailbox={mailbox} /></td>
       <td className="col-optional col-num"><CountCell value={mailbox.grant_count} /></td>
       <td className="time col-secondary">
         {mailbox.last_received_at === null ? <span className="dim">从未来信</span> : formatDateTime(mailbox.last_received_at)}
@@ -68,6 +77,10 @@ function MailboxRow({ mailbox, checked, onToggle, onEdit }: RowProps) {
           <Link className="btn" data-variant="ghost" data-size="sm" data-icon="true" to="/admin/mails" search={{ to_address: address }}
             title="该地址的邮件" aria-label={`查看 ${address} 的邮件`}>
             <Inbox />
+          </Link>
+          <Link className="btn" data-variant="ghost" data-size="sm" data-icon="true" to="/admin/links" search={{ mailbox_id: mailbox.id }}
+            title="该地址已有的取件链接" aria-label={`查看 ${address} 的取件链接`}>
+            <Link2 />
           </Link>
           <Button variant="ghost" size="sm" iconOnly title="编辑备注、标签与状态" aria-label={`编辑 ${address}`} onClick={onEdit}>
             <Pencil />
