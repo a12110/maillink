@@ -220,7 +220,7 @@ describe("系统状态（只读）", () => {
 });
 
 describe("公开配置：只含带公开标记的设置", () => {
-  it("站点信息、外观、注册开关、Turnstile site key 与范围可见；secret、安全设置、链接默认值、日志保留不可见", async () => {
+  it("站点信息、外观、注册开关、Turnstile site key 与范围、密码最小长度可见；secret、其余安全设置、链接默认值、日志保留不可见", async () => {
     await saveSettings(cookie, "site", { ...DEFAULTS.site, name: "我的站", logo: "https://cdn.example.com/l.png", pickup_notice: "取件须知" });
     await saveSettings(cookie, "appearance", { ...DEFAULTS.appearance, mode: "dark", radius: "0" });
     await saveSettings(cookie, "auth", { ...DEFAULTS.auth, registration_enabled: true, oauth_require_2fa: true });
@@ -239,6 +239,8 @@ describe("公开配置：只含带公开标记的设置", () => {
       appearance: { preset: "default", accent: "#c8432b", mode: "dark", radius: "0" },
       registration_enabled: true,
       turnstile: { enabled: true, site_key: TURNSTILE_SITE_KEY, scopes: ["pickup"] },
+      // 注册页要提示密码最小长度（M7b）；安全设置里只公开这一项
+      password_min_length: 16,
     });
     expect(Object.keys(body).sort()).toEqual(
       [
@@ -246,6 +248,7 @@ describe("公开配置：只含带公开标记的设置", () => {
         "login_methods",
         "login_notice",
         "oauth_providers",
+        "password_min_length",
         "pickup_notice",
         "registration_enabled",
         "site_description",

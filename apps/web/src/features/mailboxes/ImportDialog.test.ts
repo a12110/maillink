@@ -6,6 +6,7 @@ import type { MailboxImportRequest, MailboxImportResponse } from "@maillink/shar
 import { act } from "react";
 import { click, flush, mount, typeInto } from "../../test/render";
 import type { Mounted } from "../../test/render";
+import { waitUntil } from "../../test/wait";
 import { ToastProvider } from "../../ui";
 import { ImportDialog } from "./ImportDialog";
 
@@ -44,13 +45,19 @@ const button = (text: string) => {
   return found;
 };
 
+/** 点击会触发请求 mock 的 resolve / reject：点完让出几个宏任务，再断言异步渲染的结果 */
+async function press(element: Element): Promise<void> {
+  await click(element);
+  await flush();
+}
+
 describe("导入两步对话框", () => {
   it("粘贴 → 预览（dry_run）→ 显示新增 / 重复 / 无效各多少与逐条原因 → 确认才真正写入", async () => {
     importMailboxes.mockResolvedValueOnce(PREVIEW);
     const onOpenChange = vi.fn();
     await open(onOpenChange);
     await typeInto(body().querySelector("textarea") as HTMLTextAreaElement, CSV);
-    await click(button("预览导入结果"));
+    await press(button("预览导入结果"));
 
     expect(importMailboxes).toHaveBeenCalledTimes(1);
     expect(importMailboxes).toHaveBeenLastCalledWith({ content: CSV, tags: [], dry_run: true });
@@ -64,7 +71,7 @@ describe("导入两步对话框", () => {
     expect(importMailboxes.mock.calls.every(([request]) => request.dry_run === true)).toBe(true);
 
     importMailboxes.mockResolvedValueOnce({ ...PREVIEW, dry_run: false });
-    await click(button("导入 1 个新地址"));
+    await press(button("导入 1 个新地址"));
     expect(importMailboxes).toHaveBeenCalledTimes(2);
     expect(importMailboxes).toHaveBeenLastCalledWith({ content: CSV, tags: [], dry_run: false });
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -83,7 +90,7 @@ describe("导入两步对话框", () => {
     await flush();
     expect(body().querySelector("textarea")?.value).toBe(CSV);
     expect(body().textContent).toContain("已读入 aliases.csv");
-    await click(button("预览导入结果"));
+    await press(button("预览导入结果"));
     expect(importMailboxes).toHaveBeenLastCalledWith({ content: CSV, tags: [], dry_run: true });
   });
 
@@ -91,7 +98,7 @@ describe("导入两步对话框", () => {
     importMailboxes.mockResolvedValueOnce({ ...PREVIEW, summary: { new: 0, duplicate: 2, invalid: 0 }, items: PREVIEW.items.filter((i) => i.status === "duplicate") });
     await open();
     await typeInto(body().querySelector("textarea") as HTMLTextAreaElement, "a@icloud.com");
-    await click(button("预览导入结果"));
+    await press(button("预览导入结果"));
     const confirm = button("没有可导入的新地址") as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
     await click(button("返回修改"));
@@ -100,7 +107,7 @@ describe("导入两步对话框", () => {
 
   it("本地检查不通过时不发请求，就地写明原因", async () => {
     await open();
-    await click(button("预览导入结果"));
+    await press(button("预览导入结果"));
     expect(importMailboxes).not.toHaveBeenCalled();
     expect(body().textContent).toContain("请粘贴地址");
   });
@@ -109,7 +116,9 @@ describe("导入两步对话框", () => {
     importMailboxes.mockRejectedValueOnce(new Error("boom"));
     await open();
     await typeInto(body().querySelector("textarea") as HTMLTextAreaElement, "a@icloud.com");
-    await click(button("预览导入结果"));
+    await press(button("预览导入结果"));
+    // mockRejectedValueOnce 的拒绝要过几个微任务才渲染出错误提示：等它出现再断言
+    await waitUntil(() => body().querySelector('[role="alert"]') !== null, "出现预览失败提示");
     expect(body().querySelector('[role="alert"]')?.textContent).toContain("预览失败");
     expect(body().querySelector("textarea")?.value).toBe("a@icloud.com");
   });

@@ -13,7 +13,7 @@ import {
 } from "./helpers";
 
 type ErrorBody = { error: { code: string; message: string } };
-type ListBody = { items: AdminUser[]; next_cursor: string | null };
+type ListBody = { items: AdminUser[]; next_cursor: string | null; total: number };
 
 const NEW_PASSWORD = "another-long-password";
 
@@ -152,6 +152,10 @@ describe("管理端用户列表", () => {
 
     const all = [...first.items, ...second.items, ...third.items].map((item) => item.username);
     expect(new Set(all).size).toBe(5);
+    // total 是满足筛选条件的总数，不受游标与 limit 影响
+    expect([first.total, second.total, third.total]).toEqual([5, 5, 5]);
+    expect((await list("?role=admin")).total).toBe(1);
+    expect((await list("?q=u&role=user")).total).toBe(4);
   });
 
   it("limit 与 cursor 非法 → 400", async () => {

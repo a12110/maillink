@@ -58,6 +58,11 @@ export async function touchSession(db: D1Database, idHash: string, now: number):
   await db.prepare("UPDATE sessions SET last_seen_at = ? WHERE id_hash = ?").bind(now, idHash).run();
 }
 
+/** 改写会话的 auth_methods（启用 / 关闭 TOTP 时补记或去掉第二因素） */
+export async function setSessionAuthMethods(db: D1Database, idHash: string, authMethods: readonly string[]): Promise<void> {
+  await db.prepare("UPDATE sessions SET auth_methods = ? WHERE id_hash = ?").bind(authMethods.join(","), idHash).run();
+}
+
 export async function deleteSession(db: D1Database, idHash: string): Promise<void> {
   await db.prepare("DELETE FROM sessions WHERE id_hash = ?").bind(idHash).run();
 }

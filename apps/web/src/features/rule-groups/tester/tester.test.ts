@@ -46,6 +46,8 @@ function item(over: Partial<RuleGroupTestItem>): RuleGroupTestItem {
     received_at: nowSec - 30,
     recipient: "alias@icloud.com",
     parse_status: "ok",
+    sender: { address: "noreply@example.com", name: null },
+    subject: "Your code",
     visible: false,
     reason_code: "no_allow_match",
     reason: "no_allow_match",

@@ -31,7 +31,7 @@ export const ruleGroupPickerQuery = () =>
 export const mailboxPickerQuery = (q: string) =>
   queryOptions({
     queryKey: [...authQueryKeys.grantPickers, "mailboxes", q] as const,
-    queryFn: () => api.pickMailboxes({ q: q === "" ? undefined : q, status: "active", limit: 50 }),
+    queryFn: () => api.listMailboxes({ q: q === "" ? undefined : q, status: "active", limit: 50 }),
   });
 
 export const myMailboxesQuery = () => queryOptions({ queryKey: authQueryKeys.myMailboxes, queryFn: api.myMailboxes });

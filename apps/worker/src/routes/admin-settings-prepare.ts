@@ -43,7 +43,7 @@ async function prepareAuth(env: PrepareEnv, values: Record<string, unknown>): Pr
   }
   const { "security.admin_require_2fa": require2fa } = await getSettings(env.APP_DB, ["security.admin_require_2fa"]);
   if (require2fa && !(await anyAdminHasSecondFactor(env.APP_DB, methods))) {
-    throw badRequest("admin_2fa_lockout", "已开启管理员强制两步验证：关闭通行密钥登录后，没有管理员还能满足它");
+    throw badRequest("admin_2fa_lockout", "已开启管理员强制两步验证：按此登录方式设置，没有管理员还能完成两步验证登录");
   }
 }
 
@@ -53,7 +53,7 @@ async function prepareSecurity(env: PrepareEnv, values: Record<string, unknown>)
   if (!(await anyAdminHasSecondFactor(env.APP_DB, methods))) {
     throw badRequest(
       "admin_2fa_lockout",
-      "开启后所有管理员都会被挡在 /api/admin 之外：至少要有一个启用的管理员已启用 TOTP，或登记了通行密钥（且通行密钥登录开放）",
+      "开启后所有管理员都会被挡在 /api/admin 之外：至少要有一个启用的管理员已启用 TOTP 且能用开放的密码或 OAuth 登录，或登记了通行密钥且通行密钥登录开放",
     );
   }
 }

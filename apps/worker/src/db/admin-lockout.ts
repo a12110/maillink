@@ -26,20 +26,26 @@ export async function anyAdminCanLogIn(db: D1Database, methods: readonly LoginMe
 }
 
 /**
- * 开启"管理员强制 2FA"时，是否至少有一个启用的管理员能满足它：已启用 TOTP，
- * 或登记了通行密钥且通行密钥登录开放（通行密钥登录视为已完成多因素）。
+ * 开启"管理员强制 2FA"时，是否至少有一个启用的管理员能产生合格会话（auth_methods 含 totp / recovery / passkey）：
+ *   - 通行密钥登录开放且他登记了通行密钥（会话记 passkey）；或
+ *   - 他已启用 TOTP，且能完成第一步：密码登录开放且有密码，或 OAuth 登录开放且绑定了已启用提供方的身份
+ *     （开启该设置时管理员走 OAuth 也进入 pending_auth，第二步通过后会话记 totp / recovery）。
+ * 只启用了 TOTP、却没有任何开放的第一步方式的管理员不算。
  */
 export async function anyAdminHasSecondFactor(db: D1Database, methods: readonly LoginMethod[]): Promise<boolean> {
-  const passkeyOpen = methods.includes("passkey") ? 1 : 0;
+  const flag = (method: LoginMethod): number => (methods.includes(method) ? 1 : 0);
   const row = await db
     .prepare(
       `SELECT EXISTS (
          SELECT 1 FROM users u WHERE u.role = 'admin' AND u.status = 'active'
-           AND (u.totp_enabled_at IS NOT NULL
-                OR (?1 = 1 AND EXISTS (SELECT 1 FROM user_passkeys p WHERE p.user_id = u.id)))
+           AND ((?2 = 1 AND EXISTS (SELECT 1 FROM user_passkeys p WHERE p.user_id = u.id))
+             OR (u.totp_enabled_at IS NOT NULL
+                 AND ((?1 = 1 AND u.password_hash IS NOT NULL)
+                   OR (?3 = 1 AND EXISTS (SELECT 1 FROM user_identities i JOIN oauth_providers o ON o.id = i.provider_id
+                                          WHERE i.user_id = u.id AND o.enabled = 1)))))
        ) AS ok`,
     )
-    .bind(passkeyOpen)
+    .bind(flag("password"), flag("passkey"), flag("oauth"))
     .first<{ ok: number }>();
   return row?.ok === 1;
 }

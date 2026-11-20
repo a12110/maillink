@@ -3,11 +3,12 @@ import type { Context } from "hono";
 import type { CredentialRemovalResponse } from "@maillink/shared";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import type { AuditAction } from "../audit";
+import { withoutTotpFactors } from "../auth/admin-2fa";
 import { nowSec } from "../clock";
 import { deleteIdentitiesByAdmin } from "../db/identities";
 import { hasAnyLoginMethod } from "../db/login-methods";
 import { deletePasskeysByAdmin } from "../db/passkeys";
-import { deleteUserSessions } from "../db/sessions";
+import { deleteUserSessions, setSessionAuthMethods } from "../db/sessions";
 import { disableTotp } from "../db/totp";
 import { findUserById } from "../db/users";
 import type { AppEnv } from "../env";
@@ -27,6 +28,10 @@ async function finishRemoval(c: Context<AppEnv>, userId: number, removed: number
   const { auth } = c.var;
   const keep = auth.user.id === userId ? auth.session.idHash : undefined;
   const sessionsRevoked = removed > 0 ? await deleteUserSessions(db, userId, keep) : 0;
+  // 管理员清掉自己的 2FA：保留的当前会话也去掉 totp / recovery，与账号页关闭 2FA 一致
+  if (removed > 0 && keep !== undefined && removal.kind === "totp") {
+    await setSessionAuthMethods(db, keep, withoutTotpFactors(auth.session.authMethods));
+  }
   const noLoginMethod = !(await hasAnyLoginMethod(db, userId));
   await recordAudit(c, {
     action: removal.action,

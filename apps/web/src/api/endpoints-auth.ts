@@ -1,12 +1,12 @@
 import {
   adminGrantListResponseSchema,
-  adminMailboxListResponseSchema,
   adminRuleGroupListSchema,
   credentialRemovalResponseSchema,
   grantBatchResponseSchema,
   adminGrantSchema,
   myIdentityListSchema,
   myMailboxListResponseSchema,
+  myMailListResponseSchema,
   myPasskeyListSchema,
   myPasskeySchema,
   okResponseSchema,
@@ -14,11 +14,9 @@ import {
   recoveryCodesResponseSchema,
   sessionsRevokedResponseSchema,
   totpSetupResponseSchema,
-  visibleMailListResponseSchema,
 } from "@maillink/shared";
 import type {
   AdminGrantListQuery,
-  AdminMailboxListQuery,
   GrantBatchRequest,
   GrantPatch,
   MyMailListQuery,
@@ -128,13 +126,11 @@ export function createAuthEndpoints(client: ApiClient) {
     patchGrant: (id: number, body: GrantPatch) =>
       request({ method: "PATCH", path: `/api/admin/grants/${id}`, body, schema: adminGrantSchema }),
     deleteGrant: (id: number) => request({ method: "DELETE", path: `/api/admin/grants/${id}`, schema: okResponseSchema }),
-    /** 授权表单里的收件地址与规则组选择器（只读列表） */
-    pickMailboxes: (query: AdminMailboxListQuery) =>
-      request({ path: "/api/admin/mailboxes", query, schema: adminMailboxListResponseSchema }),
+    /** 授权表单里的规则组选择器（只读列表）；收件地址选择器复用 endpoints-admin 的 listMailboxes */
     pickRuleGroups: () => request({ path: "/api/admin/rule-groups", schema: adminRuleGroupListSchema }),
 
     myMailboxes: () => request({ path: "/api/me/mailboxes", schema: myMailboxListResponseSchema }),
-    myMails: (query: MyMailListQuery) => request({ path: "/api/me/mails", query, schema: visibleMailListResponseSchema }),
+    myMails: (query: MyMailListQuery) => request({ path: "/api/me/mails", query, schema: myMailListResponseSchema }),
     myMail: (id: number, mailboxId: number | undefined) =>
       request({ path: `/api/me/mails/${id}`, query: { mailbox_id: mailboxId }, schema: presentedMailSchema }),
   };

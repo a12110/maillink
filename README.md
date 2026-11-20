@@ -75,3 +75,9 @@ pnpm test        # 单元测试（vitest + @cloudflare/vitest-plugin，本地 D1
 - `MAIL_DB` 在代码里只读：`apps/worker/src/mail-source/` 是唯一接触它的目录，有单测扫描该目录禁止写入类 SQL。迁移只针对 `APP_DB`。
 - 合成邮件样本在 `apps/worker/test/fixtures/`，见其中的 README。
 - `/api/admin/*` 全部要求管理员会话；写操作还需 `Origin` 等于 `PUBLIC_ORIGIN` 且带请求头 `X-MailLink-Csrf: 1`。
+
+## 部署
+
+部署到 Cloudflare Workers 的完整步骤（创建 APP_DB、绑定 temp_email 的库为只读 MAIL_DB、secrets、限流、远程迁移、首次初始化、部署后冒烟检查、Turnstile 与 OAuth 配置、备份回滚、已知限制）见 [`docs/deploy.md`](docs/deploy.md)。
+
+`pnpm --filter web build` 的最后一步会根据 `dist/index.html` 生成页面安全头 `dist/_headers`（CSP 内联脚本哈希自动计算，不要手改 `dist/`）。本地 `wrangler dev` 同样会应用它。

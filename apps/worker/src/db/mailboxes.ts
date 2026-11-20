@@ -24,7 +24,9 @@ const SELECT_MAILBOXES = `
     (SELECT COUNT(*) FROM user_mailbox_grants g WHERE g.mailbox_id = m.id) AS grant_count
   FROM mailboxes m`;
 
-function buildFilter(query: AdminMailboxListQuery, withCursor: boolean): { where: string; params: unknown[] } {
+type FilterOptions = { withCursor: boolean; withStatus: boolean };
+
+function buildFilter(query: AdminMailboxListQuery, options: FilterOptions): { where: string; params: unknown[] } {
   const clauses: string[] = [];
   const params: unknown[] = [];
   if (query.q !== undefined) {
@@ -39,32 +41,63 @@ function buildFilter(query: AdminMailboxListQuery, withCursor: boolean): { where
     clauses.push("EXISTS (SELECT 1 FROM mailbox_tags t WHERE t.mailbox_id = m.id AND t.tag = ?)");
     params.push(query.tag);
   }
-  if (query.status !== undefined) {
+  if (query.has_link !== undefined) {
+    clauses.push(`${query.has_link ? "" : "NOT "}EXISTS (SELECT 1 FROM share_link_mailboxes s WHERE s.mailbox_id = m.id)`);
+  }
+  if (options.withStatus && query.status !== undefined) {
     clauses.push("m.status = ?");
     params.push(query.status);
   }
-  if (withCursor && query.cursor !== undefined) {
+  if (options.withCursor && query.cursor !== undefined) {
     clauses.push("m.id < ?");
     params.push(Number(query.cursor));
   }
   return { where: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "", params };
 }
 
-/** id 倒序的游标分页，另带满足筛选条件的总数 */
-export async function listMailboxRows(
-  db: D1Database,
-  query: AdminMailboxListQuery,
-): Promise<{ rows: MailboxRow[]; next_cursor: string | null; total: number }> {
+export type MailboxListPage = {
+  rows: MailboxRow[];
+  next_cursor: string | null;
+  total: number;
+  active_count: number;
+  disabled_count: number;
+};
+
+type StatusCounts = { active: number | null; disabled: number | null };
+
+/** id 倒序的游标分页，另带满足筛选条件的总数，以及去掉 status 筛选后的启用数、停用数（同一 batch，口径一致） */
+export async function listMailboxRows(db: D1Database, query: AdminMailboxListQuery): Promise<MailboxListPage> {
   const limit = query.limit ?? LIST_PAGE_SIZE;
-  const page = buildFilter(query, true);
-  const count = buildFilter(query, false);
-  const [list, total] = await db.batch<MailboxRow | { total: number }>([
+  const page = buildFilter(query, { withCursor: true, withStatus: true });
+  const count = buildFilter(query, { withCursor: false, withStatus: true });
+  const byStatus = buildFilter(query, { withCursor: false, withStatus: false });
+  const [list, total, statuses] = await db.batch<MailboxRow | { total: number } | StatusCounts>([
     db.prepare(`${SELECT_MAILBOXES} ${page.where} ORDER BY m.id DESC LIMIT ?`).bind(...page.params, limit + 1),
     db.prepare(`SELECT COUNT(*) AS total FROM mailboxes m ${count.where}`).bind(...count.params),
+    db
+      .prepare(`SELECT SUM(m.status = 'active') AS active, SUM(m.status = 'disabled') AS disabled FROM mailboxes m ${byStatus.where}`)
+      .bind(...byStatus.params),
   ]);
   const rows = (list?.results ?? []) as MailboxRow[];
   const pageRows = rows.slice(0, limit);
-  return { rows: pageRows, next_cursor: pageCursor(rows.length > limit, pageRows), total: readTotal(total) };
+  const counts = statuses?.results[0] as StatusCounts | undefined;
+  return {
+    rows: pageRows,
+    next_cursor: pageCursor(rows.length > limit, pageRows),
+    total: readTotal(total),
+    // 没有任何行时 SUM 为 NULL
+    active_count: counts?.active ?? 0,
+    disabled_count: counts?.disabled ?? 0,
+  };
+}
+
+/** 全部标签及使用次数：次数降序、标签升序；多取一行判断是否超出上限 */
+export async function listMailboxTagCounts(db: D1Database, max: number): Promise<{ items: Array<{ tag: string; count: number }>; truncated: boolean }> {
+  const { results } = await db
+    .prepare("SELECT tag, COUNT(*) AS count FROM mailbox_tags GROUP BY tag ORDER BY count DESC, tag ASC LIMIT ?")
+    .bind(max + 1)
+    .all<{ tag: string; count: number }>();
+  return { items: results.slice(0, max), truncated: results.length > max };
 }
 
 function pageCursor(hasMore: boolean, rows: readonly MailboxRow[]): string | null {
