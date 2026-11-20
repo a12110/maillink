@@ -1,8 +1,13 @@
 import { ADMIN_STATE } from "../support/accounts";
-import { CODE_ONLY_GROUP_NAME, warmMailIndex } from "../support/data";
+import { CODE_ONLY_GROUP_NAME, requirePriorData, SEED_ADDRESSES, warmMailIndex } from "../support/data";
 import { expect, test } from "../support/fixtures";
 
 test.use({ storageState: ADMIN_STATE });
+
+// 测试器要对已导入的地址试跑
+test.beforeEach(async ({ adminApi }) => {
+  await requirePriorData(adminApi, { mailboxes: SEED_ADDRESSES }, "04");
+});
 
 test("规则组：从「仅验证码」模板新建，测试器对种子邮件给出可见 / 不可见，保存后出现在列表", async ({ page, adminApi }) => {
   await warmMailIndex(adminApi);

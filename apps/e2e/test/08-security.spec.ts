@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { request as playwrightRequest } from "@playwright/test";
 import type { APIResponse } from "@playwright/test";
-import { ADMIN_STATE, userAccount } from "../support/accounts";
-import { createUserViaApi, loginWithPassword } from "../support/actions";
+import { ADMIN_STATE, userAccount, VIEWER_STATE } from "../support/accounts";
+import { requirePriorData } from "../support/data";
 import { ORIGIN } from "../support/env";
 import { expect, test, WRITE_HEADERS } from "../support/fixtures";
 
@@ -32,11 +32,14 @@ test("安全路径：未登录访问 /api/admin/* 一律 401", async ({ request 
   expect((await request.get("/api/auth/session")).status()).toBe(401);
 });
 
-test("安全路径：普通用户访问 /api/admin/* 为 403，/admin 页面被挡回 /inbox", async ({ page, adminApi }) => {
-  const account = userAccount("plain");
-  await createUserViaApi(adminApi, account);
-  await loginWithPassword(page, account, "/inbox");
-  const api = page.context().request;
+test("安全路径：普通用户访问 /api/admin/* 为 403，/admin 页面被挡回 /inbox", async ({ adminApi, openContext }) => {
+  // 复用 06 里普通用户的会话（登录接口有限流，少登录几次）
+  await requirePriorData(adminApi, { users: [userAccount("viewer").username] }, "06");
+  const context = await openContext({ storageState: VIEWER_STATE });
+  const page = await context.newPage();
+  await page.goto("/inbox");
+  await expect(page.getByRole("heading", { name: "我的邮件", level: 1 })).toBeVisible();
+  const api = context.request;
 
   for (const path of ADMIN_GET_PATHS) {
     const response = await api.get(path);

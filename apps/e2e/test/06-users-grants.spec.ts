@@ -1,9 +1,13 @@
-import { ADMIN_STATE, userAccount } from "../support/accounts";
+import { ADMIN_STATE, userAccount, VIEWER_STATE } from "../support/accounts";
 import { loginWithPassword } from "../support/actions";
-import { CODE_ONLY_GROUP_NAME, warmMailIndex } from "../support/data";
+import { CODE_ONLY_GROUP_NAME, requirePriorData, SEED_ADDRESSES, warmMailIndex } from "../support/data";
 import { expect, test } from "../support/fixtures";
 
 test.use({ storageState: ADMIN_STATE });
+
+test.beforeEach(async ({ adminApi }) => {
+  await requirePriorData(adminApi, { mailboxes: SEED_ADDRESSES, ruleGroups: [CODE_ONLY_GROUP_NAME] }, "04–05");
+});
 
 const viewer = userAccount("viewer");
 const GRANTED_ADDRESS = "plain.user@example.com";
@@ -41,6 +45,7 @@ test("用户与授权：新建普通用户并授权 1 个地址 + 规则组，�
   // 该用户：登录后在 /inbox 只看到授权地址里符合规则的邮件
   const viewerPage = await (await openContext()).newPage();
   await loginWithPassword(viewerPage, viewer, "/inbox");
+  await viewerPage.context().storageState({ path: VIEWER_STATE });
   await expect(viewerPage.getByRole("heading", { name: "我的邮件", level: 1 })).toBeVisible();
   const cards = viewerPage.locator("article.code-card");
   await expect(cards.first()).toBeVisible();

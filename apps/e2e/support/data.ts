@@ -31,3 +31,40 @@ export async function warmMailIndex(adminApi: APIRequestContext): Promise<void> 
     )
     .toEqual({ count: SEED_MAIL_COUNT, pending: 0, partial: false });
 }
+
+export type PriorData = {
+  /** 已导入的收件地址 */
+  mailboxes?: readonly string[];
+  /** 规则组名称 */
+  ruleGroups?: readonly string[];
+  /** 用户名 */
+  users?: readonly string[];
+};
+
+async function namesOf(adminApi: APIRequestContext, path: string, key: string): Promise<Set<string>> {
+  const response = await adminApi.get(path);
+  expect(response.ok(), `读取 ${path}：${response.status()} ${await response.text()}`).toBe(true);
+  const body = (await response.json()) as { items: Array<Record<string, unknown>> };
+  return new Set(body.items.map((item) => String(item[key])));
+}
+
+/**
+ * 依赖前序用例创建的数据时，开头先确认它们都在：缺了立即失败并说明原因，
+ * 而不是等到界面上某个元素 60 秒超时。`source` 是创建这些数据的文件，如 "04–06"。
+ */
+export async function requirePriorData(adminApi: APIRequestContext, needs: PriorData, source: string): Promise<void> {
+  const missing: string[] = [];
+  const checks: Array<[readonly string[] | undefined, string, string, string]> = [
+    [needs.mailboxes, "/api/admin/mailboxes?limit=100", "address", "收件地址"],
+    [needs.ruleGroups, "/api/admin/rule-groups", "name", "规则组"],
+    [needs.users, "/api/admin/users?limit=100", "username", "用户"],
+  ];
+  for (const [wanted, path, key, label] of checks) {
+    if (wanted === undefined) continue;
+    const present = await namesOf(adminApi, path, key);
+    missing.push(...wanted.filter((name) => !present.has(name)).map((name) => `${label} ${name}`));
+  }
+  if (missing.length > 0) {
+    throw new Error(`缺少前序用例创建的数据：${missing.join("、")}。本文件依赖 ${source} 创建的数据，请全量运行 \`pnpm e2e\`（不要单独运行本文件）。`);
+  }
+}

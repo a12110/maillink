@@ -9,6 +9,8 @@ export default defineConfig({
   testDir: "test",
   outputDir: "test-results",
   // 单 worker 串行：所有用例共用一个 wrangler dev 与同一份临时数据，后面的用例依赖前面创建的数据
+  globalSetup: "./support/budget-setup.ts",
+  globalTeardown: "./support/budget-teardown.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,

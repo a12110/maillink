@@ -6,7 +6,7 @@
   "scripts": {
     "e2e": "playwright test",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "eslint ."
+    "lint": "eslint --ignore-pattern \"playwright-report/**\" --ignore-pattern \"test-results/**\" ."
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

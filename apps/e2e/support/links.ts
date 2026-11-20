@@ -69,6 +69,15 @@ async function readResult(page: Page): Promise<CreatedLink> {
   return { url, path, token: token as string };
 }
 
+/** 在链接列表里点开某个链接的详情侧板（按名称），返回侧板 */
+export async function openLinkPanel(page: Page, name: string): Promise<Locator> {
+  await page.goto("/admin/links");
+  await page.getByRole("button", { name, exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "取件链接详情" });
+  await expect(panel.getByRole("heading", { name })).toBeVisible();
+  return panel;
+}
+
 /** 记录页面对某类地址的请求（按路径片段匹配），用来断言"之后不再请求"或"继续轮询" */
 export function trackRequests(page: Page, fragment: string): { count: () => number; urls: () => string[] } {
   const urls: string[] = [];

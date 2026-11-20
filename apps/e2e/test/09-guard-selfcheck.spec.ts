@@ -31,3 +31,20 @@ test("守卫自检：CSP 违规、外部请求、未捕获异常、5xx 都会被
 
   violations.length = 0;
 });
+
+test("守卫自检：没有 allow-scripts 的邮件 iframe 里的 CSP 违规，经控制台报错被发现", async ({ page, violations }) => {
+  await page.goto("/login");
+  // 与邮件正文同样的沙箱属性：iframe 里不能运行脚本，所以 securitypolicyviolation 监听在里面不会运行，只剩控制台报错这条路。
+  // srcdoc 继承页面 CSP，img-src 不含 http:，这张图被拦
+  await page.evaluate(() => {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox");
+    frame.srcdoc = '<img src="http://selfcheck.invalid/pixel.gif" alt="">';
+    document.body.append(frame);
+  });
+  await expect.poll(() => violations.some((item) => item.startsWith("控制台 CSP 报错：") && item.includes("selfcheck.invalid"))).toBe(true);
+  // 页面本身没有收到事件型记录：说明上面是 iframe 里的违规，靠的确实是控制台这条路
+  expect(violations.some((item) => item.startsWith("CSP 违规："))).toBe(false);
+
+  violations.length = 0;
+});

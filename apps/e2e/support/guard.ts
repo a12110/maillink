@@ -1,8 +1,10 @@
-import type { BrowserContext } from "@playwright/test";
+import type { BrowserContext, Request } from "@playwright/test";
+import { budgetKeys, recordBudget } from "./budget";
 import { ORIGIN } from "./env";
 
 // 全局断言：每个浏览器上下文都挂上这些监听，违规写进 sink，用例结束时由 fixture 断言 sink 为空。
-// - CSP 违规：`securitypolicyviolation` 事件（含 iframe 里的文档）与控制台里的 CSP 报错；
+// - CSP 违规：页面自身的 `securitypolicyviolation` 事件，与控制台里的 CSP 报错（含 iframe）。
+//   邮件 iframe 没有 allow-scripts，里面的监听不会运行，iframe 内的违规只能靠控制台报错发现；
 // - 对非 ORIGIN 的请求（邮件远程图片、第三方脚本等，含 iframe 与弹窗）；
 // - 未捕获异常（`weberror`）；
 // - /api/* 返回 5xx。
@@ -14,6 +16,14 @@ const CSP_CONSOLE_PATTERN = /Content Security Policy|Refused to (?:load|execute|
 const SERVER_ERROR_MIN = 500;
 
 type ReportWindow = Window & { [BINDING_NAME]?: (message: string) => void };
+
+function safeJson(request: Request): unknown {
+  try {
+    return request.postDataJSON();
+  } catch {
+    return null;
+  }
+}
 
 export async function installGuard(context: BrowserContext, sink: string[]): Promise<void> {
   await context.exposeBinding(BINDING_NAME, (_source, message: string) => {
@@ -28,6 +38,7 @@ export async function installGuard(context: BrowserContext, sink: string[]): Pro
 
   context.on("request", (request) => {
     const url = new URL(request.url());
+    if (url.origin === ORIGIN) recordBudget(budgetKeys(request.method(), url.pathname, safeJson(request)));
     if (NETWORK_PROTOCOLS.has(url.protocol) && url.origin !== ORIGIN) sink.push(`外部请求：${request.method()} ${request.url()}`);
   });
   context.on("console", (message) => {

@@ -1,7 +1,6 @@
 import type { Page } from "@playwright/test";
-import { ADMIN_STATE, userAccount } from "../support/accounts";
-import { loginWithPassword } from "../support/actions";
-import { warmMailIndex } from "../support/data";
+import { ADMIN_STATE, userAccount, VIEWER_STATE } from "../support/accounts";
+import { requirePriorData, warmMailIndex } from "../support/data";
 import { expect, test } from "../support/fixtures";
 
 test.use({ storageState: ADMIN_STATE });
@@ -9,6 +8,10 @@ test.use({ storageState: ADMIN_STATE });
 // 06 里建的普通用户（已授权 plain.user，规则组「仅验证码」）
 const viewer = userAccount("viewer");
 const PICKED = ["zh.user@example.com", "ja.user@example.com"] as const;
+
+test.beforeEach(async ({ adminApi }) => {
+  await requirePriorData(adminApi, { mailboxes: PICKED, users: [viewer.username] }, "04 与 06");
+});
 
 /** 在收件地址页勾选这两个地址，批量条随之出现 */
 async function selectPickedMailboxes(page: Page): Promise<void> {
@@ -54,8 +57,8 @@ test("收件地址页多选 →「授权给用户」：逐条结果为已授权�
   await dialog.getByRole("button", { name: "完成" }).click();
 
   // 用户：原有的 plain.user + 新授权的两个，规则组是「完整访问」所以能看到邮件列表
-  const viewerPage = await (await openContext()).newPage();
-  await loginWithPassword(viewerPage, viewer, "/inbox");
+  const viewerPage = await (await openContext({ storageState: VIEWER_STATE })).newPage();
+  await viewerPage.goto("/inbox");
   const select = viewerPage.getByLabel("收件地址", { exact: true });
   await expect(select.locator("option")).toHaveCount(PICKED.length + 2);
   for (const address of PICKED) await expect(select.locator("option", { hasText: address })).toHaveCount(1);
