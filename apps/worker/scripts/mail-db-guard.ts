@@ -16,6 +16,9 @@
 //   作为实参传给 src 里的函数 / 构造器时，看的是声明里（未实例化）的形参类型：无约束类型参数（pick<T>(o: T)、
 //   class Holder<T> { constructor(v: T) }），或约束是 unknown / object / Record<…> 这类不含 env 属性的宽类型，都算擦除——
 //   推断后的实参类型虽然还是 env，函数体内按 T 处理，o[k] 之类的访问就看不到了。约束为 MailDbBinding / Bindings 的类型参数不算。
+// - workers_env_import（范围是整个 src/，含 mail-source/ 与 env.ts）：`cloudflare:workers` 导出的模块级 env 是原始绑定，
+//   不经入口的只读包装。禁止 import { env }（含 as 别名）、转导出 env 或 export *、动态 import 该模块；
+//   import * as W / 默认导入后，W 只能以 W.<非 env 的名字> 出现（W.env、W[k]、把 W 整个交出去都报）。
 //
 // 两层防线：本守卫是静态的第一层；第二层是运行时只读包装（src/mail-source/readonly-db.ts，入口处把 env.MAIL_DB 换掉），
 // 静态守卫漏掉的写法也只能执行 select 与 pragma table_info。
@@ -177,12 +180,61 @@ function argumentRule(ctx: Ctx, node: ts.Node): string | null {
   return erased ? "env_erasure" : null;
 }
 
-const RULES = [tokenRule, spreadRule, escapeRule, erasureRule, argumentRule];
+const WORKERS_MODULE = "cloudflare:workers";
+const WORKERS_ENV = "env";
 
-function checkFile(ctx: Ctx, file: ts.SourceFile): Violation[] {
+const isWorkersModule = (specifier: ts.Expression | undefined): boolean =>
+  specifier !== undefined && ts.isStringLiteralLike(specifier) && specifier.text === WORKERS_MODULE;
+
+/** import { env } / export { env } from "cloudflare:workers"（含 as 别名） */
+function namesWorkersEnv(node: ts.ImportSpecifier | ts.ExportSpecifier): boolean {
+  const declaration = ts.isImportSpecifier(node) ? node.parent.parent.parent : node.parent.parent;
+  return isWorkersModule(declaration.moduleSpecifier) && (node.propertyName ?? node.name).text === WORKERS_ENV;
+}
+
+/** 标识符引用的是 `import * as W` 或默认导入自 cloudflare:workers 的本地名（不含声明处本身） */
+function refersToWorkersNamespace(ctx: Ctx, node: ts.Identifier): boolean {
+  const declaration = ctx.checker.getSymbolAtLocation(node)?.declarations?.[0];
+  if (declaration === undefined) return false;
+  if (ts.isNamespaceImport(declaration)) return declaration.name !== node && isWorkersModule(declaration.parent.parent.moduleSpecifier);
+  if (ts.isImportClause(declaration)) return declaration.name !== node && isWorkersModule(declaration.parent.moduleSpecifier);
+  return false;
+}
+
+/** W.<名字>（值或类型位置），且名字不是 env */
+function namespaceMemberOtherThanEnv(node: ts.Identifier): boolean {
+  const parent = node.parent;
+  if (ts.isPropertyAccessExpression(parent) && parent.expression === node) return parent.name.text !== WORKERS_ENV;
+  if (ts.isQualifiedName(parent) && parent.left === node) return parent.right.text !== WORKERS_ENV;
+  return false;
+}
+
+/** 转导出 env、export * 或动态 import cloudflare:workers */
+function reexportsWorkers(node: ts.Node): boolean {
+  if (ts.isExportDeclaration(node)) {
+    const wholesale = node.exportClause === undefined || ts.isNamespaceExport(node.exportClause);
+    return wholesale && isWorkersModule(node.moduleSpecifier);
+  }
+  return ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && isWorkersModule(node.arguments[0]);
+}
+
+function workersEnvRule(ctx: Ctx, node: ts.Node): string | null {
+  if (ts.isImportSpecifier(node) || ts.isExportSpecifier(node)) return namesWorkersEnv(node) ? "workers_env_import" : null;
+  if (reexportsWorkers(node)) return "workers_env_import";
+  const leaked = ts.isIdentifier(node) && refersToWorkersNamespace(ctx, node) && !namespaceMemberOtherThanEnv(node);
+  return leaked ? "workers_env_import" : null;
+}
+
+type Rule = (ctx: Ctx, node: ts.Node) => string | null;
+
+const RULES: readonly Rule[] = [tokenRule, spreadRule, escapeRule, erasureRule, argumentRule, workersEnvRule];
+/** mail-source/ 与 env.ts 只查 cloudflare:workers 的 env */
+const RULES_EVERYWHERE: readonly Rule[] = [workersEnvRule];
+
+function checkFile(ctx: Ctx, file: ts.SourceFile, rules: readonly Rule[]): Violation[] {
   const violations: Violation[] = [];
   const visit = (node: ts.Node): void => {
-    for (const rule of RULES) {
+    for (const rule of rules) {
       const name = rule(ctx, node);
       if (name === null) continue;
       const { line } = file.getLineAndCharacterOfPosition(node.getStart(file));
@@ -194,7 +246,7 @@ function checkFile(ctx: Ctx, file: ts.SourceFile): Violation[] {
   return violations;
 }
 
-/** srcDir：被守卫的源码根目录（其下 mail-source/ 与 env.ts 例外） */
+/** srcDir：被守卫的源码根目录（其下 mail-source/ 与 env.ts 只查 workers_env_import） */
 export function findMailDbViolations(program: ts.Program, srcDir: string): Violation[] {
   const root = path.normalize(srcDir) + path.sep;
   const ctx: Ctx = {
@@ -203,9 +255,12 @@ export function findMailDbViolations(program: ts.Program, srcDir: string): Viola
     mailSourceDir: path.join(root, "mail-source") + path.sep,
     envFile: path.join(root, "env.ts"),
   };
-  const guarded = (file: ts.SourceFile) =>
-    !file.isDeclarationFile && within(file.fileName, ctx.srcDir) && !within(file.fileName, ctx.mailSourceDir) && path.normalize(file.fileName) !== ctx.envFile;
-  return program.getSourceFiles().filter(guarded).flatMap((file) => checkFile(ctx, file));
+  const inSrc = (file: ts.SourceFile) => !file.isDeclarationFile && within(file.fileName, ctx.srcDir);
+  const exempt = (file: ts.SourceFile) => within(file.fileName, ctx.mailSourceDir) || path.normalize(file.fileName) === ctx.envFile;
+  return program
+    .getSourceFiles()
+    .filter(inSrc)
+    .flatMap((file) => checkFile(ctx, file, exempt(file) ? RULES_EVERYWHERE : RULES));
 }
 
 /** 按 apps/worker/tsconfig.json 建 Program（与 typecheck 同一份配置） */

@@ -5,8 +5,9 @@
 // 取舍：宁可把登录码误判成高危（买家拿不到码会找卖家），不要把高危漏判成登录码（直接交出账号控制权）；
 // 但"修改密码 / change your password / 开启两步验证"这类会出现在登录邮件页脚或安全提示里的祈使句不进 body，
 // 改收"…的验证码 / code to …"、"已被关闭 / has been disabled"这类只在敏感操作邮件里出现的说法。
-// 页脚条件句"If you didn't request this, you can reset your password"：以 NOT_YOU_MARKERS 开头的句子，
-// 第一个逗号之后的建议在匹配前去掉（category.ts），前半句照常匹配（"If you didn't request a password reset" 仍是高危）。
+// 页脚条件句"If you didn't request this, you can reset your password"：以 NOT_YOU_MARKERS 开头的句子里，
+// 只有紧跟引导语逗号、以建议动词（reset / change / update / secure，修改 / 重置 / 更改 / 重设）开头、不超过 80 字符的
+// 那一个分句不参与匹配（category.ts）；引导部分与之后的分句照常匹配。
 // 法语、意大利语里的撇号同时收 ' 与 ’（NFKC 不会把 ’ 归一成 '）。
 
 export type CategoryKeywords = { subject: readonly string[]; body: readonly string[] };
@@ -356,13 +357,11 @@ export const BILLING: CategoryKeywords = {
   ],
 };
 
-/** 页脚"如非本人操作"一类条件句的开头（全部小写）；逗号后的建议不参与高危匹配 */
+/** 页脚"如非本人操作"一类条件句的开头（全部小写，只收中、英）；见文件头对建议分句的说明 */
 export const NOT_YOU_MARKERS: readonly string[] = withApostrophes([
   "if you didn't", "if you did not", "if this wasn't you", "if this was not you", "if it wasn't you", "if it was not you",
   "if you don't recognize", "if you do not recognize",
   "如非本人", "若非本人", "如果不是您本人", "如果不是你本人", "如果这不是您",
-  "si ce n'était pas vous", "wenn sie das nicht waren", "si no fuiste tú", "si no fue usted", "se não foi você",
-  "se non sei stato tu", "본인이 아닌 경우", "если это были не вы",
 ]);
 
 /** 没有验证码但有链接时，出现这些词也算 verification（登录链接类邮件） */

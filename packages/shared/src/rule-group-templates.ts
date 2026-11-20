@@ -21,6 +21,24 @@ const HIGH_RISK_KEYWORDS = [
   "パスワードの再設定",
 ];
 
+/**
+ * 模板 B 屏蔽付款方式变更通知用的关键词（content 包含即屏蔽，不区分大小写）。
+ * 付款方式变更的验证码邮件内置分类是 security_change，不是 billing，"屏蔽账单"那条拦不住。
+ */
+const PAYMENT_METHOD_KEYWORDS = [
+  "payment method",
+  "payment details",
+  "payment information",
+  "billing information",
+  "billing details",
+  "card ending",
+  "付款方式",
+  "支付方式",
+  "付款信息",
+  "支付信息",
+  "お支払い方法",
+];
+
 const resaleShared = (): RuleGroupConfigInput => ({
   schema_version: RULE_GROUP_SCHEMA_VERSION,
   time: { window_minutes: 15, since: { type: "first_access", lookback_minutes: 5 } },
@@ -169,7 +187,8 @@ const TEMPLATES: readonly RuleGroupTemplate[] = [
   {
     key: "resale_buyout",
     name: "卖号：买断（模板 B）",
-    description: "质保期内收本平台的邮件（L1：只限发件人域名），屏蔽账单；纯文本视图、保留链接（买家要点确认链接换绑邮箱）。",
+    description:
+      "质保期内收本平台的邮件（L1：只限发件人域名），屏蔽账单与付款方式变更通知；纯文本视图、保留链接（买家要点确认链接换绑邮箱）。",
     config: {
       schema_version: RULE_GROUP_SCHEMA_VERSION,
       time: { since: { type: "first_access", lookback_minutes: 10 } },
@@ -184,6 +203,13 @@ const TEMPLATES: readonly RuleGroupTemplate[] = [
             when: { field: "sender.domain", op: "domain_is", value: ["openai.com"] },
           },
           { id: "deny-billing", name: "屏蔽账单", enabled: true, effect: "deny", when: { field: "category", op: "eq", value: "billing" } },
+          {
+            id: "deny-payment-method",
+            name: "屏蔽付款方式通知",
+            enabled: true,
+            effect: "deny",
+            when: { field: "content", op: "contains", value: PAYMENT_METHOD_KEYWORDS },
+          },
         ],
       },
       present: {

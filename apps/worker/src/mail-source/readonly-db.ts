@@ -1,8 +1,11 @@
 import type { MailDbBinding } from "./types";
 
 // MAIL_DB 运行时只读包装（AGENTS.md 硬性规则的第二层；第一层是 scripts/mail-db-guard.ts 的静态守卫）。
-// 入口（index.ts 的第一个中间件、cron/index.ts 的 runScheduled）把 env.MAIL_DB 换成这里的包装，
-// 之后无论代码以什么写法拿到 MAIL_DB，能执行的都只有下面放行的读语句。
+// 入口（index.ts 的第一个中间件、cron/index.ts 的 runScheduled）把 env.MAIL_DB 换成这里的包装：经入口 env
+// （c.env、scheduled 的 env）拿到的 MAIL_DB 只能执行下面放行的读语句。原始句柄只存在 # 私有字段与模块内 WeakMap 里，
+// 包装对象、语句对象上没有可枚举或可反射取到的引用。
+// 不在保证之内：`cloudflare:workers` 导出的模块级 env 是原始绑定（静态守卫禁止 src 导入它）；
+// 不经入口、自己拿原始 env 构造调用的代码（如测试）。
 //
 // 放行规则（只覆盖 mail-source 实际用到的两类语句）：
 // - 去掉前导空白与注释（`-- …` 到行尾、`/* … */`，未闭合的块注释吞到结尾）后，首个关键字不区分大小写地等于 select；
@@ -82,49 +85,64 @@ export function assertReadonlySql(sql: string): void {
   throw reject(keyword === undefined ? "空语句或不以关键字开头的语句" : `${keyword.toUpperCase()} 语句`);
 }
 
+/** 本包装 prepare 出来的语句 → 产生它的原始数据库与原始语句（batch 据此判定与解包） */
+const ORIGINS = new WeakMap<D1PreparedStatement, { db: D1Database; statement: D1PreparedStatement }>();
+/** 本模块创建的只读包装 */
+const WRAPPED = new WeakSet<D1Database>();
+
 class ReadonlyStatement implements D1PreparedStatement {
-  constructor(
-    readonly owner: D1Database,
-    readonly inner: D1PreparedStatement,
-  ) {}
+  readonly #db: D1Database;
+  readonly #inner: D1PreparedStatement;
+
+  constructor(db: D1Database, inner: D1PreparedStatement) {
+    this.#db = db;
+    this.#inner = inner;
+    ORIGINS.set(this, { db, statement: inner });
+  }
 
   bind(...values: unknown[]): D1PreparedStatement {
-    return new ReadonlyStatement(this.owner, this.inner.bind(...values));
+    return new ReadonlyStatement(this.#db, this.#inner.bind(...values));
   }
 
   first<T>(colName?: string): Promise<T | null> {
-    return colName === undefined ? this.inner.first<T>() : this.inner.first<T>(colName);
+    return colName === undefined ? this.#inner.first<T>() : this.#inner.first<T>(colName);
   }
 
   run<T = Record<string, unknown>>(): Promise<D1Result<T>> {
-    return this.inner.run<T>();
+    return this.#inner.run<T>();
   }
 
   all<T = Record<string, unknown>>(): Promise<D1Result<T>> {
-    return this.inner.all<T>();
+    return this.#inner.all<T>();
   }
 
   raw<T = unknown[]>(options: { columnNames: true }): Promise<[string[], ...T[]]>;
   raw<T = unknown[]>(options?: { columnNames?: false }): Promise<T[]>;
   raw<T = unknown[]>(options?: { columnNames?: boolean }): Promise<[string[], ...T[]] | T[]> {
-    return options?.columnNames === true ? this.inner.raw<T>({ columnNames: true }) : this.inner.raw<T>();
+    return options?.columnNames === true ? this.#inner.raw<T>({ columnNames: true }) : this.#inner.raw<T>();
   }
 }
 
 class ReadonlyMailDb implements D1Database {
-  constructor(private readonly inner: D1Database) {}
+  readonly #inner: D1Database;
+
+  constructor(inner: D1Database) {
+    this.#inner = inner;
+    WRAPPED.add(this);
+  }
 
   prepare(query: string): D1PreparedStatement {
     assertReadonlySql(query);
-    return new ReadonlyStatement(this.inner, this.inner.prepare(query));
+    return new ReadonlyStatement(this.#inner, this.#inner.prepare(query));
   }
 
   batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
     const inner = statements.map((statement) => {
-      if (statement instanceof ReadonlyStatement && statement.owner === this.inner) return statement.inner;
+      const origin = ORIGINS.get(statement);
+      if (origin !== undefined && origin.db === this.#inner) return origin.statement;
       throw reject("batch 里未经只读包装 prepare 的语句");
     });
-    return this.inner.batch<T>(inner);
+    return this.#inner.batch<T>(inner);
   }
 
   exec(_query: string): Promise<D1ExecResult> {
@@ -142,7 +160,7 @@ class ReadonlyMailDb implements D1Database {
 
 /** 包一层只读；已经包过的原样返回 */
 export function readonlyMailDb(db: D1Database): D1Database {
-  return db instanceof ReadonlyMailDb ? db : new ReadonlyMailDb(db);
+  return WRAPPED.has(db) ? db : new ReadonlyMailDb(db);
 }
 
 /**
@@ -151,6 +169,6 @@ export function readonlyMailDb(db: D1Database): D1Database {
  */
 export function withReadonlyMailDb<E extends MailDbBinding>(env: E): E {
   const db: D1Database | undefined = env.MAIL_DB;
-  if (db === undefined || db instanceof ReadonlyMailDb) return env;
+  if (db === undefined || WRAPPED.has(db)) return env;
   return { ...env, MAIL_DB: new ReadonlyMailDb(db) };
 }

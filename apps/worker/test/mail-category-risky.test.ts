@@ -5,10 +5,12 @@ import type { MailCategory } from "../src/mail-parse";
 import { evaluate } from "../src/rules/evaluate";
 import { buildMail } from "./access-helpers";
 import {
+  LOGIN_NOT_YOU,
   LOGIN_RECHECK,
   LOGIN_SAMPLES,
   RISKY_EXTRA,
   RISKY_FINAL_REVIEW,
+  RISKY_NOT_YOU,
   RISKY_RECHECK,
   type CodeMailSample,
 } from "./fixtures/risky-code-mails";
@@ -42,7 +44,7 @@ async function judge(sample: CodeMailSample, withAiCode: boolean) {
 const cases = (samples: readonly CodeMailSample[]) => samples.map((sample) => [sample.id, sample.lang, sample] as const);
 
 describe("模板 A 拦下带验证码的高危邮件", () => {
-  it.each(cases([...RISKY_FINAL_REVIEW, ...RISKY_EXTRA, ...RISKY_RECHECK]))("%s（%s）", async (_id, _lang, sample) => {
+  it.each(cases([...RISKY_FINAL_REVIEW, ...RISKY_EXTRA, ...RISKY_RECHECK, ...RISKY_NOT_YOU]))("%s（%s）", async (_id, _lang, sample) => {
     for (const withAiCode of [false, true]) {
       const { facts, result } = await judge(sample, withAiCode);
       expect(HIGH_RISK.has(facts.category), `category=${facts.category} ai=${withAiCode}`).toBe(true);
@@ -57,23 +59,23 @@ describe("模板 A 拦下带验证码的高危邮件", () => {
     ]);
   });
 
-  it("样本数：最终验收 13 + 补充 33 + 终验复核 10 封高危，登录码 23 + 终验复核 4 封", () => {
-    expect([RISKY_FINAL_REVIEW.length, RISKY_EXTRA.length, RISKY_RECHECK.length]).toEqual([13, 33, 10]);
-    expect([LOGIN_SAMPLES.length, LOGIN_RECHECK.length]).toEqual([23, 4]);
+  it("样本数：最终验收 13 + 补充 33 + 终验复核 10 + 终验确认 10 封高危，登录码 23 + 终验复核 4 + 终验确认 4 封", () => {
+    expect([RISKY_FINAL_REVIEW.length, RISKY_EXTRA.length, RISKY_RECHECK.length, RISKY_NOT_YOU.length]).toEqual([13, 33, 10, 10]);
+    expect([LOGIN_SAMPLES.length, LOGIN_RECHECK.length, LOGIN_NOT_YOU.length]).toEqual([23, 4, 4]);
     expect(RISKY_RECHECK.map((sample) => sample.id)).toEqual(["#130", "#131", "#132", "#133", "#134", "#135", "#136", "#137", "#138", "#139"]);
     expect(LOGIN_RECHECK.map((sample) => sample.id)).toEqual(["#140", "#141", "#142", "#143"]);
   });
 });
 
 describe("模板 A 仍显示普通登录码邮件", () => {
-  it.each(cases([...LOGIN_SAMPLES, ...LOGIN_RECHECK]))("%s（%s）", async (_id, _lang, sample) => {
+  it.each(cases([...LOGIN_SAMPLES, ...LOGIN_RECHECK, ...LOGIN_NOT_YOU]))("%s（%s）", async (_id, _lang, sample) => {
     const { facts, result } = await judge(sample, true);
     expect(facts.category).toBe("verification");
     expect(result.visible, `reason=${result.reason_code}`).toBe(true);
     expect(result.extracted?.code).toBe(sample.code);
   });
 
-  it.each(cases([...LOGIN_SAMPLES, ...LOGIN_RECHECK].filter((sample) => sample.builtin)))("%s（%s）：不靠 ai_extract，内置提取也可见", async (_id, _lang, sample) => {
+  it.each(cases([...LOGIN_SAMPLES, ...LOGIN_RECHECK, ...LOGIN_NOT_YOU].filter((sample) => sample.builtin)))("%s（%s）：不靠 ai_extract，内置提取也可见", async (_id, _lang, sample) => {
     const { facts, result } = await judge(sample, false);
     expect(facts.code).toBe(sample.code);
     expect(result.visible, `reason=${result.reason_code}`).toBe(true);

@@ -104,6 +104,27 @@ describe("只读包装的 D1 句柄", () => {
     expect(await countRows()).toBe(1);
   });
 
+  it("包装对象与语句对象上取不到原始句柄（私有字段，无自有属性）", () => {
+    const db = readonlyMailDb(env.MAIL_DB);
+    const statement = db.prepare("SELECT 1");
+    const bound = db.prepare("SELECT ?1").bind(1);
+    for (const target of [db, statement, bound]) {
+      expect(Object.keys(target)).toEqual([]);
+      expect(Object.getOwnPropertyNames(target)).toEqual([]);
+      expect(Reflect.ownKeys(target)).toEqual([]);
+      expect(JSON.stringify(target)).toBe("{}");
+      const enumerable: string[] = [];
+      for (const key in target) enumerable.push(key);
+      expect(enumerable).toEqual([]);
+      // 原型上只有方法
+      const proto: object = Object.getPrototypeOf(target);
+      for (const key of Reflect.ownKeys(proto)) expect(typeof Reflect.get(proto, key)).toBe("function");
+    }
+    expect(Reflect.get(db, "inner")).toBeUndefined();
+    expect(Reflect.get(statement, "owner")).toBeUndefined();
+    expect(Reflect.get(statement, "inner")).toBeUndefined();
+  });
+
   it("重复包装原样返回；withReadonlyMailDb 返回新对象，不改入参", () => {
     const db = readonlyMailDb(env.MAIL_DB);
     expect(readonlyMailDb(db)).toBe(db);
