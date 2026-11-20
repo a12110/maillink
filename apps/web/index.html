@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- 首屏明暗预设：脚本包加载前先按系统偏好设 data-theme，避免深色用户先看到一屏浅色。
+         之后 theme/runtime 首次渲染（mode=system）得到同样的值，公开配置到达后再按管理员设置的 mode 覆盖。 -->
+    <script>
+      document.documentElement.setAttribute(
+        "data-theme",
+        window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+      );
+    </script>
     <title>MailLink</title>
   </head>
   <body>

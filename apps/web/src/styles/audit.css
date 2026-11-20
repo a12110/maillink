@@ -1,0 +1,20 @@
+/* 审计日志页 */
+:root {
+  --audit-action-width: 240px;
+  --audit-time-width: 180px;
+  --audit-detail-max-height: 280px;
+}
+
+@layer components {
+  .audit-filters { gap: var(--space-2) var(--space-3); }
+  .audit-action { width: var(--audit-action-width); max-width: 100%; }
+  .audit-time { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); }
+  .audit-time .input { width: var(--audit-time-width); }
+  .audit-table .audit-action-name { font-weight: var(--weight-strong); }
+  .audit-table td .tag { vertical-align: middle; }
+  .audit-table tr[data-open="true"] { background: var(--color-row-selected); }
+  .audit-table td .row-link svg { margin-right: 2px; }
+  .audit-table .audit-detail-row, .audit-table .audit-detail-row:hover { background: var(--color-surface-sunken); }
+  .audit-table .audit-detail-row td { height: auto; padding: var(--space-2) var(--space-3); white-space: normal; }
+  .audit-detail { margin: 0; max-height: var(--audit-detail-max-height); overflow: auto; font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-snug); white-space: pre-wrap; overflow-wrap: anywhere; }
+}

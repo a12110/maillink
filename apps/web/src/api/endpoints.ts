@@ -1,6 +1,4 @@
 import {
-  adminMailDetailSchema,
-  adminMailListResponseSchema,
   adminSessionsRevokedSchema,
   adminUserListSchema,
   adminUserSchema,
@@ -13,13 +11,13 @@ import {
   setupStatusSchema,
 } from "@maillink/shared";
 import type {
-  AdminMailListQuery,
   AdminPasswordReset,
   AdminUserCreate,
   AdminUserListQuery,
   AdminUserPatch,
   ChangePasswordRequest,
   LoginRequest,
+  RegisterRequest,
   SessionResponse,
   SetupRequest,
   UpdateMeRequest,
@@ -27,18 +25,17 @@ import type {
 import { HTTP_UNAUTHORIZED } from "./client";
 import type { ApiClient } from "./client";
 import { ApiError } from "./errors";
+import { createAdminEndpoints } from "./endpoints-admin";
+import { createSettingsEndpoints } from "./endpoints-settings";
 
 function userPath(id: number, suffix = ""): string {
   return `/api/admin/users/${id}${suffix}`;
 }
 
-export function adminMailPath(id: number): string {
-  return `/api/admin/mails/${id}`;
-}
-
-export function adminMailAttachmentPath(id: number, index: number): string {
-  return `${adminMailPath(id)}/attachments/${index}`;
-}
+// 对外保持原来的导出位置
+export { adminMailAttachmentPath, adminMailPath } from "./endpoints-admin";
+export type { AdminMailDetailOptions } from "./endpoints-admin";
+export type { SettingsInputByGroup } from "./endpoints-settings";
 
 export function createEndpoints(client: ApiClient) {
   const { request } = client;
@@ -47,6 +44,10 @@ export function createEndpoints(client: ApiClient) {
     setupStatus: () => request({ path: "/api/setup/status", schema: setupStatusSchema }),
     setup: (body: SetupRequest) =>
       request({ method: "POST", path: "/api/setup", body, schema: okResponseSchema, handleUnauthorized: false }),
+
+    /** 注册关闭时后端 404；成功即已登录（201 + 会话 Cookie） */
+    register: (body: RegisterRequest) =>
+      request({ method: "POST", path: "/api/auth/register", body, schema: okResponseSchema, handleUnauthorized: false }),
 
     login: (body: LoginRequest) =>
       request({ method: "POST", path: "/api/auth/login", body, schema: loginResponseSchema, handleUnauthorized: false }),
@@ -82,11 +83,8 @@ export function createEndpoints(client: ApiClient) {
     revokeUserSessions: (id: number) =>
       request({ method: "DELETE", path: userPath(id, "/sessions"), schema: adminSessionsRevokedSchema }),
 
-    listAdminMails: (query: AdminMailListQuery) =>
-      request({ path: "/api/admin/mails", query, schema: adminMailListResponseSchema }),
-    /** raw=true 时响应多一个 raw 字段（邮件原文） */
-    getAdminMail: (id: number, raw: boolean) =>
-      request({ path: adminMailPath(id), query: { raw: raw ? 1 : undefined }, schema: adminMailDetailSchema }),
+    ...createAdminEndpoints(client),
+    ...createSettingsEndpoints(client),
   };
 }
 

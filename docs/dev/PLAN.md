@@ -54,6 +54,7 @@
   - 取件页 Turnstile 只看链接自己的 `access.turnstile`：开了才校验（系统未启用或范围不含 pickup 时 503），没开就跳过；系统的 pickup 范围只决定"允许链接开启"。
   - 取件页只显示 data URI 形式的站点 Logo（https Logo 会违反"取件页不加载第三方资源"），由 `GET /api/s/:token` 在 Logo 不是 data URI 时不返回（M3b-2 接线时做）。
   - 管理员强制 2FA 目前按"未启用 TOTP 且非通行密钥会话"判定，已启用 TOTP 的管理员走 OAuth 单因素会话也能进管理端；收紧为看会话 `auth_methods` 放到 M7b 加固（需同时让开启该设置时有 TOTP 的管理员走 OAuth 也进入 pending_auth）。
+  - 登录页 Turnstile（05 §3"开启人机验证时带 Turnstile"）：UI-4a 未接、UI-4b 按分工不碰登录页。合并顺序改为 UI-4b 先合入 main（已验收通过），UI-4a 修复时合入 main 后用 UI-4b 的 `TurnstileWidget` 给自己的登录页密码表单带上 `turnstile_token`（action `login`）。**发布阻塞项**：接好之前，管理员若在设置页把 login 加入验证范围，所有密码登录都会失败；最终验收前必须完成。
   - 设了口令的链接，访客通过口令前 `GET /api/s/:token` 不返回收件地址（卖号场景里收件地址就是登录邮箱，口令要连账号身份一起挡住）。
   - 附件下载写 `download` 日志是"GET 无副作用"的唯一例外：要求已登记访客 Cookie，预览机器人在写入前就被 401 挡住，且不改变激活、设备、计次。
   - M3b-2 修复时的取舍（已接受）：迁移 0006 新增表 `link_password_attempts`（IPv6 按 /64 合并计数，访问日志里的完整 IP 文本无法按网段比较），过期行由 M7b 的每日 cron 清理；新增 HKDF 用途 `linkVisitorCookie`（不让 AES-GCM 加密密钥跨算法使用）；导出行模板完全不做公式中和（输出是贴进发卡平台的纯文本，只中和行首也会改坏 `-foo@x.com`），CSV 模式照常中和；按链接的口令全局上限（15 分钟 20 次）是可被利用的锁，阈值可调。
@@ -79,6 +80,8 @@
 - 主 chunk 518 kB（UI-2 后 553 kB）：页面增多后对 `/admin/*` 做路由懒加载。
 - "全部邮件"详情的"以此邮件创建规则"（05 §3）：等规则组编辑页（UI-3+）时补，后端 `draft-from-mail` 已在 M3b-1。
 - 管理员"全部邮件"列表无总数（同用户列表）。
+- UI-3 提出的后端缺口：收件地址标签清单接口；收件地址列表"有链接/无链接"筛选与启用/停用计数；测试器对不可见邮件不返回发件人与主题；shared 缺 `draft-from-mail` 响应 schema；父页面 CSP（`style-src 'unsafe-inline'`、`img-src data: https:`）与 `Referrer-Policy` 响应头（M7b 加固时统一设）。
+- 用户收件箱"全部"的列表项不带 `mailbox_id`/`view`，前端分不清 `meta_only` 与 `full/text` 的邮件（目前点进去 404 时说明）；M7b 在列表项补 `mailbox_id`。
 
 ## 需要用户提供（不阻塞开发）
 
@@ -103,13 +106,14 @@
 | M6 | 系统设置、外观、注册、Turnstile（后端） | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M6 |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
-| UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 进行中（worktree `ui3-mailboxes-rulegroups`，分支 `ui3`，基于 `5375ffa`，端口 8804） | 执行会话 `ses_e09313850ffe7INAHx6EaIz0kU` |
-| UI-4a | 登录两步验证/通行密钥/OAuth、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、我的邮件 `/inbox` | sonnet-5-5#high | 进行中（worktree `ui4a-auth-account-inbox`，分支 `ui4a`，基于 `2449a43`，端口 8805） | 执行会话 `ses_e091cec86ffeMdruzBXfSfQbgA` |
-| UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 进行中（worktree `ui4b-settings-register`，分支 `ui4b`，基于 `8183143`，端口 8807；不改登录页） | 执行会话 `ses_e0904ddc7ffeZp1L3x9WEywhla` |
-| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 待办（M3b-2 已合并，等 INT-1 与开发线名额） | |
+| UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-3 |
+| UI-4a | 登录两步验证/通行密钥/OAuth、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、我的邮件 `/inbox` | sonnet-5-5#high | 待修复（验收"有条件通过"：启用/关闭 2FA 后未刷新会话缓存致 `admin_2fa_required` 引导残留；并入错误标题、`/account?oauth` 读完即清、恢复码阶段单主按钮、侧板清自身 2FA 刷新会话；评审会话 `ses_e08e3735fffeR02OJ3c0riBLei`；`68d3150`；排队等开发线名额） | 执行会话 `ses_e091cec86ffeMdruzBXfSfQbgA` |
+| UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4b |
+| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 进行中（worktree `ui5-links-pickup`，分支 `ui5`，基于 `6a0b86e`，端口 8808；Turnstile 先本地最小实现，合并时改用 UI-4b 的 `TurnstileWidget`） | 执行会话 `ses_e08e993e4ffe95V74xCD1eCriH` |
 | M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7a |
 | INT-1 | M3b-2 × M6 集成：链接允许 Turnstile、"开始取码"接入 Turnstile、`GET /api/s/:token` 带出品牌/公告/data URI Logo/site key、创建链接用默认值、cron 清理 `link_password_attempts` 与 `auth_flow_tokens` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 INT-1 |
-| M7b | e2e、部署文档、最终加固（含管理员强制 2FA 口径收紧、SPA 页面 CSP） | sonnet-5-5#high | 待办 | |
+| M7b-1 | 安全加固（页面 `_headers` 构建时生成含内联脚本哈希的 CSP、API 安全头、管理员强制 2FA 口径收紧）、后端缺口（收件箱列表 `mailbox_id`/`view`、标签清单、有无链接筛选与计数、测试器不可见邮件发件人主题、`draft-from-mail` schema、公开配置 `password_min_length`、用户列表 `total`）、`docs/deploy.md` | opus-5-5#high（含安全加固，按复杂任务） | 进行中（worktree `m7b1-hardening-gaps-deploy`，分支 `m7b1`，基于 `6a0b86e`，端口 8812，迁移号 0010） | 执行会话 `ses_e08e1db45ffe0KGf6OaDUOE0g9` |
+| M7b-2 | 端到端测试（真实浏览器走核心闭环与关键安全路径） | sonnet-5-5#high | 待办（等前端各页合并） | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
 ## 记录
@@ -237,3 +241,19 @@
 - 主 agent 复跑：worker 70 文件 1536 用例连跑多次全过；web 111 用例通过。
 - 验收确认：Turnstile 失败时不占口令名额、不登记设备、不写 `first_access_at`；已登记设备跳过只认本链接 HMAC 名 Cookie 且在 `link_visitors` 可查；GET 无副作用；`site_key` 仅 required 时给，系统 key 缺失时 start 503（失败关闭）；https Logo 不返回；cron 删除条件与计数窗口口径一致（窗口起点那行保留）。
 - 取舍（已接受）：`data:image/svg+xml` 放行（前端只能用 `<img src>` 渲染）；PATCH access 整体替换，不给的字段回到默认值（前端编辑表单须整体提交当前值）；默认过期从 `max(now, valid_from)` 起算；暂留重复字段 `requires_turnstile`（UI-5 对接后删除）。
+
+### 2026-11-20 UI-4b 通过
+
+- 执行：sonnet-5-5#high（`ses_e0904ddc7ffeZp1L3x9WEywhla`）；验收：opus-5-5#high（`ses_e08e336c5ffet6A2jn3ItWmtRZ`），"通过"，无必修。
+- 内容：强调色算法只从 shared `theme-contrast` 导入（前端重复实现已删，测试断言 `THEME_GROUNDS` 与 `tokens.css` 一致）；主题读 `/api/public/config.appearance`，首屏 `color-scheme` meta + 最小内联预设脚本；系统设置页 9 组（外观实时预览可撤销、强调色不可达禁止保存、OAuth 提供方含自动发现与回调地址复制、系统状态只读缺列警告）；`TurnstileWidget` 按需加载、加载失败显式报错、token 一次性；注册页（关闭态、Turnstile 拿到 token 前不可提交、site key 为空时禁用不降级）。
+- 主 agent 复跑（合入最新 main 后）：typecheck/lint 三包 Done；web 21 文件 173 用例、worker 70 文件 1536 用例通过；web build 成功。
+- 验收实测：登录页、设置页、未启用 register 范围的注册页均不请求 challenges.cloudflare.com，启用后注册页才加载；Turnstile 失败后控件重置并显示中文错误；secret 留空不提交、不回显、不入存储；外观预览离开即清除内联覆盖；oauth 组不请求 `/api/admin/settings/oauth`。
+- 待 M7b-2 收尾的小项：两个 secret 输入框 `autoComplete` 改 `off`；Logo 读文件前先按 `file.size` 粗筛；默认强调色时可读性提示与 `tokens.css` 的 `accent-text` 值不一致；会话时长提示文案用 shared 常量；注册成功但取会话失败时提示"账号已创建，请去登录"。
+
+### 2026-11-20 UI-3 通过
+
+- 执行：sonnet-5-5#high（`ses_e09313850ffe7INAHx6EaIz0kU`）；验收：opus-5-5#high（`ses_e08e75a70ffe4crGQeP5OJz5F9`），"有条件通过"，2 项必修：JSON 模式语法错误时仍可保存"上一份能解析的配置"且离开不提示；两处写死 `maxLength`（规则组名称 200 与接口上限 64 不一致）。
+- 修复由主 agent 直接核对（可机械验证）：语法错误时 `saveBlockedReason` 禁止保存并计为 1 处未保存（离开提示、可放弃）；`maxLength` 改用 `RULE_GROUP_API_LIMITS.nameMaxLength` 与 `RULE_GROUP_LIMITS.maxNameLength`。另修：全选 >500 明确报错；从邮件建草稿时测试器默认试跑该邮件；`REASON_TEXT` 按原因码联合类型定型；库内配置损坏时允许直接保存覆盖。
+- 合并：主 agent 把含 UI-4b 的 main 合入 `ui3`，`endpoints.ts`/`queries.ts`/`router.tsx`/`styles/index.css` 追加冲突两边保留（`getAdminMail` 取 UI-3 新签名），执行者把超 70 行的 `createEndpoints` 拆为 `endpoints-admin.ts` 与 `endpoints-settings.ts`，并删掉与真页面重复的路由占位。合并后 typecheck/lint 三包 Done，web 33 文件 283 用例、worker 70 文件 1536 用例通过，web build 成功。
+- 验收确认：iframe sandbox 精确、`srcdoc` 为后端文档；导入里的 `<img onerror>` 显示为文本；3 份复杂配置（嵌套 not/any、`case_sensitive`、`redact`、`extract`、`code_regex`、`allow_domains`、`since.fixed`、`max_mails`）表单 ↔ JSON 往返逐字一致；互斥约束当场说明原因；409 重新加载；测试器用未保存配置、防抖且旧结果不覆盖新结果；收件地址表 36px、红色只在删除、Tab 可达、对话框焦点陷阱；<1100 时测试器移到表单下方。
+- 遗留（后端缺口，已在 M7b-1）：标签清单、有无链接筛选与计数、测试器不可见邮件的发件人与主题、`draft-from-mail` schema。
