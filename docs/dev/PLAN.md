@@ -89,8 +89,8 @@
 | M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M3a |
 | M3b-1 | 取件流水线（access）、收件地址 API、规则组 API（含测试器与草稿）、setup 写模板、管理员邮件 HTML、M3a 遗留加固 | opus-5-5#high（集成核心，按复杂任务升级） | 通过，已合并 | 见记录 2026-11-20 M3b-1 |
 | M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 进行中（worktree `m3b2-share-links`，分支 `m3b2`，基于 `94958bb`，端口 8801，迁移号 0006；链接限流留 `TODO(M7a)` 合并后接线） | 执行会话 `ses_e0948db9effeKBWWnpHMEcs7Uv` |
-| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 进行中（worktree `m4-grants-inbox`，分支 `m4`，基于 `94958bb`，端口 8802，迁移号 0007） | 执行会话 `ses_e094878daffeBlFSsR5d2jlAep` |
-| M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 退回修复（两位评审均"有条件通过"：启用 2FA/添加通行密钥前未再确认身份、OAuth 回调不检查 `login_methods`、OAuth 失败不入审计；并入按用户的二次验证失败上限等 9 项；评审会话 `ses_e095117c5ffe9SrzWGQkrJ8FfF`、`ses_e0950cdefffe03lkP6zljipx8r`；worktree `m5-mfa-passkey-oauth`，分支 `m5`，迁移号 0005） | 执行会话 `ses_e0a26007fffe162XUPKIsWf9PB`；主 agent 复跑 44 文件 1064 用例通过 |
+| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待验收（分支提交后已合入 main 含 M7a，合并后 worker 1228 + web 111 用例通过；worktree `m4-grants-inbox`，分支 `m4`；未用迁移号） | 执行会话 `ses_e094878daffeBlFSsR5d2jlAep` |
+| M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M5 |
 | M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
@@ -179,3 +179,12 @@
 - 验收确认：限流 key 无碰撞；`CF-Connecting-IP` 由边缘覆盖不可伪造；缺 binding 503、超限 429 带 `Retry-After`、binding 抛错 500，均不放行；尾斜杠/大写/双斜杠路径 404、URL 编码照样限流；cron 不写 MAIL_DB、预热游标不跳邮件、孤儿清理在 MAIL_DB 不健康时中止不删；日志保留边界有测试；审计列表 zod 校验与 `no-store`。
 - 另做：第二个 binding `LINK_RATE_LIMITER`（120 次/60 秒，`link` 用途专用，缺失同样 503）；登录类请求体 >4 KB 返回 413；审计列表返回前递归剔除敏感键；审计游标与时间参数严格数字校验；删除过时 `TODO(M7)`。
 - 遗留：两个 binding 的 `namespace_id`（1001/1002）为占位值，部署前按账号调整；本地触发 cron 用 `/cdn-cgi/handler/scheduled?cron=…`（`/__scheduled` 被 SPA 兜底截走）；清理单次上限（日志每表 5 万行、孤儿索引 1 万行）超出时 `last_run` 未标"截断"。
+
+### 2026-11-20 M5 通过
+
+- 执行：opus-5-5#xhigh（`ses_e0a26007fffe162XUPKIsWf9PB`）。验收拆为 TOTP/通行密钥/Cookie（`ses_e095117c5ffe9SrzWGQkrJ8FfF`）与 OAuth/OIDC（`ses_e0950cdefffe03lkP6zljipx8r`）两个 opus-5-5#xhigh 评审，均"有条件通过"；修复后复验 opus-5-5#high（`ses_e0938f8feffeQl5cj43jf7W3JM`）"通过"。
+- 首轮必修：启用 2FA 与添加通行密钥前未再确认身份（拿到会话即可种下绕过 2FA 的通行密钥，已实测复现）；OAuth 回调不再检查 `auth.login_methods`；OAuth 失败不入审计。并入：按用户 id 跨 IP 的第二因素失败上限（15 分钟 10 次锁 15 分钟，登录第二步与再确认共用）；有绑定时禁止改提供方 issuer/kind/端点/client_id；管理员改邮箱才置 `email_admin_set`；拒绝空标签主机名、只允许 443；`maxTokenAge` 与 `azp` 必须等于 `client_id`；先抢占 `pending_auth` 再消耗因素；启用 2FA 与写恢复码同一 batch；"剩余登录方式"考虑 `auth.login_methods`；补并发测试。
+- 合并：主 agent 先把 main（M3b-1、UI-1、UI-2、M7a）合入 `m5`（`d269d88`），解决 `audit.ts`/`constants.ts`/`db/settings.ts`/`index.ts`/shared 导出/锁文件 6 处冲突（均为追加；`auth.login_methods` 默认取 M5 的三项）；合并后 typecheck/lint 三包 Done，worker 54 文件 1261 用例、web 111 用例通过，web build 成功，M7a 受保护路径覆盖测试在 M5 真实路由下通过。
+- 复验证据：只有会话不知密码时启用 2FA 与注册通行密钥均失败且无写入；关闭 oauth 后回调 `provider_unavailable`、不换 token；伪造 HS256 id_token 留下 1 条 `auth.login_failed`；15 个并发错码正好 10×401、5×429；锁定后恢复码登录、重新生成恢复码、通行密钥 options 均 429，恢复码未被消耗。
+- 首轮已确认：TOTP 时间步一次性（6 并发同码只 1 成功）、恢复码原子（5 并发只 1 成功）、`pending_auth` 并发计数正好 5；通行密钥凭据归属、challenge 一次性、"计数器固定 0"不削弱库检查；Cookie 类型隔离；PKCE、state/nonce 一次性、alg 白名单；SSRF 出口 20+ 绕过写法被拒；自动关联 8 条规则全部强制。
+- 遗留：无法防 DNS rebinding（Workers 无 DNS 结果）；OAuth link 模式不要求再确认；知道密码者可故意输错锁住某用户 2FA 15 分钟（按用户上限的固有代价，有审计）；密码登录本身尚不受 `auth.login_methods` 控制（M6）；前端登录页尚未处理 `mfa_required`（UI 线）。
