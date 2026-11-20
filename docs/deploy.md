@@ -4,6 +4,8 @@
 
 配置的含义见 `docs/design/01-architecture-and-data.md` §2；配置文件是 `apps/worker/wrangler.jsonc`。
 
+只用 Cloudflare 控制台网页部署（GitHub Actions 生成单文件 `worker.js`，在控制台上传）的步骤见 [`deploy-gui.md`](deploy-gui.md)；§5 之后的初始化、冒烟检查、Turnstile、OAuth、备份等内容两种方式通用。
+
 ## 1. 前提
 
 - **Workers Paid 套餐**。设计按 Paid 的 CPU 时间与子请求上限来做（PBKDF2、HTML 清洗、按需解析邮件都按 Paid 计算），Free 套餐会在登录或解析邮件时超时。生产 WebCrypto 对 PBKDF2 迭代数的上限没有可靠文档、本地也测不出来，**以生产上的初始化为准**（§6 第一项）。

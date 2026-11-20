@@ -461,3 +461,13 @@ export const LINK_DEFAULT_EXPIRES_UNIT_SEC = SECONDS_PER_DAY;
 
 /** MAIL_DB 探测结果"健康但缺 to_address"的缓存时长：管理员执行迁移后，各 isolate 最多这么久内重探并生效 */
 export const MAIL_SCHEMA_DEGRADED_CACHE_TTL_SEC = 60;
+
+// ---- 单文件部署（控制台上传 worker.js，前端打进 bundle，见 docs/deploy-gui.md） ----
+
+/** 交给 Worker 处理的路径前缀，对应 wrangler.jsonc 的 run_worker_first: ["/api/*"]；其余路径走内嵌静态资源 */
+export const WORKER_FIRST_PATH_PREFIX = "/api/";
+/** Vite 输出的带内容哈希的资源目录，可以长期缓存 */
+export const EMBEDDED_HASHED_ASSET_PREFIX = "/assets/";
+export const EMBEDDED_HASHED_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable";
+/** index.html 等不带哈希的文件每次都向 Worker 确认，发版后立即生效 */
+export const EMBEDDED_ASSET_CACHE_CONTROL = "no-cache";
