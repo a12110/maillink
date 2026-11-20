@@ -27,10 +27,11 @@ const HEADER = [
   'import { getRawBatch, getRawBatch as raw } from "../mail-source";',
   'import type { MailDbBinding } from "../mail-source";',
   'import { helper } from "../helper";',
-  'import type { Bindings, Ctx } from "../env";',
+  'import type { Bindings, Ctx, D1 } from "../env";',
   "declare const env: Bindings;",
   "declare const c: Ctx;",
   "void [getRawBatch, raw, helper, c];",
+  "export type _D1 = D1;",
   "export type _Uses = MailDbBinding;",
 ].join("\n");
 
@@ -45,8 +46,8 @@ const OPTIONS: ts.CompilerOptions = {
 };
 
 /** 内存里的小项目：src/routes/case.ts 是被测夹具，其余是假的 env 与 mail-source */
-function virtualProgram(body: string): ts.Program {
-  const files: Record<string, string> = { ...BASE_FILES, [`${SRC}/routes/case.ts`]: `${HEADER}\n${body}\n` };
+function virtualProgram(body: string, extra: Record<string, string> = {}): ts.Program {
+  const files: Record<string, string> = { ...BASE_FILES, ...extra, [`${SRC}/routes/case.ts`]: `${HEADER}\n${body}\n` };
   const host = ts.createCompilerHost(OPTIONS);
   const realGet = host.getSourceFile.bind(host);
   const realExists = host.fileExists.bind(host);
@@ -89,6 +90,56 @@ const BYPASSES: Array<[string, string, string]> = [
   ["字符串键", 'export type Picked = Pick<Bindings, "MAIL_DB">;', "mail_db_string"],
   ["断言成 unknown", "const hidden = env as unknown;\nvoid hidden;", "env_erasure"],
   ["交给 unknown 形参", "function sink(x: unknown) {\n  return x;\n}\nsink(c.env);", "env_erasure"],
+  // 终验复核（fable）的三种泛型写法，原样搬来（D1Database 换成夹具里的 D1）
+  [
+    "终验复核 1：无约束泛型 pick 取属性",
+    [
+      "function pick<T, K extends keyof T>(o: T, k: K): T[K] {",
+      "  return o[k];",
+      "}",
+      'const key = ("MAIL" + "_DB") as "APP_DB";',
+      'void pick(c.env, key).prepare("DELETE FROM raw_mails");',
+    ].join("\n"),
+    "env_erasure",
+  ],
+  [
+    "终验复核 2：无约束泛型里洗成 Record",
+    [
+      "function launder<T>(x: T): Record<string, D1> {",
+      "  return x as unknown as Record<string, D1>;",
+      "}",
+      'void launder(c.env)["MAIL" + "_DB"]?.prepare("DELETE FROM raw_mails");',
+    ].join("\n"),
+    "env_erasure",
+  ],
+  [
+    "终验复核 3：泛型类持有 env",
+    [
+      "class Holder<T> {",
+      "  constructor(readonly value: T) {}",
+      "  read<K extends keyof T>(k: K): T[K] {",
+      "    return this.value[k];",
+      "  }",
+      "}",
+      "const holder = new Holder(c.env);",
+      'void holder.read(("MAIL_" + "DB") as "APP_DB").prepare("DROP TABLE raw_mails");',
+    ].join("\n"),
+    "env_erasure",
+  ],
+  ["类型参数约束为 object", "function wide<T extends object>(x: T) {\n  return x;\n}\nwide(env);", "env_erasure"],
+  ["类型参数约束为 Record", "function rec<T extends Record<string, unknown>>(x: T) {\n  return x;\n}\nrec(env);", "env_erasure"],
+  ["类型参数约束为 unknown", "function unk<T extends unknown>(x: T) {\n  return x;\n}\nunk(env);", "env_erasure"],
+  ["rest 形参是泛型数组", "function many<T>(...xs: T[]) {\n  return xs;\n}\nmany(env);", "env_erasure"],
+  ["从 cloudflare:workers 导入 env", 'import { env as workersEnv } from "cloudflare:workers";\nvoid workersEnv;', "workers_env_import"],
+  ["导入 env 不用别名", 'import { env } from "cloudflare:workers";\nvoid env;', "workers_env_import"],
+  ["命名空间导入后取 env", 'import * as W from "cloudflare:workers";\nvoid W.env;', "workers_env_import"],
+  ["命名空间导入后计算属性取", 'import * as W from "cloudflare:workers";\nvoid W["e" + "nv"];', "workers_env_import"],
+  ["命名空间整个交出去", 'import * as W from "cloudflare:workers";\nvoid Object.values(W);', "workers_env_import"],
+  ["默认导入后取 env", 'import W from "cloudflare:workers";\nvoid W.env;', "workers_env_import"],
+  ["转导出 env", 'export { env } from "cloudflare:workers";', "workers_env_import"],
+  ["export * 转导出", 'export * from "cloudflare:workers";', "workers_env_import"],
+  ["动态 import", 'void import("cloudflare:workers").then((m) => m);', "workers_env_import"],
+  ["实参多于形参（经 arguments 取）", "function none() {\n  return arguments[0];\n}\nnone(env);", "env_erasure"],
 ];
 
 describe("MAIL_DB 守卫：每种绕过都会被报出", () => {
@@ -108,12 +159,32 @@ describe("MAIL_DB 守卫：允许的写法不报", () => {
       "  return getRawBatch(source.MAIL_DB, [3]);",
       "}",
       "viaBinding(env);",
+      "export function viaGeneric<E extends MailDbBinding>(source: E) {",
+      "  return getRawBatch(source.MAIL_DB, [4]);",
+      "}",
+      "viaGeneric(env);",
+      "export function viaBindings<E extends Bindings>(source: E) {",
+      "  return source.APP_DB;",
+      "}",
+      "viaBindings(c.env);",
+      'export type _Workers = import("cloudflare:workers").WorkerEntrypoint;',
       "// env.MAIL_DB.prepare('DELETE')",
       'console.error("health check: MAIL_DB 探测失败");',
       "void env.APP_DB.prepare('SELECT 1');",
       "void c.env.APP_SECRET;",
     ].join("\n");
     assert.deepEqual(rulesHit(body), []);
+  });
+});
+
+describe("MAIL_DB 守卫：cloudflare:workers 的 env 在 mail-source 里同样禁止", () => {
+  it("mail-source 下导入 env 报出，取模块里别的导出不报", () => {
+    const files = {
+      [`${SRC}/mail-source/evil.ts`]: 'import { env } from "cloudflare:workers";\nexport const leaked = env;\n',
+      [`${SRC}/mail-source/fine.ts`]: 'import * as W from "cloudflare:workers";\nexport type Entry = W.WorkerEntrypoint;\nexport const Base = W.DurableObject;\n',
+    };
+    const hits = findMailDbViolations(virtualProgram("", files), SRC).filter((v) => v.file.startsWith("mail-source"));
+    assert.deepEqual(hits.map((v) => `${v.file}:${v.rule}`), ["mail-source/evil.ts:workers_env_import"]);
   });
 });
 

@@ -3,6 +3,7 @@ import { CRON_DAILY_CLEANUP, CRON_ERROR_MAX_LENGTH, CRON_PREWARM } from "../cons
 import { nowSec } from "../clock";
 import { setLastRun } from "../db/cron-state";
 import type { CronTaskName } from "../db/cron-state";
+import { withReadonlyMailDb } from "../mail-source";
 import { truncateChars } from "../text-utils";
 import { runDailyCleanup } from "./cleanup";
 import { prewarmMailIndex } from "./prewarm";
@@ -27,7 +28,8 @@ export async function runScheduled(cron: string, env: CronEnv): Promise<void> {
   let processed: Processed = {};
   let failure: unknown = null;
   try {
-    processed = await task.run(env);
+    // MAIL_DB 运行时只读包装（见 mail-source/readonly-db.ts），scheduled 入口与直接调用都经过这里
+    processed = await task.run(withReadonlyMailDb(env));
   } catch (error) {
     console.error(`cron 任务 ${task.name} 失败`, error);
     failure = error;

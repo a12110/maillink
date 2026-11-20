@@ -5,6 +5,9 @@
 // 取舍：宁可把登录码误判成高危（买家拿不到码会找卖家），不要把高危漏判成登录码（直接交出账号控制权）；
 // 但"修改密码 / change your password / 开启两步验证"这类会出现在登录邮件页脚或安全提示里的祈使句不进 body，
 // 改收"…的验证码 / code to …"、"已被关闭 / has been disabled"这类只在敏感操作邮件里出现的说法。
+// 页脚条件句"If you didn't request this, you can reset your password"：以 NOT_YOU_MARKERS 开头的句子里，
+// 只有紧跟引导语逗号、以建议动词（reset / change / update / secure，修改 / 重置 / 更改 / 重设）开头、不超过 80 字符的
+// 那一个分句不参与匹配（category.ts）；引导部分与之后的分句照常匹配。
 // 法语、意大利语里的撇号同时收 ' 与 ’（NFKC 不会把 ’ 归一成 '）。
 
 export type CategoryKeywords = { subject: readonly string[]; body: readonly string[] };
@@ -38,6 +41,8 @@ export const EMAIL_CHANGE: CategoryKeywords = {
     "change your login email", "update your login email", "change your e-mail", "change of e-mail", "e-mail address change",
     "update your e-mail address", "new e-mail address", "email change request", "confirm your email change",
     "email address has been changed", "email address has been updated", "email address was updated", "email was changed",
+    "change to your email", "change to your e-mail", "change to your sign-in email", "change to your account email",
+    "change to your login email", "change your sign-in email", "update your sign-in email", "new sign-in email",
     // 中文
     "更换邮箱", "更改邮箱", "修改邮箱", "变更邮箱", "新邮箱", "邮箱变更", "换绑邮箱", "更换绑定邮箱", "修改绑定邮箱", "绑定新邮箱",
     "邮箱地址变更", "修改邮箱地址", "更改电子邮件", "更改电子邮箱", "更换电子邮箱", "修改电子邮箱", "新的电子邮箱",
@@ -113,6 +118,9 @@ export const PASSWORD_RESET: CategoryKeywords = {
     "password change request", "requested a password change", "request to change your password",
     "requested to change your password", "confirm your password change", "change your login credentials",
     "update your login credentials", "change your steam login credentials",
+    // 目的状语"…to change your password"（"code is 123456 to change your password"）；页脚"If this wasn't you, change your password"
+    // 是祈使句，不含 to；条件句后半句的建议由 category.ts 去掉
+    "to change your password", "to update your password",
     // 中文
     "重设密码", "重置密码", "找回密码", "密码重置", "忘记密码", "重設密碼", "重置密碼", "忘記密碼", "密碼重設",
     "正在修改密码", "修改密码的验证码", "修改密码验证码", "更改密码的验证码", "修改密碼的驗證碼", "變更密碼的驗證碼",
@@ -209,6 +217,12 @@ export const SECURITY_CHANGE: CategoryKeywords = {
     "changes to your security settings", "security question was changed", "security questions were changed",
     "recover your account", "restore your account", "delete your account", "account deletion", "permanently delete",
     "close your account", "deactivate your account",
+    // English：账号转让、付款方式、会话与安全设置（终验复核补充）
+    "transfer of account ownership", "account ownership", "transfer ownership", "ownership transfer",
+    "update your payment method", "change your payment method", "add a payment method", "add a new payment method",
+    "remove your payment method", "remove a payment method", "new payment method", "payment method was",
+    "payment method has been", "reset security settings", "reset your security settings", "sign out of all other devices",
+    "sign out of all devices", "sign out of all other sessions", "log out of all devices", "log out of all other devices",
     // 中文
     "关闭两步验证", "停用两步验证", "关闭双重验证", "关闭二次验证", "开启两步验证", "启用两步验证", "开启双重验证",
     "启用双重验证", "开启二次验证", "关闭登录保护", "身份验证器", "验证器应用", "安全密钥", "账号恢复", "找回账号", "恢复账号",
@@ -342,6 +356,13 @@ export const BILLING: CategoryKeywords = {
     "請求書", "領収書", "お支払い", "サブスクリプションの更新", "サブスクリプションが更新", "返金",
   ],
 };
+
+/** 页脚"如非本人操作"一类条件句的开头（全部小写，只收中、英）；见文件头对建议分句的说明 */
+export const NOT_YOU_MARKERS: readonly string[] = withApostrophes([
+  "if you didn't", "if you did not", "if this wasn't you", "if this was not you", "if it wasn't you", "if it was not you",
+  "if you don't recognize", "if you do not recognize",
+  "如非本人", "若非本人", "如果不是您本人", "如果不是你本人", "如果这不是您",
+]);
 
 /** 没有验证码但有链接时，出现这些词也算 verification（登录链接类邮件） */
 export const LOGIN_LINK_KEYWORDS: readonly string[] = [

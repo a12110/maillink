@@ -72,6 +72,43 @@ export const RISKY_EXTRA: readonly CodeMailSample[] = [
   { id: "ja-2fa", lang: "ja", subject: "認証コード", text: "2段階認証を解除するための認証コード：224512", code: "224512" },
 ];
 
+/** 终验复核（fable，06b）另写的 10 封新措辞高危邮件，原样搬来；当时 #130 / #134 / #137 / #138 / #139 漏判 */
+export const RISKY_RECHECK: readonly CodeMailSample[] = [
+  { id: "#130", lang: "en", subject: "Your verification code", text: "Your verification code is 130130. Use it to confirm the change to your sign-in email.", code: "130130" },
+  { id: "#131", lang: "en", subject: "Your verification code", text: "Your verification code is 131131. Enter it to turn off 2-step verification.", code: "131131" },
+  { id: "#132", lang: "en", subject: "Your verification code", text: "Your verification code is 132132. Enter it to verify your new phone number.", code: "132132" },
+  { id: "#133", lang: "en", subject: "Your verification code", text: "Your verification code is 133133. Use it to add a new passkey to your account.", code: "133133" },
+  { id: "#134", lang: "en", subject: "Your verification code", text: "Your verification code is 134134. Use it to approve the transfer of account ownership.", code: "134134" },
+  { id: "#135", lang: "de", subject: "Ihr Code", text: "Ihr Verification code: 135135. Verwenden Sie ihn, um Ihr Passwort zurückzusetzen.", code: "135135" },
+  { id: "#136", lang: "en", subject: "Your verification code", text: "Your verification code is 136136. Use it to permanently close your account.", code: "136136" },
+  { id: "#137", lang: "en", subject: "Your verification code", text: "Your verification code is 137137 to change your password.", code: "137137" },
+  { id: "#138", lang: "en", subject: "Your verification code", text: "Your verification code is 138138. Use this code to update your payment method.", code: "138138" },
+  {
+    id: "#139",
+    lang: "en",
+    subject: "Your verification code",
+    text: "Your verification code is 139139. Use it to sign out of all other devices and reset security settings.",
+    code: "139139",
+  },
+];
+
+/**
+ * 终验确认（fable，05c）构造的"如非本人"句高危邮件：风险说法在引导语逗号之后，但不是以建议动词开头的那一个分句。
+ * #301–#308 是当时漏判的 8 封；#309 / #310 是同批对照（也应拦下）。#306 的换行在正文归一化时会合并成空格。
+ */
+export const RISKY_NOT_YOU: readonly CodeMailSample[] = [
+  { id: "#301", lang: "en", subject: "Your verification code", text: "Your verification code is 301301. If this wasn't you, the new email address will replace your current one once this code is entered.", code: "301301" },
+  { id: "#302", lang: "en", subject: "Your verification code", text: "Your verification code is 302302. If you didn't request this, we have already started to reset your password and this code completes it.", code: "302302" },
+  { id: "#303", lang: "en", subject: "Your verification code", text: "Your verification code is 303303. If you didn't request this, ignore this email — this code lets you reset your password", code: "303303" },
+  { id: "#304", lang: "zh", subject: "验证码", text: "验证码：304304。如非本人操作，请忽略，本次为修改密码的验证码，请勿泄露", code: "304304" },
+  { id: "#305", lang: "zh", subject: "验证码", text: "您的验证码是 305305。如非本人操作，请忽略本邮件，您正在重置密码，验证码 10 分钟内有效", code: "305305" },
+  { id: "#306", lang: "en", subject: "Your verification code", text: "Your verification code is 306306. If you didn't request this, you can ignore this email\nUse this code to reset your password\nThanks", code: "306306" },
+  { id: "#307", lang: "en", subject: "Your verification code", text: "Your verification code is 307307. If you don't recognize this activity, note that two-factor authentication has been disabled once this code is used.", code: "307307" },
+  { id: "#308", lang: "zh", subject: "验证码", text: "验证码 308308。如果不是您本人操作，说明有人正在删除账号，请勿把验证码告诉任何人", code: "308308" },
+  { id: "#309", lang: "en", subject: "Your verification code", text: "If you didn't request this, ignore it; otherwise enter 309309 as your verification code to change your email. Thanks.", code: "309309" },
+  { id: "#310", lang: "en", subject: "Your verification code", text: "Your verification code is 310310. Use it to reset your password. If you didn't request this, ignore this email.", code: "310310" },
+];
+
 /**
  * 普通登录码邮件：必须仍判为 verification。builtin 标记的样本内置提取就能拿到验证码；
  * 其余语言的验证码关键词不在内置词表里（只覆盖中英日），靠 temp_email 的 ai_extract。
@@ -101,4 +138,55 @@ export const LOGIN_SAMPLES: ReadonlyArray<CodeMailSample & { builtin: boolean }>
   { id: "ko-login-2", lang: "ko", subject: "2단계 인증 코드", text: "2단계 인증 코드는 846202 입니다.", code: "846202", builtin: false },
   { id: "ru-login", lang: "ru", subject: "Код для входа", text: "Ваш код подтверждения: 937104. Если это были не вы, смените пароль.", code: "937104", builtin: false },
   { id: "ru-login-2", lang: "ru", subject: "Одноразовый пароль", text: "Ваш одноразовый пароль для входа: 937105", code: "937105", builtin: false },
+];
+
+/** 终验复核（06b）的 4 封登录码，原样搬来；当时 #140（页脚提到 reset your password）被误藏 */
+export const LOGIN_RECHECK: ReadonlyArray<CodeMailSample & { builtin: boolean }> = [
+  {
+    id: "#140",
+    lang: "en",
+    subject: "Your verification code",
+    text: "Your verification code is 140140. Use it to sign in. If you didn't request this, you can reset your password.",
+    code: "140140",
+    builtin: true,
+  },
+  { id: "#141", lang: "en", subject: "Your ChatGPT code is 141141", text: "Your ChatGPT code is 141141. This code expires in 10 minutes.", code: "141141", builtin: true },
+  {
+    id: "#142",
+    lang: "en",
+    subject: "Your login code",
+    text: "Enter this login code: 142142. Never share this code. Didn't request this? Secure your account by changing your password.",
+    code: "142142",
+    builtin: true,
+  },
+  {
+    id: "#143",
+    lang: "en",
+    subject: "Your verification code",
+    text: "Your verification code is 143143. For your security we recommend enabling two-factor authentication.",
+    code: "143143",
+    builtin: true,
+  },
+];
+
+/** 终验确认（05c / proto）的对照登录码：页脚建议分句提到改 / 重置密码，必须仍可见 */
+export const LOGIN_NOT_YOU: ReadonlyArray<CodeMailSample & { builtin: boolean }> = [
+  { id: "#311", lang: "en", subject: "Your verification code", text: "Your verification code is 311311. If you didn't request this, you can reset your password.", code: "311311", builtin: true },
+  { id: "#312", lang: "zh", subject: "验证码", text: "您的登录验证码是 312312。如非本人操作，请立即修改密码。", code: "312312", builtin: true },
+  {
+    id: "#313",
+    lang: "en",
+    subject: "Your login code",
+    text: "Your login code is 313313. If this wasn't you, please change your password immediately and review your recent activity.",
+    code: "313313",
+    builtin: true,
+  },
+  {
+    id: "#314",
+    lang: "en",
+    subject: "Your login code",
+    text: "Your login code is 314314. If you did not attempt to sign in, we recommend that you reset your password.",
+    code: "314314",
+    builtin: true,
+  },
 ];

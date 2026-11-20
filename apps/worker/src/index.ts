@@ -24,11 +24,18 @@ import { meMailboxRoutes, meMailRoutes } from "./routes/me-mails";
 import { publicRoutes } from "./routes/public";
 import { linkSecurityHeaders, publicLinkRoutes } from "./routes/public-links";
 import { setupRoutes } from "./routes/setup";
+import { withReadonlyMailDb } from "./mail-source";
 
 export const app = new Hono<AppEnv>();
 
 app.onError(onError);
 app.notFound(notFound);
+
+// MAIL_DB 运行时只读包装（静态守卫之外的第二层，见 mail-source/readonly-db.ts）：第一个中间件，之后的代码只能拿到包装后的句柄
+app.use("*", async (c, next) => {
+  c.env = withReadonlyMailDb(c.env);
+  await next();
+});
 
 // 全部 /api/* 的 nosniff 与 no-referrer；公开取件接口另加 no-store / noindex。都挂在最前面，CSRF 拒绝等早期错误响应也带上
 app.use("/api/*", apiSecurityHeaders);

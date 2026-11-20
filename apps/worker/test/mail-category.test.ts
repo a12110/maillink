@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyMail, normalizeText } from "../src/mail-parse";
 import type { MailCategory } from "../src/mail-parse";
+import { dropNotYouAdvice } from "../src/mail-parse/category";
 
 const classify = (subject: string, body: string, code: string | null = null, links: string[] = []): MailCategory =>
   classifyMail({ subject: normalizeText(subject), body: normalizeText(body), code, links });
@@ -77,6 +78,47 @@ describe("分类：顺序与边界", () => {
 
   it("页脚里宽泛的词不触发高危类别（正文只匹配具体短语）", () => {
     expect(classify("Your sign-in code", "Code 482913. If this wasn't you, change your password.", "482913")).toBe("verification");
+  });
+
+  it("页脚条件句：只丢紧跟引导语逗号、以建议动词开头的那一个分句", () => {
+    const code = "140140";
+    expect(classify("Your code", "Code 140140. If you didn’t request this, you can reset your password.", code)).toBe("verification");
+    expect(classify("验证码", "验证码 140140。如非本人操作，请立即重置密码。", code)).toBe("verification");
+    expect(classify("Your code", "Code 140140. If this wasn't you, we recommend you reset your password.", code)).toBe("verification");
+    // 前半句本身点明用途
+    expect(classify("Your code", "Code 140140. If you didn't request a password reset, ignore this email.", code)).toBe("password_reset");
+    // 建议句之外另有高危说法
+    expect(classify("Your code", "If you didn't request this, ignore it. Use code 140140 to reset your password.", code)).toBe("password_reset");
+    // 没有逗号的条件句不处理
+    expect(classify("Your code", "Code 140140. If you did not request this reset your password.", code)).toBe("password_reset");
+    // 逗号后不是建议动词开头：不丢
+    expect(classify("Your code", "Code 140140. If this wasn't you, sign out of all other devices.", code)).toBe("security_change");
+    expect(classify("Your code", "Code 140140. If this wasn't you, we already started to reset your password.", code)).toBe("password_reset");
+    expect(classify("Your code", "Code 140140. If this wasn't you, changed settings: reset your password.", code)).toBe("password_reset");
+    // 其他语言不丢
+    expect(classify("Code", "Code 140140. Si ce n'était pas vous, réinitialiser votre mot de passe.", code)).toBe("password_reset");
+  });
+
+  it("建议分句在 , ; : — 处结束，之后的分句照常匹配", () => {
+    const code = "140140";
+    expect(classify("Your code", "Code 140140. If this wasn't you, reset your password, two-factor authentication has been disabled.", code)).toBe("security_change");
+    expect(classify("Your code", "Code 140140. If this wasn't you, change your password — this code lets you reset your password", code)).toBe("password_reset");
+    expect(classify("Your code", "Code 140140. If this wasn't you, change your password; your password reset is pending.", code)).toBe("password_reset");
+    expect(classify("验证码", "验证码 140140。如非本人操作，请修改密码，您正在重置密码。", code)).toBe("password_reset");
+  });
+
+  it("建议动词后接风险名词：整个建议分句不参与匹配（已知边界）", () => {
+    expect(classify("Your code", "Code 140140. If this wasn't you, update your recovery email.", "140140")).toBe("verification");
+    expect(dropNotYouAdvice("code 1. if this wasn't you, update your recovery email. thanks")).toBe("code 1. if this wasn't you, . thanks");
+  });
+
+  it("建议分句最长 80 字符：恰好 80 丢弃，81 不丢", () => {
+    const clauseOf = (length: number) => `reset your password ${"x".repeat(length - "reset your password ".length)}`;
+    const lead = "code 1. if you didn't request this, ";
+    expect(clauseOf(80)).toHaveLength(80);
+    expect(dropNotYouAdvice(`${lead}${clauseOf(80)}. bye`)).toBe(`${lead}. bye`);
+    expect(dropNotYouAdvice(`${lead}${clauseOf(81)}. bye`)).toBe(`${lead}${clauseOf(81)}. bye`);
+    expect(classify("Your code", `${lead}${clauseOf(81)}.`, "1")).toBe("password_reset");
   });
 
   it("营销页脚里的 subscription / 订阅 / サブスクリプション 不会把登录码判成 billing", () => {

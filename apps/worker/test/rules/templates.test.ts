@@ -214,6 +214,24 @@ describe("06 §7 边界情况（规则相关）", () => {
     expect(buyout.config.present.links).toBe("keep");
   });
 
+  it("模板 B（买断）：付款方式变更（分类为 security_change）按关键词屏蔽，其他安全变更通知照常显示", () => {
+    const buyout = byKey("resale_buyout");
+    const security = (subject: string, body: string) => openaiLogin({ subject, body, category: "security_change" });
+    const payment = [
+      security("Your verification code", "Your verification code is 138138. Use this code to update your payment method."),
+      security("Payment method updated", "A new card ending in 4242 was added to your account."),
+      security("Billing information changed", "We updated the billing information on your account."),
+      security("安全提醒", "您的账号付款方式已变更。"),
+    ];
+    for (const facts of payment) expect(evaluate(buyout, okInput(facts), noBound).reason).toBe("deny:屏蔽付款方式通知");
+    const others = [
+      security("Security alert", "Two-factor authentication has been disabled for your account."),
+      security("Your verification code", "Your verification code is 132132. Enter it to verify your new phone number."),
+      security("Account recovery", "Use this code to recover your account: 123456"),
+    ];
+    for (const facts of others) expect(evaluate(buyout, okInput(facts), noBound)).toMatchObject({ visible: true, reason: "allow:本平台发件人" });
+  });
+
   it("模板 C：只提取本平台域名的登录链接", () => {
     const loginLink = byKey("resale_login_link");
     const facts = openaiLogin({ code: null, links: ["https://evil.example/x", "https://auth.openai.com/magic?t=abc"] });

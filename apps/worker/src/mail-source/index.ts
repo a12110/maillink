@@ -5,6 +5,7 @@ export { latestMailId } from "./latest";
 export type { ListAfterParams, ListCandidatesParams } from "./candidates";
 export { MAIL_DB_UNHEALTHY_CODE, requireMailSchema } from "./guard";
 export { getRawBatch } from "./raw";
+export { assertReadonlySql, readonlyMailDb, withReadonlyMailDb } from "./readonly-db";
 export {
   DB_VERSION_KEY,
   REQUIRED_RAW_MAILS_COLUMNS,
