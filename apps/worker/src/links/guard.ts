@@ -3,12 +3,18 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { ClientInfo } from "../db/link-activity";
 import type { ShareLinkRow } from "../db/share-links";
 import { ApiError } from "../errors";
-import { HTTP_BAD_REQUEST, HTTP_CONFLICT, HTTP_FORBIDDEN, HTTP_NOT_FOUND, HTTP_SERVICE_UNAVAILABLE, HTTP_UNAUTHORIZED } from "../http-status";
+import {
+  HTTP_BAD_REQUEST,
+  HTTP_CONFLICT,
+  HTTP_FORBIDDEN,
+  HTTP_GONE,
+  HTTP_NOT_FOUND,
+  HTTP_SERVICE_UNAVAILABLE,
+  HTTP_TOO_MANY_REQUESTS,
+  HTTP_UNAUTHORIZED,
+} from "../http-status";
 
 // 公开取件接口的访问检查（02 §6）与对外错误。具体原因只写进 link_access_logs，对外只给统一的几种错误。
-
-const HTTP_GONE = 410;
-const HTTP_TOO_MANY_REQUESTS = 429;
 
 /** 写进 link_access_logs.reason 的具体原因 */
 export type DenyReason =

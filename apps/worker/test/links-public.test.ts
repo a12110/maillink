@@ -251,3 +251,53 @@ describe("收件地址被删除 / 停用", () => {
     expect((await (await publicApi(`/api/s/${token}`)).json<LinkPublicStatus>()).mailboxes).toEqual(["b***@example.com"]);
   });
 });
+
+describe("限流（LINK_RATE_LIMITER）", () => {
+  const denyAll: RateLimit = { limit: async () => ({ success: false }) };
+  function recording(): { limiter: RateLimit; keys: string[] } {
+    const keys: string[] = [];
+    return { keys, limiter: { limit: async ({ key }) => (keys.push(key), { success: true }) } };
+  }
+
+  it("超限：GET 与 POST 都 429 rate_limited 带 Retry-After，start 不登记设备、不写日志", async () => {
+    const { id, token } = await newLink();
+    const bindings = { LINK_RATE_LIMITER: denyAll };
+    const status = await publicApi(`/api/s/${token}`, {}, { bindings });
+    expect(status.status).toBe(429);
+    expect(status.headers.get("Retry-After")).toBe("60");
+    expect(status.headers.get("Cache-Control")).toBe("no-store");
+    expect((await status.json<ErrorBody>()).error.code).toBe("rate_limited");
+    const res = await publicApi(`/api/s/${token}/start`, {}, { json: {}, bindings });
+    expect(res.status).toBe(429);
+    expect((await tableCounts()).link_visitors).toBe(0);
+    expect(await accessLogs(id)).toEqual([]);
+    expect((await linkRow(id)).first_access_at).toBeNull();
+  });
+
+  it("缺 binding：503 rate_limiter_not_configured（不静默放行）", async () => {
+    const { token } = await newLink();
+    const res = await publicApi(`/api/s/${token}`, {}, { bindings: { LINK_RATE_LIMITER: undefined } });
+    expect(res.status).toBe(503);
+    expect((await res.json<ErrorBody>()).error.code).toBe("rate_limiter_not_configured");
+  });
+
+  it("位置：在状态 / 过期 / IP 检查之后（这些先拒绝且不消耗限流），按 token_hash + IP 计", async () => {
+    const revoked = await newLink();
+    await setColumns(revoked.id, "status = 'revoked'");
+    const ipDenied = await newLink({ access: { ip_allow: ["10.0.0.0/8"] } });
+    const counter = recording();
+    expect((await publicApi(`/api/s/${revoked.token}`, {}, { bindings: { LINK_RATE_LIMITER: counter.limiter } })).status).toBe(410);
+    expect((await publicApi(`/api/s/${ipDenied.token}`, {}, { bindings: { LINK_RATE_LIMITER: counter.limiter } })).status).toBe(410);
+    expect((await publicApi("/api/s/short", {}, { bindings: { LINK_RATE_LIMITER: counter.limiter } })).status).toBe(404);
+    expect(counter.keys).toEqual([]);
+    const ok = await newLink();
+    expect((await publicApi(`/api/s/${ok.token}/mails`, { ip: "198.51.100.9" }, { bindings: { LINK_RATE_LIMITER: counter.limiter } })).status).toBe(401);
+    expect(counter.keys).toEqual([`link:${String((await linkRow(ok.id)).token_hash)}:198.51.100.9`]);
+  });
+
+  it("管理员预览不经过限流：缺 LINK_RATE_LIMITER 时仍 200", async () => {
+    const { id } = await newLink();
+    const res = await api(`/api/admin/links/${id}/preview`, { cookie, bindings: { LINK_RATE_LIMITER: undefined } });
+    expect(res.status).toBe(200);
+  });
+});

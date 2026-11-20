@@ -2,10 +2,11 @@ import type { Context } from "hono";
 import type { LinkAccessStored, LinkDeliveryQuota } from "@maillink/shared";
 import { clientIp } from "../auth/session";
 import { nowSec } from "../clock";
-import { LINK_DELIVERY_WINDOW_SEC, LINK_USER_AGENT_MAX_LENGTH } from "../constants";
+import { LINK_DELIVERY_WINDOW_SEC, LINK_USER_AGENT_MAX_LENGTH, RATE_LIMIT_PURPOSES } from "../constants";
 import { deliveryCounts, insertAccessLog, type ClientInfo, type DeliveryCounts } from "../db/link-activity";
 import { findShareLinkByTokenHash, type ShareLinkRow } from "../db/share-links";
 import type { AppEnv } from "../env";
+import { enforceRateLimit, requestIp } from "../ratelimit";
 import { parseStoredAccess } from "./access-config";
 import { checkNetwork, checkStatusAndTime, denial, linkNotFound, type DenyReason } from "./guard";
 import { hashLinkToken, isWellFormedToken } from "./token";
@@ -65,9 +66,9 @@ export async function loadLinkRequest(c: Context<AppEnv>, log: boolean): Promise
   if (timeIssue !== null) await rejectWith(c, base, timeIssue, log, timeIssue === "not_yet_valid" ? { valid_from: row.valid_from } : undefined);
   const networkIssue = checkNetwork(access, client);
   if (networkIssue !== null) await rejectWith(c, base, networkIssue, log);
-  // TODO(M7a): 限流就在这里（IP / 国家之后、访客 Cookie 之前，02 §6）。M7a 合并后改为：
-  //   await enforceRateLimit(c, RATE_LIMIT_PURPOSES.link, tokenHash, requestIp(c));
-  // 未配置 RATE_LIMITER 时由它返回 503 rate_limiter_not_configured（PLAN 默认决策"不静默放行"）。
+  // 限流：IP / 国家之后、访客 Cookie 之前（02 §6）。按 token_hash + IP 计，走独立的 LINK_RATE_LIMITER；
+  // 缺 binding 时 503 rate_limiter_not_configured（不静默放行），超限 429 rate_limited。管理员预览不经过这里。
+  await enforceRateLimit(c, RATE_LIMIT_PURPOSES.link, tokenHash, requestIp(c));
   const counts = hasDeliveryLimits(access) ? await deliveryCounts(c.env.APP_DB, row.id, now) : null;
   if (counts !== null && access.max_deliveries_total !== undefined && counts.total >= access.max_deliveries_total) {
     await rejectWith(c, base, "total_limit", log);

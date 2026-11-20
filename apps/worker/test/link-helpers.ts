@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import type { MailboxImportResponse, RuleGroupConfigInput, RuleGroupSaveResponse, ShareLinkCreate, ShareLinkCreateResponse } from "@maillink/shared";
 import { baseConfig } from "./access-helpers";
 import { app } from "../src/index";
-import { api, type ApiOptions } from "./helpers";
+import { ALLOW_ALL_RATE_LIMITER, api, type ApiOptions } from "./helpers";
 
 // 取件链接测试的公共构造器。
 
@@ -53,7 +53,7 @@ function publicHeaders(method: string, visitor: Visitor, options: ApiOptions): H
   return headers;
 }
 
-/** 公开接口请求：可指定来源 IP、国家（request.cf.country）与访客 Cookie */
+/** 公开接口请求：可指定来源 IP、国家（request.cf.country）与访客 Cookie；限流默认用放行替身，options.bindings 可覆盖 */
 export async function publicApi(path: string, visitor: Visitor = {}, options: ApiOptions = {}): Promise<Response> {
   const method = options.method ?? (options.json === undefined ? "GET" : "POST");
   // 国家来自 request.cf.country：workerd 的 Request 构造函数接受 cf 属性，测试里用它注入
@@ -63,7 +63,7 @@ export async function publicApi(path: string, visitor: Visitor = {}, options: Ap
     body: options.json === undefined ? undefined : JSON.stringify(options.json),
     cf: visitor.country === undefined ? undefined : { country: visitor.country },
   });
-  return await app.fetch(request, env);
+  return await app.fetch(request, { ...env, RATE_LIMITER: ALLOW_ALL_RATE_LIMITER, LINK_RATE_LIMITER: ALLOW_ALL_RATE_LIMITER, ...options.bindings });
 }
 
 /** start 成功后从 Set-Cookie 取 `mlv_<id>=...` */
