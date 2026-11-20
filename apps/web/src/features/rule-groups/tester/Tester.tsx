@@ -65,12 +65,13 @@ function headStatus(test: TestState): { tone: "success" | "warning"; text: strin
   return { tone: "success", text: "用当前未保存的配置试跑" };
 }
 
-type Props = { config: unknown };
+type Props = { config: unknown; initialTarget?: string };
 
 /** 右侧常驻测试器：改左边、右边跟着变（配置改动防抖后重跑） */
-export function Tester({ config }: Props) {
-  const [target, setTarget] = useState("");
-  const [touched, setTouched] = useState(false);
+export function Tester({ config, initialTarget }: Props) {
+  const [target, setTarget] = useState(initialTarget ?? "");
+  // 带了默认目标就当作已经选过，不再被“最近来信的地址”覆盖
+  const [touched, setTouched] = useState(initialTarget !== undefined);
   const [anchor, setAnchor] = useState("");
   const suggestions = useMailboxSuggestions(target);
   const first = preferredAddress(suggestions.data?.items);

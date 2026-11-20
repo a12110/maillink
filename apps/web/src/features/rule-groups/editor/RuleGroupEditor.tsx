@@ -51,7 +51,8 @@ function ModeSwitch({ editor, onRefused }: { editor: RuleGroupEditorState; onRef
 }
 
 /** 保存按钮禁用的原因（写在 title 上）；可以保存返回 null */
-function saveBlockedReason(problems: number, isExisting: boolean, dirty: boolean): string | null {
+export function saveBlockedReason(problems: number, isExisting: boolean, dirty: boolean, jsonError: string | null): string | null {
+  if (jsonError !== null) return "JSON 有语法错误，修好后才能保存";
   if (problems > 0) return `有 ${problems} 个问题需要先解决`;
   return isExisting && !dirty ? "没有改动" : null;
 }
@@ -89,11 +90,15 @@ type Props = {
   notes?: readonly string[];
   /** 显示在顶部固定栏下面（如“这个规则组现在无法通过校验”） */
   banner?: ReactNode;
+  /** 库里的配置不是合法 JSON：初始内容是替代的空白配置，允许直接保存覆盖 */
+  unreadable?: boolean;
+  /** 测试器默认目标（如“以此邮件创建规则”时的邮件 id）；不给则预选最近来过信的地址 */
+  testerTarget?: string;
   onCreated: (id: number) => void;
 };
 
-export function RuleGroupEditor({ existing, initial, notes = [], banner = null, onCreated }: Props) {
-  const editor = useRuleGroupEditor(initial);
+export function RuleGroupEditor({ existing, initial, notes = [], banner = null, unreadable, testerTarget, onCreated }: Props) {
+  const editor = useRuleGroupEditor(initial, { unreadable });
   // 新建成功后立刻跳到编辑页：此时本页内容已入库，不该再弹“有未保存的修改”
   const leaving = useRef(false);
   const saver = useSaveRuleGroup({ editor, existing, onCreated: (id) => { leaving.current = true; onCreated(id); } });
@@ -107,11 +112,11 @@ export function RuleGroupEditor({ existing, initial, notes = [], banner = null, 
     <>
       <EditorHeader name={editor.content.name} nameError={nameError} changes={editor.changes} saving={saver.saving}
         usage={saver.existing ? { links: saver.existing.links, grants: saver.existing.grants } : null}
-        saveBlockedReason={saveBlockedReason(problems, saver.existing !== null, dirty)}
+        saveBlockedReason={saveBlockedReason(problems, saver.existing !== null, dirty, editor.jsonError)}
         onName={editor.setName} onDiscard={editor.discard} onSave={saver.save} />
       <div className="editor">
         <EditorColumn editor={editor} saver={saver} descError={descError} notes={notes} banner={banner} />
-        <Tester config={editor.content.config} />
+        <Tester config={editor.content.config} initialTarget={testerTarget} />
       </div>
     </>
   );

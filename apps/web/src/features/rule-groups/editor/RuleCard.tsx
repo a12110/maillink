@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
+import { RULE_GROUP_LIMITS } from "@maillink/shared";
 import type { CondLeaf, Rule, RuleGroupIssue } from "@maillink/shared";
 import { Button, Callout, Segmented, Switch } from "../../../ui";
 import { buildWhen, describeFlat, flattenWhen, newLeaf } from "../config";
@@ -43,7 +44,7 @@ function RuleHead({ rule, mode, onChange, onRemove, onDuplicate }: RuleCardProps
     <>
       <div className="rule-head" data-collapsed={!rule.enabled}>
         <Switch aria-label="启用此规则" checked={rule.enabled} onChange={(event) => onChange({ ...rule, enabled: event.target.checked })} />
-        <input className="rule-name" value={rule.name} aria-label="规则名称" maxLength={100} onChange={(event) => onChange({ ...rule, name: event.target.value })} />
+        <input className="rule-name" value={rule.name} aria-label="规则名称" maxLength={RULE_GROUP_LIMITS.maxNameLength} onChange={(event) => onChange({ ...rule, name: event.target.value })} />
         {!rule.enabled ? <span className="tag">已停用</span> : null}
         <Segmented legend="命中后" hideLegend size="sm" name={`effect-${rule.id}`} value={rule.effect} options={options}
           lockedReasonId={reasonId} onChange={(effect) => onChange({ ...rule, effect })} onLockedSelect={() => setExplain(true)} />

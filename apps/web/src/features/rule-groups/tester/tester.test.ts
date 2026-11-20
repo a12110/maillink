@@ -5,17 +5,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as ReactRouter from "@tanstack/react-router";
 import type { PresentedMail, RuleGroupTestItem, RuleGroupTestRequest, RuleGroupTestResponse } from "@maillink/shared";
 import { TESTER_DEBOUNCE_MS } from "../../../constants";
-import { mount } from "../../../test/render";
+import { flush, mount } from "../../../test/render";
 import type { Mounted } from "../../../test/render";
 import { BLANK_CONFIG } from "../config";
 import { describeHit, describeReason } from "./reasons";
 import { buildTestRequest, parseTarget, summarizeItems } from "./tester-state";
 import { TesterResults } from "./TesterResults";
-import { preferredAddress } from "./Tester";
+import { preferredAddress, Tester } from "./Tester";
 import { useRuleGroupTest } from "./useRuleGroupTest";
 
 const testRuleGroup = vi.fn<(body: RuleGroupTestRequest) => Promise<RuleGroupTestResponse>>();
-vi.mock("../../../api/instance", () => ({ api: { testRuleGroup: (body: RuleGroupTestRequest) => testRuleGroup(body) } }));
+const listMailboxes = vi.fn(async () => ({
+  items: [{ id: 1, address: "recent@icloud.com", label: null, note: null, status: "active", tags: [], link_count: 0, grant_count: 0, last_received_at: 99, created_at: 0, updated_at: 0 }],
+  next_cursor: null,
+  total: 1,
+}));
+vi.mock("../../../api/instance", () => ({ api: { testRuleGroup: (body: RuleGroupTestRequest) => testRuleGroup(body), listMailboxes: () => listMailboxes() } }));
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof ReactRouter>();
   const { createElement: h } = await import("react");
@@ -177,6 +182,27 @@ describe("结果渲染", () => {
 
   it("汇总计数", () => {
     expect(summarizeItems([item({ visible: true }), item({}), item({})])).toEqual({ total: 3, visible: 1, hidden: 2 });
+  });
+});
+
+describe("测试器默认目标", () => {
+  const open = (initialTarget?: string) =>
+    mount(createElement(QueryClientProvider, { client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) }, createElement(Tester, { config: BLANK_CONFIG, initialTarget })));
+  const input = (root: HTMLElement) => root.querySelector<HTMLInputElement>("input[list]");
+
+  it("带了默认目标（以此邮件创建规则的邮件 id）：不被“最近来信的地址”覆盖，并按 mail_ids 试跑", async () => {
+    testRuleGroup.mockResolvedValue(response([item({ mail_id: 42 })]));
+    mounted = await open("42");
+    await flush(6);
+    expect(input(mounted.container)?.value).toBe("42");
+    expect(testRuleGroup.mock.calls[0]?.[0]).toMatchObject({ mail_ids: [42] });
+  });
+
+  it("没有默认目标：预选最近来过信的地址", async () => {
+    testRuleGroup.mockResolvedValue(response([]));
+    mounted = await open();
+    await flush(6);
+    expect(input(mounted.container)?.value).toBe("recent@icloud.com");
   });
 });
 

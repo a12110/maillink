@@ -1,3 +1,4 @@
+import { RULE_GROUP_API_LIMITS } from "@maillink/shared";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "../../../ui";
@@ -35,7 +36,7 @@ export function EditorHeader(props: Props) {
     <header className="editor-head">
       <div className="titles">
         <Link className="crumb" to="/admin/rule-groups"><ChevronLeft className="icon-sm" />规则组</Link>
-        <input className="editor-name" value={name} aria-label="规则组名称" aria-invalid={nameError ? "true" : undefined} placeholder="规则组名称" maxLength={200}
+        <input className="editor-name" value={name} aria-label="规则组名称" aria-invalid={nameError ? "true" : undefined} placeholder="规则组名称" maxLength={RULE_GROUP_API_LIMITS.nameMaxLength}
           onChange={(event) => onName(event.target.value)} />
         {nameError ? <span className="field-error">{nameError}</span> : null}
       </div>

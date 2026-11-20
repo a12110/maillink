@@ -23,7 +23,8 @@ export function useSelectAll(selection: Selection, filters: Filters) {
         all.push(...page.items);
         cursor = page.next_cursor ?? undefined;
       } while (cursor !== undefined && all.length <= SELECT_ALL_LIMIT);
-      selection.replace(all.slice(0, SELECT_ALL_LIMIT));
+      if (all.length > SELECT_ALL_LIMIT) throw new Error(`筛选结果超过 ${SELECT_ALL_LIMIT} 个，请缩小范围后再全选（批量操作一次最多 ${SELECT_ALL_LIMIT} 个）`);
+      selection.replace(all);
     } catch (cause) {
       setError(describeError(cause));
     } finally {

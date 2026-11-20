@@ -34,6 +34,7 @@ function ExistingEditor({ group }: { group: AdminRuleGroupDetail }) {
       initial={{ name: group.name, description: group.description ?? "", config: group.config ?? BLANK_CONFIG }}
       notes={group.config === null ? ["库里的配置不是合法 JSON，已用空白配置代替；保存会覆盖它"] : []}
       banner={banner}
+      unreadable={group.config === null}
       onCreated={() => undefined}
     />
   );
@@ -70,7 +71,7 @@ function DraftEditor({ mailId }: { mailId: number }) {
   }
   return (
     <RuleGroupEditor key={`mail-${mailId}`} existing={null} initial={{ name: built.name, description: `由邮件 #${mailId} 生成的草稿`, config: built.config }}
-      notes={query.data.notes} onCreated={(id) => void navigate({ to: "/admin/rule-groups/$id", params: { id: String(id) }, replace: true })} />
+      notes={query.data.notes} testerTarget={String(mailId)} onCreated={(id) => void navigate({ to: "/admin/rule-groups/$id", params: { id: String(id) }, replace: true })} />
   );
 }
 

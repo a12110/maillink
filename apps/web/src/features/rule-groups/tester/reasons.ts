@@ -1,11 +1,12 @@
-import type { ConditionHit, RuleGroupTestItem } from "@maillink/shared";
+import type { ConditionHit, EvaluationReasonCode, RULE_TEST_EXTRA_REASONS, RuleGroupTestItem } from "@maillink/shared";
 import { FIELD_LABEL, OP_LABEL } from "../labels";
 
 // 测试器的原因码 → 中文说明与色调（DESIGN「测试器」：deny 红、解析 / 截断赭、其余灰）
 
 export type ReasonTone = "danger" | "warning" | "neutral";
 
-const REASON_TEXT: Record<string, string> = {
+/** 按求值原因码 ∪ 测试器额外原因码定类型：后端新增原因码而这里漏译时，typecheck 报错 */
+const REASON_TEXT: Record<EvaluationReasonCode | (typeof RULE_TEST_EXTRA_REASONS)[number], string> = {
   allow_match: "命中允许规则",
   blacklist_pass: "黑名单模式：没有被任何屏蔽规则命中",
   deny: "命中屏蔽规则",
@@ -32,7 +33,7 @@ export function describeReason(item: Pick<RuleGroupTestItem, "reason_code" | "re
   return {
     code: item.reason_code,
     tag: item.reason,
-    text: REASON_TEXT[item.reason_code] ?? `未登记的原因码 ${item.reason_code}`,
+    text: REASON_TEXT[item.reason_code as keyof typeof REASON_TEXT] ?? `未登记的原因码 ${item.reason_code}`,
     tone: TONES[item.reason_code] ?? "neutral",
   };
 }
