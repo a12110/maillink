@@ -1,30 +1,24 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useReducer, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
-import { loginRequestSchema } from "@maillink/shared";
 import type { PublicConfig } from "@maillink/shared";
-import { api } from "../../api/instance";
 import { publicConfigQuery, sessionQuery } from "../../api/queries";
 import { queryClient } from "../../app/query-client";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { fieldErrorsFromZod } from "../../lib/forms";
-import type { FieldErrors } from "../../lib/forms";
 import { describeError } from "../../lib/messages";
 import { browserWebAuthn } from "../../lib/webauthn";
 import type { WebAuthnClient } from "../../lib/webauthn";
-import { Button, Callout, ErrorCallout, TextField } from "../../ui";
+import { Callout, ErrorCallout } from "../../ui";
+import type { TurnstileLoader } from "../turnstile/loader";
 import { AlternativeLogins } from "./AlternativeLogins";
 import { INITIAL_LOGIN_STATE, loginReducer } from "./login-flow";
 import type { LoginEvent, LoginState } from "./login-flow";
 import { hasAnyLoginOption, loginOptionsOf } from "./login-options";
 import { LoginNotices } from "./LoginNotices";
 import { MfaStep } from "./MfaStep";
+import { PasswordForm } from "./PasswordForm";
 import type { OAuthResultSearch } from "./search";
-
-const FIELDS = ["username", "password"] as const;
-type Field = (typeof FIELDS)[number];
 
 const routeApi = getRouteApi("/auth/login");
 
@@ -43,66 +37,24 @@ function initialState(search: OAuthResultSearch): LoginState {
   return loginReducer(INITIAL_LOGIN_STATE, { type: "oauth_result", code: search.oauth, provider: search.provider ?? null });
 }
 
-type PasswordStepProps = { onMfaRequired: () => void; onFailure: (error: unknown) => void; onSuccess: () => Promise<void> };
-
-function PasswordForm({ onMfaRequired, onFailure, onSuccess, pending }: PasswordStepProps & { pending: (value: boolean) => void }) {
-  const [values, setValues] = useState<Record<Field, string>>({ username: "", password: "" });
-  const [errors, setErrors] = useState<FieldErrors<Field>>({});
-  const login = useMutation({
-    mutationFn: async (body: Parameters<typeof api.login>[0]) => {
-      const result = await api.login(body);
-      if (result.status === "mfa_required") return onMfaRequired();
-      await onSuccess();
-    },
-    onMutate: () => pending(true),
-    onSettled: () => pending(false),
-    onError: onFailure,
-  });
-
-  const bind = (name: Field) => ({
-    name,
-    value: values[name],
-    error: errors[name],
-    onChange: (event: ChangeEvent<HTMLInputElement>) => setValues({ ...values, [name]: event.target.value }),
-  });
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const parsed = loginRequestSchema.safeParse(values);
-    if (!parsed.success) {
-      setErrors(fieldErrorsFromZod(parsed.error, FIELDS).fields);
-      return;
-    }
-    setErrors({});
-    login.mutate(parsed.data);
-  };
-
-  return (
-    <form className="auth-form" onSubmit={submit} noValidate>
-      <TextField label="用户名" autoComplete="username" autoFocus {...bind("username")} />
-      <TextField label="密码" type="password" autoComplete="current-password" {...bind("password")} />
-      <Button type="submit" variant="primary" block busy={login.isPending} busyLabel="登录中…">
-        登录
-      </Button>
-    </form>
-  );
-}
-
 type EntryProps = {
   config: UseQueryResult<PublicConfig>;
   webauthn: WebAuthnClient;
+  turnstileLoader?: TurnstileLoader;
   dispatch: (event: LoginEvent) => void;
   finishLogin: () => Promise<void>;
 };
 
 /** 密码步：按公开配置决定显示密码表单、通行密钥与 OAuth 按钮，以及公告与注册入口 */
-function EntryStep({ config, webauthn, dispatch, finishLogin }: EntryProps) {
+function EntryStep({ config, webauthn, turnstileLoader, dispatch, finishLogin }: EntryProps) {
   const [passwordPending, setPasswordPending] = useState(false);
   if (config.isPending) return <span className="skeleton" aria-label="加载中" />;
   // 配置读取失败时仍显示密码表单（不因为读不到配置就把管理员锁在外面），同时说明原因
   const options = config.data ? loginOptionsOf(config.data) : { password: true, passkey: false, providers: [] };
   const form = options.password ? (
     <PasswordForm
+      config={config.data}
+      loader={turnstileLoader}
       onMfaRequired={() => dispatch({ type: "mfa_required" })}
       onFailure={(error) => dispatch({ type: "password_failed", error })}
       onSuccess={finishLogin}
@@ -123,7 +75,7 @@ function EntryStep({ config, webauthn, dispatch, finishLogin }: EntryProps) {
   );
 }
 
-export function LoginPage({ webauthn = browserWebAuthn }: { webauthn?: WebAuthnClient }) {
+export function LoginPage({ webauthn = browserWebAuthn, turnstileLoader }: { webauthn?: WebAuthnClient; turnstileLoader?: TurnstileLoader }) {
   useDocumentTitle("登录");
   const search = routeApi.useSearch();
   const navigate = useNavigate();
@@ -153,7 +105,7 @@ export function LoginPage({ webauthn = browserWebAuthn }: { webauthn?: WebAuthnC
           onFailure={(failure) => dispatch({ type: "mfa_failed", failure })}
         />
       ) : (
-        <EntryStep config={config} webauthn={webauthn} dispatch={dispatch} finishLogin={finishLogin} />
+        <EntryStep config={config} webauthn={webauthn} turnstileLoader={turnstileLoader} dispatch={dispatch} finishLogin={finishLogin} />
       )}
     </>
   );

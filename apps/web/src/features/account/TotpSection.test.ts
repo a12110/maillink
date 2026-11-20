@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
-import { createElement } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { createElement, Fragment } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MeResponse } from "@maillink/shared";
+import { sessionQuery } from "../../api/queries";
 import { byText, inputByLabel, settle, submit } from "../../test/dom";
 import { errorReply, installFakeFetch } from "../../test/fake-fetch";
 import { makePublicConfig } from "../../test/fixtures";
@@ -29,15 +31,22 @@ function me(overrides: Partial<MeResponse> = {}): MeResponse {
   };
 }
 
+/** 外壳里一直在观察会话（admin_2fa_required 引导条）；这里用一个常驻观察者代表它，才看得到“失效后重取” */
+function SessionProbe() {
+  useQuery(sessionQuery());
+  return null;
+}
+
 async function open(user: MeResponse): Promise<{ box: HTMLElement; server: FakeFetch }> {
   const server = installFakeFetch({
     "GET /api/public/config": { json: CONFIG },
+    "GET /api/auth/session": { json: { user: { id: 1, username: "alice", display_name: null, email: null, role: "admin" }, auth_methods: ["password"], expires_at: 2_000_000_000, admin_2fa_required: true } },
     "POST /api/me/totp/setup": { json: SETUP },
     "POST /api/me/totp/enable": { json: { recovery_codes: CODES } },
     "POST /api/me/recovery-codes": { json: { recovery_codes: CODES } },
     "DELETE /api/me/totp": { json: { status: "ok" } },
   });
-  mounted = await mountWithProviders(createElement(TotpSection, { me: user }));
+  mounted = await mountWithProviders(createElement(Fragment, null, createElement(SessionProbe), createElement(TotpSection, { me: user })));
   await settle();
   return { box: mounted.container, server };
 }
@@ -62,15 +71,18 @@ describe("启用两步验证：setup → enable → 恢复码只显示一次", (
     const qr = box.querySelector("svg.qr");
     expect(qr?.querySelector("path")?.getAttribute("d")?.length).toBeGreaterThan(100);
     expect(box.querySelector("code")?.textContent).toBe(SETUP.secret);
-    // 二维码是本地算出来的：除了 setup 与 public config，没有任何别的请求
-    expect(server.calls.map((call) => call.path).sort()).toEqual(["/api/me/totp/setup", "/api/public/config"]);
+    // 二维码是本地算出来的：只有本站的 setup / public config / session 请求，没有任何别的
+    expect(server.calls.map((call) => call.path).sort()).toEqual(["/api/auth/session", "/api/me/totp/setup", "/api/public/config"]);
 
     await typeInto(inputByLabel(box, "验证码"), "123456");
     await typeInto(inputByLabel(box, "当前密码"), "pw-current");
+    const sessionCallsBefore = server.callsTo("GET /api/auth/session").length;
     await submit(formOf(box));
     await settle();
 
     expect(server.callsTo("POST /api/me/totp/enable")[0]?.body).toEqual({ code: "123456", password: "pw-current" });
+    // 启用成功后会话缓存失效并重取（否则 admin_2fa_required 引导会残留）
+    expect(server.callsTo("GET /api/auth/session").length).toBe(sessionCallsBefore + 1);
     const shown = Array.from(box.querySelectorAll(".recovery-grid li")).map((li) => li.textContent);
     expect(shown).toEqual(CODES);
     expect(box.textContent).toContain("恢复码只显示这一次");
@@ -160,5 +172,18 @@ describe("已启用：剩余恢复码、重新生成、关闭", () => {
     await settle();
     expect(server.callsTo("DELETE /api/me/totp")[0]?.body).toEqual({ password: "wrong" });
     expect(dialog.textContent).toContain("当前密码或验证码错误");
+  });
+
+  it("关闭成功后同样刷新会话", async () => {
+    const { box, server } = await open(enabled);
+    const before = server.callsTo("GET /api/auth/session").length;
+    await click(byText(box, "button", "关闭两步验证"));
+    const dialog = document.body.querySelector<HTMLElement>("[role=dialog]");
+    if (!dialog) throw new Error("没有弹出对话框");
+    await typeInto(inputByLabel(dialog, "当前密码"), "pw");
+    await submit(dialog.querySelector("form") as HTMLFormElement);
+    await settle();
+    expect(server.callsTo("DELETE /api/me/totp")).toHaveLength(1);
+    expect(server.callsTo("GET /api/auth/session").length).toBe(before + 1);
   });
 });

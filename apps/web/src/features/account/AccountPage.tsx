@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { meQuery, publicConfigQuery } from "../../api/queries";
 import { describeError } from "../../lib/messages";
 import { PageHeader } from "../../shell/PageHeader";
@@ -14,17 +15,28 @@ import { TotpSection } from "./TotpSection";
 
 const routeApi = getRouteApi("/workspace/account");
 
-/** 绑定第三方账号后回到 `/account?oauth=<结果码>&provider=<slug>`：显示结果，关闭后清掉地址栏参数 */
+type OAuthResult = { code: string; provider: string | null };
+
+/**
+ * 绑定第三方账号后回到 `/account?oauth=<结果码>&provider=<slug>`：结果暂存在组件状态里，
+ * 地址栏参数读完立即清掉（同 /login，刷新页面不会重复显示旧结果）；点“知道了”关闭提示。
+ */
 function OAuthResultNotice() {
   const search = routeApi.useSearch();
   const navigate = useNavigate();
   const config = useQuery(publicConfigQuery());
-  if (search.oauth === undefined) return null;
-  const providerName = search.provider === undefined ? null : (config.data?.oauth_providers.find((p) => p.slug === search.provider)?.name ?? search.provider);
-  const outcome = describeOAuthResult(search.oauth, providerName);
+  const [result, setResult] = useState<OAuthResult | null>(null);
+  useEffect(() => {
+    if (search.oauth === undefined && search.provider === undefined) return;
+    if (search.oauth !== undefined) setResult({ code: search.oauth, provider: search.provider ?? null });
+    void navigate({ to: "/account", search: {}, replace: true });
+  }, [navigate, search.oauth, search.provider]);
+  if (result === null) return null;
+  const providerName = result.provider === null ? null : (config.data?.oauth_providers.find((p) => p.slug === result.provider)?.name ?? result.provider);
+  const outcome = describeOAuthResult(result.code, providerName);
   return (
     <Callout tone={outcome.tone} title={outcome.title}
-      actions={<button type="button" className="text-action" onClick={() => void navigate({ to: "/account", search: {}, replace: true })}>知道了</button>}>
+      actions={<button type="button" className="text-action" onClick={() => setResult(null)}>知道了</button>}>
       {outcome.detail}
     </Callout>
   );

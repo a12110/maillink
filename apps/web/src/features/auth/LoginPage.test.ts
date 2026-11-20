@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PublicConfig } from "@maillink/shared";
 import { queryKeys } from "../../api/queries";
@@ -13,12 +13,15 @@ import type { FakeFetch } from "../../test/fake-fetch";
 import { mount, typeInto } from "../../test/render";
 import type { Mounted } from "../../test/render";
 import { ToastProvider } from "../../ui";
+import type { TurnstileApi, TurnstileRenderOptions } from "../turnstile/loader";
 
 let mounted: Mounted | null = null;
 afterEach(async () => {
   await mounted?.unmount();
   mounted = null;
   vi.unstubAllGlobals();
+  Reflect.deleteProperty(window, "turnstile");
+  Reflect.deleteProperty(window, "PublicKeyCredential");
 });
 
 const CONFIG = makePublicConfig();
@@ -204,10 +207,117 @@ describe("登录页：按公开配置调整", () => {
     const off = await openLogin("/login");
     expect(off.box.textContent).not.toContain("去注册");
   });
+});
 
-  it("不接 Turnstile：即使配置开启，登录请求体也不带 turnstile_token", async () => {
-    const { box, server } = await openLogin("/login", makePublicConfig({ turnstile: { enabled: true, site_key: "k", scopes: ["login"] } }));
+describe("登录页：人机验证（Turnstile，替身控件）", () => {
+  function installFakeTurnstile() {
+    const rendered: TurnstileRenderOptions[] = [];
+    const api: TurnstileApi = {
+      render: (_container, options) => (rendered.push(options), "w1"),
+      reset: vi.fn(),
+      remove: vi.fn(),
+    };
+    Object.assign(window, { turnstile: api });
+    return { rendered, api };
+  }
+  const ON = { enabled: true, site_key: "0xKEY", scopes: ["login" as const] };
+  const submitBtn = (box: HTMLElement) => box.querySelector<HTMLButtonElement>("form button[type=submit]");
+
+  async function fillCredentials(box: HTMLElement): Promise<void> {
+    await typeInto(inputByLabel(box, "用户名"), "alice");
+    await typeInto(inputByLabel(box, "密码"), "correct horse");
+  }
+
+  it("作用范围含 login：渲染控件（action=login、site key），拿到 token 前提交按钮禁用，token 随请求发出", async () => {
+    const { rendered } = installFakeTurnstile();
+    const { box, server } = await openLogin("/login", makePublicConfig({ turnstile: ON }));
+    expect(rendered).toHaveLength(1);
+    expect(rendered[0]).toMatchObject({ sitekey: "0xKEY", action: "login" });
+    expect(submitBtn(box)?.disabled).toBe(true);
+
+    await fillCredentials(box);
+    await act(async () => rendered[0]?.callback("cf-token"));
+    expect(submitBtn(box)?.disabled).toBe(false);
+    server.set("POST /api/auth/login", { json: { status: "ok" } });
+    await submit(box.querySelector("form") as HTMLFormElement);
+    await settle();
+    expect(server.callsTo("POST /api/auth/login")[0]?.body).toEqual({ username: "alice", password: "correct horse", turnstile_token: "cf-token" });
+  });
+
+  it("token 过期：提交按钮重新禁用", async () => {
+    const { rendered } = installFakeTurnstile();
+    const { box } = await openLogin("/login", makePublicConfig({ turnstile: ON }));
+    await act(async () => rendered[0]?.callback("t"));
+    expect(submitBtn(box)?.disabled).toBe(false);
+    await act(async () => rendered[0]?.["expired-callback"]());
+    expect(submitBtn(box)?.disabled).toBe(true);
+  });
+
+  it.each([
+    ["turnstile_failed", 400, "人机验证没有通过", "请重新完成验证"],
+    ["turnstile_unavailable", 503, "人机验证服务暂时不可用", "请稍后重试"],
+  ])("%s：中文标题与说明，控件被重置并要求重新验证", async (code, status, title, hint) => {
+    const { rendered, api } = installFakeTurnstile();
+    const { box, server } = await openLogin("/login", makePublicConfig({ turnstile: ON }));
+    server.set("POST /api/auth/login", errorReply(status, code, "原文"));
+    await fillCredentials(box);
+    await act(async () => rendered[0]?.callback("cf-token"));
+    await submit(box.querySelector("form") as HTMLFormElement);
+    await settle();
+    expect(box.querySelector(".callout b")?.textContent).toBe(title);
+    expect(box.textContent).toContain(hint);
+    expect(box.textContent).toContain(`${code} · HTTP ${status}`);
+    expect(api.reset).toHaveBeenCalledWith("w1");
+    expect(submitBtn(box)?.disabled).toBe(true);
+  });
+
+  it("site key 为空：提交禁用并说明，不渲染控件，也不降级放行", async () => {
+    const { rendered } = installFakeTurnstile();
+    const { box, server } = await openLogin("/login", makePublicConfig({ turnstile: { ...ON, site_key: "" } }));
+    expect(rendered).toHaveLength(0);
+    expect(box.textContent).toContain("人机验证配置不完整");
+    expect(submitBtn(box)?.disabled).toBe(true);
+    await fillCredentials(box);
+    await submit(box.querySelector("form") as HTMLFormElement);
+    await settle();
+    expect(server.callsTo("POST /api/auth/login")).toHaveLength(0);
+  });
+
+  it("作用范围不含 login（只开了注册 / 取件）：不渲染控件，请求体不带 token", async () => {
+    const { rendered } = installFakeTurnstile();
+    const { box, server } = await openLogin("/login", makePublicConfig({ turnstile: { ...ON, scopes: ["register", "pickup"] } }));
+    expect(rendered).toHaveLength(0);
+    expect(submitBtn(box)?.disabled).toBe(false);
     await passwordStep(box);
     expect(server.callsTo("POST /api/auth/login")[0]?.body).toEqual({ username: "alice", password: "correct horse" });
+  });
+
+  it("通行密钥与 OAuth 按钮不受 Turnstile 影响（不被禁用）", async () => {
+    installFakeTurnstile();
+    // happy-dom 没有 WebAuthn：放一个替身，免得按钮因“浏览器不支持”而禁用
+    Object.assign(window, { PublicKeyCredential: function PublicKeyCredential() {} });
+    const { box } = await openLogin(
+      "/login",
+      makePublicConfig({ turnstile: ON, login_methods: ["password", "passkey", "oauth"], oauth_providers: [{ slug: "github", name: "GitHub", icon: null }] }),
+    );
+    expect(byText<HTMLButtonElement>(box, "button", "使用通行密钥登录").disabled).toBe(false);
+    expect(box.querySelector("a.btn")?.getAttribute("href")).toBe("/api/auth/oauth/github/start?mode=login");
+  });
+});
+
+describe("登录页：错误标题", () => {
+  it("login_method_disabled：说明密码登录已关闭", async () => {
+    const { box, server } = await openLogin("/login");
+    server.set("POST /api/auth/login", errorReply(403, "login_method_disabled", "该登录方式未启用"));
+    await passwordStep(box);
+    expect(box.querySelector(".callout b")?.textContent).toBe("密码登录已关闭");
+    expect(box.textContent).toContain("login_method_disabled · HTTP 403");
+  });
+
+  it("其他服务端错误仍是“服务器出错”", async () => {
+    const { box, server } = await openLogin("/login");
+    server.set("POST /api/auth/login", errorReply(500, "internal_error", "boom"));
+    await passwordStep(box);
+    expect(box.querySelector(".callout b")?.textContent).toBe("服务器出错");
   });
 });

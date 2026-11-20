@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import tokensCss from "../styles/tokens.css?raw";
-import { AccentUnreachableError, deriveAccent, ensureContrast, MIN_ACCENT_CONTRAST, MIN_TEXT_CONTRAST } from "./accent";
+import {
+  AccentUnreachableError,
+  deriveAccent,
+  ensureContrast,
+  MIN_ACCENT_CONTRAST,
+  MIN_TEXT_CONTRAST,
+  THEME_GROUNDS,
+} from "./accent";
 import type { Grounds } from "./accent";
 import { contrastRatio } from "./color";
 
@@ -66,6 +73,10 @@ function violations(hex: string, mode: (typeof MODES)[number]): string[] {
 }
 
 describe("强调色对比度保证", () => {
+  it("shared 里服务端用的明暗底色常量与 tokens.css 一致", () => {
+    expect(THEME_GROUNDS).toEqual(GROUNDS);
+  });
+
   it.each(MODES)("11 个预设色在%s模式下 accent / fg / hover / active / text 对 surface 与 bg 全部达标", (mode) => {
     expect(PRESETS.flatMap((hex) => violations(hex, mode))).toEqual([]);
   });

@@ -1,7 +1,7 @@
 import { applyTheme, createDomThemeTarget } from "./apply";
 import type { ThemeTarget } from "./apply";
-import { applyUrlOverrides, DEFAULT_THEME_SETTINGS } from "./settings";
-import type { ThemeSettings } from "./settings";
+import { DEFAULT_THEME_SETTINGS, parseUrlOverrides } from "./settings";
+import type { ThemeOverrides, ThemeSettings } from "./settings";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
@@ -19,23 +19,32 @@ export type ThemeRuntimeDeps = {
   report: (error: unknown) => void;
 };
 
+export type ThemeController = {
+  /** 服务端设置（/api/public/config 的 appearance）到达或变化；URL 预览参数仍盖在它上面 */
+  update: (settings: ThemeSettings) => void;
+  /** 实时预览：传设置即时作用于当前页面，传 null 撤销并回到服务端设置；不持久化 */
+  preview: (settings: ThemeSettings | null) => void;
+};
+
 /**
- * 启动主题：不会抛错。URL 参数不合法或强调色应用失败时，把错误交给 report，并按默认设置继续；
- * “跟随系统”时监听系统明暗变化，监听器里的失败同样走 report。
- * 本里程碑的主题来源是本地默认值 + URL 预览覆盖；TODO(M6): 改读 /api/public/config 的外观字段。
+ * 启动主题：不会抛错。生效值 = 预览值 ?? (服务端设置 + URL 预览参数)。服务端设置到达前用默认值；
+ * index.html 的内联脚本已按系统明暗先设了 data-theme，这里首次渲染（mode=system）与它一致，不会闪。
+ * URL 参数不合法或强调色应用失败时，把错误交给 report 并继续；“跟随系统”时监听系统明暗变化，监听器里的失败同样走 report。
  */
-export function startThemeWith(deps: ThemeRuntimeDeps): { update: (settings: ThemeSettings) => void } {
+export function startThemeWith(deps: ThemeRuntimeDeps): ThemeController {
   const { target, media, search, report } = deps;
-  let current = DEFAULT_THEME_SETTINGS;
+  let server = DEFAULT_THEME_SETTINGS;
+  let previewing: ThemeSettings | null = null;
+  let overrides: ThemeOverrides = {};
   try {
-    current = applyUrlOverrides(search, DEFAULT_THEME_SETTINGS);
+    overrides = parseUrlOverrides(search);
   } catch (error) {
     report(error);
   }
 
   const render = () => {
     try {
-      applyTheme(target, current, media.matches);
+      applyTheme(target, previewing ?? { ...server, ...overrides }, media.matches);
     } catch (error) {
       report(error);
     }
@@ -45,13 +54,17 @@ export function startThemeWith(deps: ThemeRuntimeDeps): { update: (settings: The
 
   return {
     update(settings) {
-      current = settings;
+      server = settings;
+      render();
+    },
+    preview(settings) {
+      previewing = settings;
       render();
     },
   };
 }
 
-export function startTheme(report: (error: unknown) => void): { update: (settings: ThemeSettings) => void } {
+export function startTheme(report: (error: unknown) => void): ThemeController {
   return startThemeWith({
     target: createDomThemeTarget(document.documentElement),
     media: window.matchMedia(DARK_QUERY),

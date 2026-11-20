@@ -10,7 +10,7 @@ import { describeRemoval, NO_LOGIN_METHOD_MESSAGE, runRemoval } from "./credenti
 import type { Removal } from "./credential-removal";
 import { ResetPasswordDialog } from "./ResetPasswordDialog";
 
-function useRemoval(user: AdminUserDetail, onDone: (noLoginMethod: boolean) => void) {
+function useRemoval(user: AdminUserDetail, isSelf: boolean, onDone: (noLoginMethod: boolean) => void) {
   const queryClient = useQueryClient();
   const toast = useToast();
   return useMutation({
@@ -19,6 +19,8 @@ function useRemoval(user: AdminUserDetail, onDone: (noLoginMethod: boolean) => v
       toast.success(result.removed === 0 ? "没有需要清除的凭据" : `已清除 ${result.removed} 项，${user.username} 的 ${result.sessions_revoked} 个会话已失效`);
       onDone(result.no_login_method);
       await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsers });
+      // 清的是自己的凭据（比如 2FA）：会话里的 admin_2fa_required 可能随之变化
+      if (isSelf) await queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });
 }
@@ -31,7 +33,7 @@ export function LoginMethodsSection({ user }: { user: AdminUserDetail }) {
   const [removing, setRemoving] = useState<Removal | null>(null);
   // 响应里的 no_login_method 只在这次清除之后有意义；用户后来有了密码就不再提示
   const [noMethod, setNoMethod] = useState(false);
-  const remove = useRemoval(user, (none) => {
+  const remove = useRemoval(user, isSelf, (none) => {
     setRemoving(null);
     setNoMethod(none);
   });

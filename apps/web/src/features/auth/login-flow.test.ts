@@ -20,7 +20,7 @@ describe("classifyMfaError：第二步错误码分类", () => {
   });
 
   it("rate_limited（429）→ 带 Retry-After 秒数", () => {
-    expect(classifyMfaError(new ApiError(429, "rate_limited", "x", 60))).toEqual({
+    expect(classifyMfaError(new ApiError(429, "rate_limited", "x", {}, 60))).toEqual({
       kind: "rate_limited",
       message: "请求太频繁了，请约 60 秒后再试。",
       retryAfterSec: 60,

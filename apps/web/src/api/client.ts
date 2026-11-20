@@ -63,13 +63,24 @@ function parseRetryAfter(response: Response): number | undefined {
   return Number(raw.trim());
 }
 
+/** 统一错误体里 code / message 之外的字段（errorResponseSchema 会把它们剥掉） */
+function extraErrorFields(body: unknown): Record<string, unknown> {
+  const error = typeof body === "object" && body !== null ? (body as { error?: unknown }).error : null;
+  if (typeof error !== "object" || error === null) return {};
+  const { code: _code, message: _message, ...rest } = error as Record<string, unknown>;
+  return rest;
+}
+
 /** 错误响应：能解析统一错误体就用它的 code / message，否则明确标成 unexpected_response（如反向代理的 HTML 502） */
 async function toApiError(response: Response): Promise<ApiError> {
   const json = await readJson(response);
   const parsed = json.ok ? errorResponseSchema.safeParse(json.value) : null;
   const retryAfter = parseRetryAfter(response);
-  if (parsed?.success) return new ApiError(response.status, parsed.data.error.code, parsed.data.error.message, retryAfter);
-  return new ApiError(response.status, "unexpected_response", "服务器返回了无法识别的响应（不是约定的 JSON 错误体）", retryAfter);
+  if (parsed?.success) {
+    const { code, message } = parsed.data.error;
+    return new ApiError(response.status, code, message, extraErrorFields(json.ok ? json.value : null), retryAfter);
+  }
+  return new ApiError(response.status, "unexpected_response", "服务器返回了无法识别的响应（不是约定的 JSON 错误体）", {}, retryAfter);
 }
 
 async function parseSuccess<S extends z.ZodType>(response: Response, spec: RequestSpec<S>): Promise<z.output<S>> {

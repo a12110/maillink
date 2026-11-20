@@ -6,7 +6,7 @@ describe("认证错误文案", () => {
   it("限流：有 Retry-After 写“约 N 秒”，没有就只说稍等", () => {
     expect(describeRateLimit(60)).toBe("请求太频繁了，请约 60 秒后再试。");
     expect(describeRateLimit(undefined)).toBe("请求太频繁了，请稍等一会儿再试。");
-    expect(describeAuthError(new ApiError(429, "rate_limited", "x", 30))).toEqual({
+    expect(describeAuthError(new ApiError(429, "rate_limited", "x", {}, 30))).toEqual({
       message: "请求太频繁了，请约 30 秒后再试。",
       detail: "rate_limited · HTTP 429",
     });

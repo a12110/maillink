@@ -108,6 +108,16 @@ describe("用户侧板：登录方式的清除", () => {
     expect(document.body.textContent).toContain("重置 bob 的密码");
   });
 
+  it("清除自己的凭据后刷新会话（admin_2fa_required 可能变化）；清别人的不刷新", async () => {
+    const self: AdminUserDetail = { ...USER, id: 1, username: "root" };
+    const { box, server } = await open(self);
+    server.set("DELETE /api/admin/users/1/totp", removal());
+    const before = server.callsTo("GET /api/auth/session").length;
+    await click(byText(box, "button", "清除"));
+    await confirm("清除两步验证");
+    expect(server.callsTo("GET /api/auth/session").length).toBe(before + 1);
+  });
+
   it("不是最后一种登录方式时不提示", async () => {
     const { box } = await open();
     await click(byText(box, "button", "清除"));

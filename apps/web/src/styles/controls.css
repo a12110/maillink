@@ -1,0 +1,93 @@
+/* 表单控件补充：复选框、开关、多值标签输入、文本域、带后缀输入、小号分段控件。由 design/prototypes/components.css 迁移，只引用语义变量。 */
+:root {
+  --icon-size-sm: 14px;
+  --checkbox-size: 16px;
+  --switch-width: 32px;
+  --switch-height: 18px;
+  --switch-thumb: 11px;
+  --segmented-height-sm: 22px;
+  --chip-height: 22px;
+  --cond-control-height: 30px;
+}
+
+@layer components {
+  /* 对话框容器自己拿到焦点时（Radix 没有可聚焦的首项）不画焦点环：环应落在具体控件上 */
+  .dialog:focus-visible { outline: none; }
+  svg.lucide.icon-sm { width: var(--icon-size-sm); height: var(--icon-size-sm); }
+
+  /* ── 复选框 ── */
+  input[type="checkbox"].cb {
+    appearance: none; position: relative; flex: none; margin: 0;
+    width: var(--checkbox-size); height: var(--checkbox-size); background: var(--color-surface);
+    border: 1.5px solid var(--color-border-control); border-radius: var(--radius-sm);
+  }
+  input[type="checkbox"].cb:checked, input[type="checkbox"].cb:indeterminate { background: var(--color-selected); border-color: var(--color-selected); }
+  input[type="checkbox"].cb:checked::before {
+    content: ""; position: absolute; inset: 0; background: var(--color-selected-fg);
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8.5l3 3 6-6.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / 100% no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8.5l3 3 6-6.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / 100% no-repeat;
+  }
+  input[type="checkbox"].cb:indeterminate::before { content: ""; position: absolute; left: 3px; right: 3px; top: 50%; height: 2px; margin-top: -1px; background: var(--color-selected-fg); }
+  input[type="checkbox"].cb:disabled { border-color: var(--color-border); background: var(--color-surface-sunken); }
+  .check { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-base); }
+  .check[data-disabled="true"] { color: var(--color-text-muted); }
+
+  /* ── 开关：墨色填充，不用红 ── */
+  .switch {
+    position: relative; flex: none; width: var(--switch-width); height: var(--switch-height); margin: 0; appearance: none;
+    background: var(--color-surface-sunken); border: 1.5px solid var(--color-border-control); border-radius: 999px;
+    transition: background var(--duration-base) var(--ease-standard);
+  }
+  .switch::before {
+    content: ""; position: absolute; top: 2px; left: 2px; width: var(--switch-thumb); height: var(--switch-thumb); border-radius: 50%;
+    background: var(--color-border-control);
+    transition: transform var(--duration-base) var(--ease-standard), background var(--duration-base) var(--ease-standard);
+  }
+  .switch:checked { background: var(--color-selected); border-color: var(--color-selected); }
+  .switch:checked::before { transform: translateX(14px); background: var(--color-selected-fg); }
+  .switch:disabled { opacity: 0.5; }
+
+  /* ── 文本域、带后缀输入 ── */
+  .textarea {
+    width: 100%; min-height: 96px; padding: var(--space-2) var(--space-3); resize: vertical;
+    background: var(--color-surface); border: 1px solid var(--color-border-control); border-radius: var(--radius-md);
+    font-size: var(--text-base); line-height: var(--leading-normal);
+  }
+  .textarea[data-mono="true"] { font-family: var(--font-mono); font-size: var(--text-sm); line-height: var(--leading-normal); }
+  .textarea:focus-visible { outline: var(--focus-ring-width) solid var(--color-focus); outline-offset: 1px; border-color: var(--color-focus); }
+  .textarea[aria-invalid="true"] { border-color: var(--color-danger); }
+  .textarea:disabled { background: var(--color-surface-sunken); color: var(--color-text-subtle); border-color: var(--color-border); }
+  .textarea::placeholder { color: var(--color-text-subtle); }
+  @media (max-width: 639px) { .textarea { font-size: var(--text-md); } }
+  .input-suffix { position: relative; }
+  .input-suffix .input { padding-right: 36px; }
+  .input-suffix > span { position: absolute; right: var(--space-3); top: 50%; transform: translateY(-50%); font-size: var(--text-sm); line-height: 1; color: var(--color-text-muted); pointer-events: none; }
+  .input[data-num="true"] { font-variant-numeric: tabular-nums; }
+
+  /* ── 多值标签输入 ── */
+  .chips {
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-height: var(--cond-control-height); padding: 3px var(--space-1);
+    background: var(--color-surface); border: 1px solid var(--color-border-control); border-radius: var(--radius-md); min-width: 0;
+  }
+  .chips:focus-within { outline: var(--focus-ring-width) solid var(--color-focus); outline-offset: 1px; border-color: var(--color-focus); }
+  .chips[data-invalid="true"] { border-color: var(--color-danger); }
+  .chips[data-disabled="true"] { background: var(--color-surface-sunken); }
+  .chip {
+    display: inline-flex; align-items: center; gap: var(--space-1); height: var(--chip-height); max-width: 100%; padding: 0 var(--space-1) 0 var(--space-2);
+    background: var(--color-surface-sunken); border-radius: var(--radius-sm); font-size: var(--text-xs); overflow-wrap: anywhere;
+  }
+  .chip[data-mono="true"] { font-family: var(--font-mono); }
+  .chip[data-invalid="true"] { background: var(--color-danger-soft); color: var(--color-danger); }
+  .chip button { display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 0; background: none; color: var(--color-text-muted); border-radius: var(--radius-sm); }
+  .chip button:hover:not(:disabled) { background: var(--color-row-selected); color: var(--color-text); }
+  .chip-entry { flex: 1; min-width: 96px; height: var(--chip-height); padding: 0 var(--space-1); border: 0; background: transparent; font-size: var(--text-sm); outline: none; }
+  .chip-entry[data-mono="true"] { font-family: var(--font-mono); font-size: var(--text-xs); }
+  .chip-entry::placeholder { color: var(--color-text-subtle); }
+  @media (max-width: 639px) { .chip-entry { font-size: var(--text-md); } }
+
+  /* ── 分段控件：小号与锁定项 ── */
+  .segmented[data-size="sm"] span { height: var(--segmented-height-sm); padding: 0 var(--space-2); font-size: var(--text-xs); }
+  .segmented input[aria-disabled="true"] { cursor: help; }
+  .segmented input[aria-disabled="true"] + span { color: var(--color-text-muted); }
+  .segmented input[aria-disabled="true"]:checked + span { color: var(--color-selected-fg); }
+}

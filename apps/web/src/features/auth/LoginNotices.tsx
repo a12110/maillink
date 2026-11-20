@@ -1,6 +1,7 @@
 import { isApiError } from "../../api/errors";
 import { describeAuthError } from "../../lib/auth-messages";
 import { Callout, ErrorCallout } from "../../ui";
+import { describeTurnstileError } from "../turnstile/errors";
 import type { LoginNotice, MfaFailure } from "./login-flow";
 import { describeOAuthResult } from "./oauth-results";
 
@@ -19,14 +20,32 @@ function MfaFailureNotice({ failure }: { failure: MfaFailure }) {
   }
 }
 
+/** 密码登录能出现的、需要单独标题的错误码；其余服务端错误统一“服务器出错”，断网“无法连接服务器” */
+const PASSWORD_ERROR_TITLES: Readonly<Record<string, string>> = {
+  login_method_disabled: "密码登录已关闭",
+  turnstile_failed: "人机验证没有通过",
+  turnstile_unavailable: "人机验证服务暂时不可用",
+  turnstile_not_configured: "人机验证尚未配置完整",
+  unexpected_response: "服务器返回了无法识别的响应",
+};
+
+function passwordErrorText(error: unknown): { message: string; detail: string } {
+  if (isApiError(error, "login_method_disabled")) {
+    return { message: "管理员已关闭密码登录，请改用页面上的其他登录方式，或联系管理员。", detail: `${error.code} · HTTP ${error.status}` };
+  }
+  if (isApiError(error) && error.code.startsWith("turnstile_")) return describeTurnstileError(error);
+  return describeAuthError(error);
+}
+
 /** 凭据错误统一一句话（后端也不区分原因）；限流显示 Retry-After；其余错误分别说明并带错误码 */
 function PasswordErrorNotice({ error }: { error: unknown }) {
   if (isApiError(error, "invalid_credentials")) {
     return <Callout tone="danger" title="登录失败">用户名或密码错误。如果确认无误，账号可能已被停用，请联系管理员。</Callout>;
   }
-  const { message, detail } = describeAuthError(error);
+  const { message, detail } = passwordErrorText(error);
   if (isApiError(error, "rate_limited")) return <Callout tone="warning" title="请求太频繁">{message}</Callout>;
-  return <ErrorCallout title={isApiError(error) ? "服务器出错" : "无法连接服务器"} message={message} detail={detail} />;
+  const title = isApiError(error) ? (PASSWORD_ERROR_TITLES[error.code] ?? "服务器出错") : "无法连接服务器";
+  return <ErrorCallout title={title} message={message} detail={detail} />;
 }
 
 type Props = { notice: LoginNotice | null; providerName: (slug: string) => string | null };

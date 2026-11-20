@@ -1,3 +1,4 @@
+import type { AppearanceSettings } from "@maillink/shared";
 import { assertHex } from "./color";
 import { DEFAULT_ACCENT } from "./accent";
 
@@ -56,19 +57,30 @@ function pickAccent(raw: string): string {
   }
 }
 
+export type ThemeOverrides = Partial<ThemeSettings>;
+
 /**
- * 本地覆盖：URL 的 ?theme=dark&radius=8&accent=%232f5fa8，用于预览与截图，不持久化。
- * TODO(M6): 系统设置接口（/api/public/config 的外观字段）接入后，base 改为服务端值，这里只保留预览用途。
+ * URL 预览参数：?theme=dark&radius=8&accent=%232f5fa8，只用于预览与截图，不持久化。
  * 参数不合法直接抛错，不静默回退。
  */
-export function applyUrlOverrides(search: string, base: ThemeSettings): ThemeSettings {
+export function parseUrlOverrides(search: string): ThemeOverrides {
   const query = new URLSearchParams(search);
   const mode = query.get("theme");
   const radius = query.get("radius");
   const accent = query.get("accent");
   return {
-    mode: mode === null ? base.mode : pickOption(mode, THEME_MODES, "theme"),
-    radius: radius === null ? base.radius : pickOption(radius, RADIUS_LEVELS, "radius"),
-    accent: accent === null ? base.accent : pickAccent(accent),
+    ...(mode === null ? {} : { mode: pickOption(mode, THEME_MODES, "theme") }),
+    ...(radius === null ? {} : { radius: pickOption(radius, RADIUS_LEVELS, "radius") }),
+    ...(accent === null ? {} : { accent: pickAccent(accent) }),
   };
+}
+
+/** 服务端设置（公开配置的 appearance）作底，URL 预览参数覆盖其上 */
+export function applyUrlOverrides(search: string, base: ThemeSettings): ThemeSettings {
+  return { ...base, ...parseUrlOverrides(search) };
+}
+
+/** 公开配置 / 外观设置组 → 前端主题设置（preset 目前只有 default，不影响变量值） */
+export function themeFromAppearance(appearance: AppearanceSettings): ThemeSettings {
+  return { mode: appearance.mode, radius: appearance.radius, accent: appearance.accent };
 }

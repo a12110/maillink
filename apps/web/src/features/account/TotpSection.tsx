@@ -43,8 +43,12 @@ export function TotpSection({ me }: { me: MeResponse }) {
   const [flow, dispatch] = useReducer(totpFlowReducer, IDLE_TOTP_FLOW);
   const [action, setAction] = useState<TotpAction | null>(null);
 
-  // 启用 / 关闭 2FA 都会让其他会话失效：资料（含恢复码数）与会话列表一并刷新
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.me });
+  // 启用 / 关闭 2FA：资料（含恢复码数）、会话列表，以及会话本身（admin_2fa_required 引导条依赖它）一并刷新
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.me }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.session }),
+    ]);
   const start = useMutation({ mutationFn: api.totpSetup, onSuccess: (setup) => dispatch({ type: "setup_started", setup }) });
 
   return (

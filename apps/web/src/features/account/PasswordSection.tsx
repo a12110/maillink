@@ -56,7 +56,7 @@ export function PasswordSection() {
         <TextField label="确认新密码" autoComplete="new-password" {...bind("confirm")} />
         {change.isError && !wrongCurrent ? <ErrorCallout title="修改失败" {...describeError(change.error)} /> : null}
         <div className="form-actions">
-          <Button type="submit" variant="primary" busy={change.isPending} busyLabel="修改中…">修改密码</Button>
+          <Button type="submit" busy={change.isPending} busyLabel="修改中…">修改密码</Button>
         </div>
       </form>
     </section>
