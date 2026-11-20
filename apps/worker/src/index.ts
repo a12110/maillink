@@ -4,6 +4,10 @@ import { requireAdmin } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
 import { adminGrantRoutes } from "./routes/admin-grants";
+import { rateLimitByIp, rateLimitLogin } from "./middleware/rate-limit";
+import { runScheduled } from "./cron";
+import { RATE_LIMITED_ROUTES } from "./constants";
+import { adminAuditRoutes } from "./routes/admin-audit";
 import { adminMailboxRoutes } from "./routes/admin-mailboxes";
 import { adminMailRoutes } from "./routes/admin-mails";
 import { adminRuleGroupRoutes } from "./routes/admin-rule-groups";
@@ -22,6 +26,10 @@ app.notFound(notFound);
 
 // 写操作的 CSRF 检查对所有 /api/* 生效（04 约定）
 app.use("/api/*", csrfProtection);
+// 限流（01 §2）：按 constants.ts 的 RATE_LIMITED_ROUTES 清单挂在这里，不改各路由文件。必须在 csrf 之后、路由之前
+for (const route of RATE_LIMITED_ROUTES) {
+  app.on(route.method, route.path, route.usernameKeyed ? rateLimitLogin : rateLimitByIp(route.purpose));
+}
 // /api/admin/* 全部要求管理员
 app.use("/api/admin/*", requireAdmin);
 
@@ -38,12 +46,12 @@ app.route("/api/admin/mails", adminMailRoutes);
 app.route("/api/admin/mailboxes", adminMailboxRoutes);
 app.route("/api/admin/rule-groups", adminRuleGroupRoutes);
 app.route("/api/admin/grants", adminGrantRoutes);
+app.route("/api/admin/audit-logs", adminAuditRoutes);
 
 export default {
   fetch: app.fetch,
-  // TODO(M2/M7): 填充 cron 任务。
-  //   "*/5 * * * *"  预热 mail_index（已导入地址的新邮件）
-  //   "17 3 * * *"   清理过期会话、过期日志、MAIL_DB 中已不存在的索引行
-  // 本里程碑刻意留空：不做任何事，也不假装成功。
-  async scheduled(_controller: ScheduledController, _env: AppEnv["Bindings"], _ctx: ExecutionContext) {},
+  // 按 controller.cron 分派，见 cron/index.ts；失败会记录到 settings 后原样抛出
+  async scheduled(controller: ScheduledController, env: AppEnv["Bindings"], _ctx: ExecutionContext) {
+    await runScheduled(controller.cron, env);
+  },
 } satisfies ExportedHandler<AppEnv["Bindings"]>;

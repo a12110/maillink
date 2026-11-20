@@ -19,7 +19,6 @@ export const authRoutes = new Hono<AppEnv>();
 
 authRoutes.post("/login", async (c) => {
   const body = await parseJsonBody(c, loginRequestSchema);
-  // TODO(M7): 按 IP 与用户名限流（RATE_LIMITER）。M1 不做，也不做任何假限流。
   const db = c.env.APP_DB;
   const user = await findUserByUsername(db, body.username);
 
