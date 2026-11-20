@@ -10,14 +10,14 @@
 
 ## 结构
 
-- `apps/worker/`：Cloudflare Worker，Hono + TypeScript。唯一接触 `MAIL_DB` 的目录是 `apps/worker/src/mail-source/`。
+- `apps/worker/`：Cloudflare Worker，Hono + TypeScript。唯一查询 `MAIL_DB` 的目录是 `apps/worker/src/mail-source/`（其他目录只能把句柄原样交给它，见硬性规则）。
 - `apps/web/`：前端 SPA，React 19 + Vite + Tailwind v4 + Radix + TanStack Router/Query。
 - `packages/shared/`：zod schema 与 API 类型，前后端共用。
 - 包管理用 pnpm workspace。
 
 ## 硬性规则
 
-- `MAIL_DB` 只读：`mail-source` 里不得出现 `INSERT/UPDATE/DELETE/ALTER/DROP/CREATE`；迁移只针对 `APP_DB`。
+- `MAIL_DB` 只读：`mail-source` 里不得出现 `INSERT/UPDATE/DELETE/ALTER/DROP/CREATE`；`mail-source` 之外只能把 `env.MAIL_DB` 直接作为实参传给从 `mail-source/` 导入的函数（类型 `MailDbBinding`），不得展开 env、用计算属性取它或转交给其他函数（worker 测试中的守卫会检查）；迁移只针对 `APP_DB`，`wrangler.jsonc` 里 MAIL_DB 的 `migrations_dir` 指向必须保持为空的 `mail-db-no-migrations/`。
 - 所有 SQL 参数化；外部输入在路由边界用 zod 校验。
 - 不把密钥写进源码；本地用 `.dev.vars`（已忽略），示例放 `.dev.vars.example`。
 - Debug-First：不加静默降级、假成功、吞异常的 fallback；失败要暴露。
