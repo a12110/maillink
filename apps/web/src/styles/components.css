@@ -125,6 +125,19 @@
   .table-scope { container-type: inline-size; }
   @container (max-width: 860px) { .table .col-optional { display: none; } }
   @container (max-width: 520px) { .table .col-secondary { display: none; } }
+  /* 窄屏：次要列已隐藏，剩下的列仍装不下时面板横向滚动，不把名称 / 地址 / 动作列压成一两个字。
+     每张表用 --table-min-width 声明自己的最小宽度（关键列最小宽度之和）；分页条粘在左侧，滚动时不跑出视口 */
+  .link-table { --table-min-width: var(--table-min-link); }
+  .mailbox-table { --table-min-width: var(--table-min-mailbox); }
+  .audit-table { --table-min-width: var(--table-min-audit); }
+  .user-table { --table-min-width: var(--table-min-user); }
+  .rule-group-table { --table-min-width: var(--table-min-rule-group); }
+  @container (max-width: 520px) {
+    /* position: relative 让表头里 .sr-only（绝对定位）的文字也被面板裁剪，否则它会撑出整页横向滚动 */
+    .table-scope .panel { position: relative; overflow-x: auto; }
+    .table-scope .table { min-width: var(--table-min-width, 0px); }
+    .table-scope .table-foot { position: sticky; left: 0; }
+  }
 
   /* ── 提示块、空状态、骨架 ── */
   .callout { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); line-height: var(--leading-normal); background: var(--color-info-soft); color: var(--color-text); }

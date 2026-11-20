@@ -2,8 +2,9 @@ import { ChevronLeft, ChevronRight, Copy, Eye, Link2, Link2Off, TriangleAlert } 
 import type { AdminShareLink } from "@maillink/shared";
 import { formatCompactDateTime } from "../../lib/format";
 import { Button, EmptyState, ErrorCallout, SkeletonRows, Status, Tag } from "../../ui";
-import { ANOMALY_HINT, ANOMALY_LABEL, ANOMALY_SHORT, STATE_LABEL, STATE_TONE, addressSummary, devicesText, linkTitle } from "./labels";
+import { ANOMALY_HINT, ANOMALY_LABEL, ANOMALY_SHORT, STATE_LABEL, STATE_TONE, addressSummary, deliveriesCell, devicesText, linkTitle } from "./labels";
 
+const DELIVERIES_24H_TITLE = "近 24 小时取码数";
 const SKELETON_ROWS = 8;
 const COLUMN_COUNT = 10;
 
@@ -46,6 +47,11 @@ function TimeCell({ value, empty }: { value: number | null; empty: string }) {
   return <td className="time col-secondary" title={title}>{text}</td>;
 }
 
+function Deliveries24hCell({ link }: { link: AdminShareLink }) {
+  const { count, title } = deliveriesCell(link, link.deliveries_24h, DELIVERIES_24H_TITLE);
+  return <td className="col-optional col-num" title={title}>{count === null ? <span className="dim">—</span> : count}</td>;
+}
+
 function LinkRow({ link, selected, checked, actions }: { link: AdminShareLink; selected: boolean; checked: boolean; actions: RowActions }) {
   const title = linkTitle(link);
   return (
@@ -71,9 +77,7 @@ function LinkRow({ link, selected, checked, actions }: { link: AdminShareLink; s
       </td>
       <TimeCell value={link.effective_expires_at} empty="不过期" />
       <td className="col-optional col-num">{devicesText(link)}</td>
-      <td className="col-optional col-num" title="近 24 小时取码数">
-        {link.deliveries_24h}
-      </td>
+      <Deliveries24hCell link={link} />
       <TimeCell value={link.last_access_at} empty="从未" />
       <td className="col-actions" onClick={(event) => event.stopPropagation()}>
         <span className="row-actions">

@@ -46,6 +46,11 @@
   .mail-item-subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--weight-strong); }
   .mail-item-time { flex: none; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted); }
   .mail-item-who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-muted); }
+  /* 窄屏：发件人与收件地址各占一行（各自省略），否则收件地址只剩前几个字符 */
+  @media (max-width: 640px) {
+    .mail-item-who { display: grid; grid-template-columns: minmax(0, 1fr); overflow: visible; white-space: normal; }
+    .mail-item-who > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  }
   .mail-item [data-dim="true"] { color: var(--color-text-subtle); font-weight: var(--weight-regular); }
   .mail-item-badges { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-text-muted); }
   .mail-code {
