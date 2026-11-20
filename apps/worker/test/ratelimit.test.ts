@@ -37,6 +37,25 @@ function freshIp(): string {
   return `198.51.100.${ipCounter}`;
 }
 
+/** 一轮连发需要留出的窗口余量（含高负载下的抖动） */
+const WINDOW_SAFETY_MARGIN_MS = 15_000;
+const windowMs = RATE_LIMIT_PERIOD_SEC * 1000;
+/** miniflare 本地实现按墙钟对齐固定窗口：epoch = floor(Date.now() / period)，跨 epoch 计数清零 */
+const currentWindow = (): number => Math.floor(Date.now() / windowMs);
+
+/**
+ * 在同一个限流窗口内执行 run：离窗口末尾不足余量时先等到下一个窗口开始；
+ * 执行后若仍跨了窗口则报错（不静默重试），让断言基于确定的计数。
+ */
+async function withinOneWindow<T>(run: () => Promise<T>): Promise<T> {
+  const untilNext = windowMs - (Date.now() % windowMs);
+  if (untilNext < WINDOW_SAFETY_MARGIN_MS) await new Promise((resolve) => setTimeout(resolve, untilNext + 1));
+  const start = currentWindow();
+  const result = await run();
+  expect(currentWindow(), "连发期间跨过了限流窗口边界").toBe(start);
+  return result;
+}
+
 const login = (username: string, ip: string, bindings: Parameters<typeof api>[1] = {}) =>
   api("/api/auth/login", {
     json: { username, password: "wrong-password-xyz" },
@@ -52,10 +71,11 @@ describe("限流：真实 RATE_LIMITER binding（wrangler.jsonc 的 ratelimits�
   it("本地与 vitest 里 binding 可用，且 constants 的阈值与 wrangler.jsonc 一致", async () => {
     expect(env.RATE_LIMITER).toBeDefined();
     const ip = freshIp();
-    const statuses: number[] = [];
-    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS + 1; i += 1) {
-      statuses.push((await login(`user-${i}`, ip, REAL)).status);
-    }
+    const statuses = await withinOneWindow(async () => {
+      const out: number[] = [];
+      for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS + 1; i += 1) out.push((await login(`user-${i}`, ip, REAL)).status);
+      return out;
+    });
     // 前 N 次放行（用户不存在 → 401），第 N+1 次 429
     expect(statuses.slice(0, RATE_LIMIT_MAX_REQUESTS).every((status) => status === 401)).toBe(true);
     expect(statuses[RATE_LIMIT_MAX_REQUESTS]).toBe(429);
@@ -64,10 +84,13 @@ describe("限流：真实 RATE_LIMITER binding（wrangler.jsonc 的 ratelimits�
   it("LINK_RATE_LIMITER 可用，且 constants 的阈值与 wrangler.jsonc 一致", async () => {
     expect(env.LINK_RATE_LIMITER).toBeDefined();
     const key = `consistency:${freshIp()}`;
-    const results: boolean[] = [];
-    for (let i = 0; i < LINK_RATE_LIMIT_MAX_REQUESTS + 1; i += 1) {
-      results.push((await env.LINK_RATE_LIMITER?.limit({ key }))?.success ?? false);
-    }
+    const results = await withinOneWindow(async () => {
+      const out: boolean[] = [];
+      for (let i = 0; i < LINK_RATE_LIMIT_MAX_REQUESTS + 1; i += 1) {
+        out.push((await env.LINK_RATE_LIMITER?.limit({ key }))?.success ?? false);
+      }
+      return out;
+    });
     expect(results.slice(0, LINK_RATE_LIMIT_MAX_REQUESTS).every(Boolean)).toBe(true);
     expect(results[LINK_RATE_LIMIT_MAX_REQUESTS]).toBe(false);
     expect(LINK_RATE_LIMIT_PERIOD_SEC).toBe(RATE_LIMIT_PERIOD_SEC);
@@ -75,8 +98,10 @@ describe("限流：真实 RATE_LIMITER binding（wrangler.jsonc 的 ratelimits�
 
   it("按 IP 超限：429 rate_limited，带 Retry-After；其他 IP 不受影响", async () => {
     const ip = freshIp();
-    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i += 1) await login(`other-${i}`, ip, REAL);
-    const limited = await login("anyone", ip, REAL);
+    const limited = await withinOneWindow(async () => {
+      for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i += 1) await login(`other-${i}`, ip, REAL);
+      return login("anyone", ip, REAL);
+    });
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe(String(RATE_LIMIT_PERIOD_SEC));
     expect(((await limited.json()) as ErrorBody).error.code).toBe("rate_limited");
@@ -85,11 +110,13 @@ describe("限流：真实 RATE_LIMITER binding（wrangler.jsonc 的 ratelimits�
   });
 
   it("按用户名超限：换 IP 也被拦；用户名不区分大小写", async () => {
-    for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i += 1) {
-      const username = i % 2 === 0 ? "Victim" : "victim";
-      expect((await login(username, freshIp(), REAL)).status).toBe(401);
-    }
-    const res = await login("VICTIM", freshIp(), REAL);
+    const res = await withinOneWindow(async () => {
+      for (let i = 0; i < RATE_LIMIT_MAX_REQUESTS; i += 1) {
+        const username = i % 2 === 0 ? "Victim" : "victim";
+        expect((await login(username, freshIp(), REAL)).status).toBe(401);
+      }
+      return login("VICTIM", freshIp(), REAL);
+    });
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe(String(RATE_LIMIT_PERIOD_SEC));
   });
