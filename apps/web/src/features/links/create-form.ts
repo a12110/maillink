@@ -32,6 +32,8 @@ export type CreateDraft = {
   countryAllow: string;
   pollInterval: string;
   turnstile: boolean;
+  /** 允许 API 取码（GET /api/s/<token>/code），默认开 */
+  api: boolean;
 };
 
 export const EMPTY_DRAFT: CreateDraft = {
@@ -55,6 +57,7 @@ export const EMPTY_DRAFT: CreateDraft = {
   countryAllow: "",
   pollInterval: "",
   turnstile: false,
+  api: true,
 };
 
 export type CreateField =
@@ -197,6 +200,7 @@ export function buildCreateBody(draft: CreateDraft, nowMs: number): { ok: true; 
       ip_allow: splitList(draft.ipAllow),
       country_allow: splitList(draft.countryAllow),
       poll_interval_sec: numbers.pollInterval,
+      api: draft.api,
     },
   };
   const checked = shareLinkCreateSchema.safeParse(candidate);

@@ -27,10 +27,10 @@ export const codeMail = (code: string, ageSec = 0, address = "box@example.com") 
 export const plainMail = (ageSec = 0, address = "box@example.com") =>
   putMail({ address, from: "news@example.org", subject: "Weekly news", text: "Nothing to see here, just a newsletter.", ageSec });
 
-export type ApiCallOptions = { query?: string; password?: string; visitor?: Visitor; bindings?: ApiOptions["bindings"] };
+export type ApiCallOptions = { query?: string; password?: string; headers?: Record<string, string>; visitor?: Visitor; bindings?: ApiOptions["bindings"] };
 
 export function apiCode(token: string, options: ApiCallOptions = {}): Promise<Response> {
-  const headers: Record<string, string> = options.password === undefined ? {} : { "X-Link-Password": options.password };
+  const headers: Record<string, string> = { ...options.headers, ...(options.password === undefined ? {} : { "X-Link-Password": options.password }) };
   return publicApi(`/api/s/${token}/code${options.query ?? ""}`, options.visitor ?? {}, { headers, bindings: options.bindings });
 }
 

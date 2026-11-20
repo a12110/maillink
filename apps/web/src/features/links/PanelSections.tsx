@@ -103,6 +103,8 @@ export function AccessSection({ link }: { link: AdminShareLink }) {
         <dd>{access.poll_interval_sec} 秒</dd>
         <dt>人机验证</dt>
         <dd>{access.turnstile ? "开启（Turnstile）" : "关闭"}</dd>
+        <dt>API 取码</dt>
+        <dd>{access.api ? "允许" : "关闭"}</dd>
         <dt>买家标题</dt>
         <dd className="pre-wrap">{link.public_title ?? DASH}</dd>
         <dt>买家说明</dt>

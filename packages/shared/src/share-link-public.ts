@@ -32,6 +32,8 @@ export const LINK_PUBLIC_ERRORS = {
   apiDisabled: "api_disabled",
   /** API 取码：链接开了人机验证，脚本无法完成，一律拒绝 */
   turnstileRequired: "turnstile_required",
+  /** API 取码：口令请求头编码不对（X-Link-Password 含非 ASCII、base64 / UTF-8 无效、两个口令头同时出现） */
+  passwordEncoding: "link_password_encoding",
 } as const;
 
 /**

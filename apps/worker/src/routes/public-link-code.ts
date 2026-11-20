@@ -1,8 +1,6 @@
 import type { Context, Hono } from "hono";
 import {
-  LINK_API_PASSWORD_HEADER,
   linkApiCodeQuerySchema,
-  linkPasswordSchema,
   type LinkApiCodeItem,
   type LinkApiCodeResponse,
   type LinkApiCodeStatus,
@@ -24,48 +22,25 @@ import {
 } from "../db/link-activity";
 import type { ShareLinkRow } from "../db/share-links";
 import type { AppEnv } from "../env";
-import { ApiError } from "../errors";
-import { HTTP_BAD_REQUEST, HTTP_OK } from "../http-status";
+import { HTTP_OK } from "../http-status";
 import { LinkDenied } from "../links/guard";
+import { apiPasswordFromHeaders } from "../links/api-password";
 import { checkLinkPassword } from "../links/password";
 import { deliveryQuota, loadLinkRequest, rejectExhaustedDeliveries, rejectWith, type DenyLogMode, type LinkRequest } from "../links/request";
 import { linkAnchors, loadLinkScope, type LinkScope } from "../links/scope";
 import { presentParties } from "../render";
-import { parseQuery, parseWith } from "../validate";
+import { parseQuery } from "../validate";
 
 // API 取码：GET /api/s/:token/code（PLAN"API 取码接口"，文档 docs/api-code.md）。
 //
 // 用 GET 便于脚本调用，是对 02 §6"所有 GET 无副作用"的有意例外：会登记 API 设备、写 first_access_at、计次、写日志。
 // 预览机器人只抓 /s/<token> 页面，不会访问这个地址。
-// 不经 CSRF：CSRF 中间件只检查写方法；而且这里的鉴权只有路径里的 token 与 X-Link-Password 请求头，
+// 不经 CSRF：CSRF 中间件只检查写方法；而且这里的鉴权只有路径里的 token 与口令请求头（links/api-password.ts），
 // 不设也不读任何 Cookie（访客 Cookie、会话 Cookie 都不看），跨站页面无法替受害者带上凭据，没有 CSRF 可利用的环境权限。
 // 检查顺序与取件页一致：token → 状态 → 生效 / 过期 → IP / 国家 → 限流 → 总次数（loadLinkRequest），
 // 之后 access.api → 人机验证 → 无可用邮箱 → 口令 → meta_only → API 设备 → 每日次数。被拒写 api_code 日志。
 
 const LOG: DenyLogMode = "api_code";
-const ASCII_MAX = 0x7f;
-const BYTE_MAX = 0xff;
-const maxCharCode = (text: string): number => Math.max(0, ...Array.from(text, (char) => char.codePointAt(0) ?? 0));
-
-/**
- * 请求头的值在运行时按字节（latin1）给出；curl 等直接发 UTF-8 时，这里把字节还原成 UTF-8 文本，非 ASCII 口令才对得上。
- * 不是合法 UTF-8 时 400（不猜）。
- */
-function headerText(raw: string): string {
-  const max = maxCharCode(raw);
-  if (max <= ASCII_MAX || max > BYTE_MAX) return raw;
-  try {
-    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(Uint8Array.from(raw, (char) => char.charCodeAt(0)));
-  } catch {
-    throw new ApiError(HTTP_BAD_REQUEST, "validation_error", `${LINK_API_PASSWORD_HEADER} 需要是 UTF-8 文本`);
-  }
-}
-
-function passwordFromHeader(c: Context<AppEnv>): string | undefined {
-  const raw = c.req.header(LINK_API_PASSWORD_HEADER);
-  return raw === undefined ? undefined : parseWith(linkPasswordSchema, headerText(raw));
-}
-
 function isoOf(sec: number): string {
   return new Date(sec * MS_PER_SEC).toISOString();
 }
@@ -173,7 +148,7 @@ async function apiCode(c: Context<AppEnv>): Promise<LinkApiCodeResponse> {
   if (req.access.turnstile) await rejectWith(c, req, "turnstile_required", LOG);
   const scope = await loadLinkScope(c.env.APP_DB, req.row);
   if (scope.mailboxCount === 0) await rejectWith(c, req, "no_mailbox", LOG);
-  await checkLinkPassword(c, req, passwordFromHeader(c), LOG);
+  await checkLinkPassword(c, req, apiPasswordFromHeaders(c), LOG);
   if (scope.compiled.config.present.view === "meta_only") return await metaOnlyResponse(c, req);
   const row = await ensureApiDevice(c, req);
   const found = await findRecentCodes(c.env, { ...scope.scope, anchors: linkAnchors(row) }, { now: req.now, since: query.since ?? null, limit: query.limit });

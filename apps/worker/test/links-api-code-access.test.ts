@@ -22,6 +22,7 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks());
 
 const link = (extra = {}) => linkWith(cookie, mailboxId, codeOnlyConfig(), extra);
+const base64Utf8 = (text: string) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));
 const setColumns = (id: number, sql: string, ...values: unknown[]) =>
   env.APP_DB.prepare(`UPDATE share_links SET ${sql} WHERE id = ?`).bind(...values, id).run();
 
@@ -115,11 +116,36 @@ describe("口令头 X-Link-Password", () => {
     expect(web.status).toBe(429);
   });
 
-  it("非 ASCII 口令按 UTF-8 字节发送（curl 的行为）也能通过", async () => {
-    const unicode = "口令-1234";
-    const { token } = await link({ access: { password: unicode } });
-    const asBytes = String.fromCharCode(...new TextEncoder().encode(unicode));
-    expect((await apiCodeOk(token, { password: asBytes })).code).toBe("123456");
+  it("X-Link-Password 只接受 ASCII：含非 ASCII 字符 400 link_password_encoding，不进 PBKDF2、不占口令名额", async () => {
+    const { token } = await link({ access: { password: "口令-1234" } });
+    // 测试环境里请求头按 JS 字符串直达；真实请求经 workerd 按 UTF-8 解码后同样是非 ASCII 字符
+    for (const value of ["口令-1234", "café-1234", String.fromCharCode(...new TextEncoder().encode("口令-1234"))]) {
+      expect(await apiError(await apiCode(token, { password: value }))).toMatchObject({ status: 400, code: "link_password_encoding" });
+    }
+    expect((await env.APP_DB.prepare("SELECT COUNT(*) AS n FROM link_password_attempts").first<{ n: number }>())?.n).toBe(0);
+  });
+
+  it("X-Link-Password-Base64：UTF-8 字节的 base64，中文与 Latin-1 范围字符都能通过；错误口令 403", async () => {
+    for (const password of ["口令-1234", "café-1234"]) {
+      const { token } = await link({ access: { password } });
+      expect((await apiCodeOk(token, { headers: { "X-Link-Password-Base64": base64Utf8(password) } })).code).toBe("123456");
+      const wrong = await apiCode(token, { headers: { "X-Link-Password-Base64": base64Utf8(`${password}x`) } });
+      expect((await apiError(wrong)).code).toBe("link_password_invalid");
+    }
+  });
+
+  it("两个口令头同时出现、base64 无效、解码后不是 UTF-8：400 link_password_encoding", async () => {
+    const { token } = await link({ access: { password: PASSWORD } });
+    const cases: Array<Record<string, string>> = [
+      { "X-Link-Password": PASSWORD, "X-Link-Password-Base64": base64Utf8(PASSWORD) },
+      { "X-Link-Password-Base64": "not base64!" },
+      { "X-Link-Password-Base64": "b3Blbi1zZXNhbWU" },
+      { "X-Link-Password-Base64": btoa(String.fromCharCode(0xff, 0xfe, 0x41, 0x42)) },
+    ];
+    for (const headers of cases) {
+      expect(await apiError(await apiCode(token, { headers }))).toMatchObject({ status: 400, code: "link_password_encoding" });
+    }
+    expect((await apiCodeOk(token, { headers: { "X-Link-Password-Base64": base64Utf8(PASSWORD) } })).code).toBe("123456");
   });
 
   it("口令通过前不登记设备、不激活", async () => {

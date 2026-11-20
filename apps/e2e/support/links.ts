@@ -15,6 +15,8 @@ export type LinkSpec = {
   maxTotal?: number;
   maxPerDay?: number;
   pollIntervalSec?: number;
+  /** 给了就先确认"允许 API 取码"默认是勾选的，再设成这个值 */
+  api?: boolean;
 };
 
 export type CreatedLink = { url: string; path: string; token: string };
@@ -31,6 +33,7 @@ export async function createLinkViaWizard(page: Page, spec: LinkSpec): Promise<C
   await dialog.getByRole("radio", { name: new RegExp(spec.ruleGroup) }).check();
   await dialog.getByRole("button", { name: "下一步" }).click();
   await fillAccessStep(dialog, spec);
+  if (spec.api !== undefined) await setApi(dialog, spec.api);
   await dialog.getByRole("button", { name: "生成取件链接" }).click();
   return readResult(page);
 }
@@ -55,6 +58,12 @@ async function fillAccessStep(dialog: Locator, spec: LinkSpec): Promise<void> {
     await expect(dialog.getByText("取码方式已自动切换为“点击取码”")).toBeVisible();
   }
   if (spec.pollIntervalSec) await dialog.getByLabel("轮询间隔（秒）").fill(String(spec.pollIntervalSec));
+}
+
+async function setApi(dialog: Locator, enabled: boolean): Promise<void> {
+  const api = dialog.getByRole("checkbox", { name: /允许 API 取码/ });
+  await expect(api).toBeChecked();
+  await api.setChecked(enabled);
 }
 
 async function readResult(page: Page): Promise<CreatedLink> {

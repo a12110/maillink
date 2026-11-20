@@ -9,8 +9,10 @@ export const LINK_API_CODE_LIMITS = {
   limitDefault: 1,
 } as const;
 
-/** 口令走请求头（不进 URL，避免出现在访问日志与代理记录里） */
+/** 口令走请求头（不进 URL，避免出现在访问日志与代理记录里）；这个头只接受 ASCII */
 export const LINK_API_PASSWORD_HEADER = "X-Link-Password";
+/** 非 ASCII 口令：UTF-8 字节的标准 base64；与 X-Link-Password 只能给一个 */
+export const LINK_API_PASSWORD_BASE64_HEADER = "X-Link-Password-Base64";
 
 /** 链接侧板与文档里展示的接口路径：`/api/s/<token>/code` */
 export function linkApiCodePath(token: string): string {
