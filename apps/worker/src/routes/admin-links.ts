@@ -14,7 +14,9 @@ import {
 import type { z } from "zod";
 import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { nowSec } from "../clock";
+import { LINK_DEFAULT_EXPIRES_UNIT_SEC } from "../constants";
 import { listAccessLogs } from "../db/link-activity";
+import { getSettings } from "../db/settings";
 import { deleteShareLink, insertShareLinks, updateShareLink, type NewShareLinkRow, type ShareLinkWrite } from "../db/share-link-writes";
 import { findShareLinkStats, listLinkMailboxes, listShareLinkRows, type ShareLinkStatsRow } from "../db/share-links";
 import type { AppEnv } from "../env";
@@ -60,6 +62,12 @@ adminLinkRoutes.get("/", async (c) => {
   return c.json(body, HTTP_OK);
 });
 
+/** 创建时没给 expires_at：按 links.default_expires_in_days 从生效时刻（晚于现在时取 valid_from）起算；null = 不过期 */
+async function defaultExpiresAt(db: D1Database, validFrom: number | null, now: number): Promise<number | null> {
+  const days = (await getSettings(db, ["links.default_expires_in_days"]))["links.default_expires_in_days"];
+  return days === null ? null : Math.max(now, validFrom ?? now) + days * LINK_DEFAULT_EXPIRES_UNIT_SEC;
+}
+
 adminLinkRoutes.post("/", async (c) => {
   const db = c.env.APP_DB;
   const body = await parseJsonBody(c, shareLinkCreateSchema);
@@ -75,7 +83,7 @@ adminLinkRoutes.post("/", async (c) => {
     rule_group_id: body.rule_group_id,
     status: body.status,
     valid_from: body.valid_from ?? null,
-    expires_at: body.expires_at ?? null,
+    expires_at: body.expires_at === undefined ? await defaultExpiresAt(db, body.valid_from ?? null, now) : body.expires_at,
     expire_after_first_access_sec: body.expire_after_first_access_sec ?? null,
     access: JSON.stringify(access),
   };
