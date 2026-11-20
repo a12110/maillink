@@ -14,6 +14,8 @@ import { utf8 } from "./crypto";
 export const KEY_PURPOSES = {
   passwordPepper: "password-pepper",
   sessionPublicId: "session-public-id",
+  linkToken: "link-token",
+  linkVisitorCookie: "link-visitor-cookie",
   /** AES-GCM：users.totp_secret_enc */
   totpSecret: "totp-secret",
   /** HMAC：恢复码的库内摘要 */

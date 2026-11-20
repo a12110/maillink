@@ -162,6 +162,59 @@ export {
  * 超出作用域数时明确拒绝，让用户改选具体邮箱，不静默截断。
  */
 export const ME_ALL_MAX_SCOPES = 20;
+// ---- 取件链接（M3b-2） ----
+
+/** token_hint 的长度（token 前几位，列表里辨认用） */
+export const LINK_TOKEN_HINT_LENGTH = 6;
+
+/** token_enc 的 AES-GCM IV 长度（字节） */
+export const LINK_TOKEN_IV_BYTES = 12;
+
+/** 公开取件页路径前缀：完整链接 = PUBLIC_ORIGIN + 前缀 + token */
+export const LINK_PUBLIC_PATH_PREFIX = "/s/";
+
+/** 访客 Cookie：名字 = 前缀 + 链接 id；值是随机串，库里只存 SHA-256 */
+export const LINK_VISITOR_COOKIE_PREFIX = "mlv_";
+export const LINK_VISITOR_COOKIE_PATH = "/api/s/";
+export const LINK_VISITOR_ID_BYTES = 32;
+
+/** 链接没有任何过期时间时访客 Cookie 的有效期：180 天（有过期时间时取剩余有效期，两者取小） */
+export const LINK_VISITOR_COOKIE_MAX_SEC = 180 * SECONDS_PER_DAY;
+
+/** 每日取码上限的滚动窗口（02 §6：滚动 24 小时） */
+export const LINK_DELIVERY_WINDOW_SEC = SECONDS_PER_DAY;
+
+/** 访问口令错误次数上限：同一链接 + 同一 IP 在窗口内错满即锁定到窗口滚过 */
+export const LINK_PASSWORD_MAX_FAILURES = 5;
+export const LINK_PASSWORD_FAILURE_WINDOW_SEC = 15 * 60;
+
+/** 按链接的全局上限：同一链接在窗口内累计这么多次口令错误后，对所有新设备锁定（已登记设备 start 时不再要口令） */
+export const LINK_PASSWORD_MAX_FAILURES_PER_LINK = 20;
+
+/** 口令错误按 IP 计数时 IPv6 合并到的网段字节数：8 字节 = /64（一个用户通常拿到整个 /64） */
+export const LINK_PASSWORD_IPV6_BUCKET_BYTES = 8;
+
+/** 拿不到来源 IP 时共用的计数桶 */
+export const LINK_PASSWORD_UNKNOWN_IP_BUCKET = "unknown";
+
+/** 访客 Cookie 名里 HMAC(链接 id) 的 base64url 字符数（16 字符 = 96 位，不可枚举、不暴露自增 id） */
+export const LINK_VISITOR_COOKIE_NAME_CHARS = 16;
+
+/** 批量创建链接时单个 JSON 参数的字节上限（D1 单个值上限 2 MB，留一半余量）；超出说明调用方没控制好批量大小，直接报错 */
+export const LINK_INSERT_PAYLOAD_MAX_BYTES = 1_000_000;
+
+/**
+ * 链接列表的异常标记（06 §7"设备数、国家数异常的行做标记"）：
+ *   - device_limit_reached：设了 max_devices 且已登记设备数达到上限；
+ *   - multi_country：已登记设备来自的不同国家数 ≥ 这个阈值。
+ */
+export const LINK_ANOMALY_COUNTRY_THRESHOLD = 2;
+
+/** 访问日志与设备记录里 user_agent 的最大长度 */
+export const LINK_USER_AGENT_MAX_LENGTH = 255;
+
+/** 管理员预览里 visitor_hash 显示的前几位 */
+export const LINK_VISITOR_HINT_LENGTH = 8;
 // ---- 两步验证、通行密钥、OAuth（M5） ----
 
 // 前后端共用的认证输入上限定义在 packages/shared/src/auth-limits.ts
