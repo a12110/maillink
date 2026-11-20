@@ -106,7 +106,7 @@
 | M6 | 系统设置、外观、注册、Turnstile（后端） | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M6 |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
-| UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 修复中（验收"有条件通过"：JSON 模式语法错误时仍可保存上一份配置且离开不提示、两处写死的 maxLength（名称 200 与接口上限 64 不一致）；评审会话 `ses_e08e75a70ffe4crGQeP5OJz5F9`；交付 `a8bdc25`，已合入最新 main 为 `d06dbe2`） | 执行会话 `ses_e09313850ffe7INAHx6EaIz0kU` |
+| UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-3 |
 | UI-4a | 登录两步验证/通行密钥/OAuth、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、我的邮件 `/inbox` | sonnet-5-5#high | 待修复（验收"有条件通过"：启用/关闭 2FA 后未刷新会话缓存致 `admin_2fa_required` 引导残留；并入错误标题、`/account?oauth` 读完即清、恢复码阶段单主按钮、侧板清自身 2FA 刷新会话；评审会话 `ses_e08e3735fffeR02OJ3c0riBLei`；`68d3150`；排队等开发线名额） | 执行会话 `ses_e091cec86ffeMdruzBXfSfQbgA` |
 | UI-4b | 系统设置页（含外观实时预览、OAuth 提供方管理）、注册页、前端强调色算法切到 shared `theme-contrast` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-4b |
 | UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、收件地址页的"生成取件链接/授权给用户"批量入口 | sonnet-5-5#high | 进行中（worktree `ui5-links-pickup`，分支 `ui5`，基于 `6a0b86e`，端口 8808；Turnstile 先本地最小实现，合并时改用 UI-4b 的 `TurnstileWidget`） | 执行会话 `ses_e08e993e4ffe95V74xCD1eCriH` |
@@ -249,3 +249,11 @@
 - 主 agent 复跑（合入最新 main 后）：typecheck/lint 三包 Done；web 21 文件 173 用例、worker 70 文件 1536 用例通过；web build 成功。
 - 验收实测：登录页、设置页、未启用 register 范围的注册页均不请求 challenges.cloudflare.com，启用后注册页才加载；Turnstile 失败后控件重置并显示中文错误；secret 留空不提交、不回显、不入存储；外观预览离开即清除内联覆盖；oauth 组不请求 `/api/admin/settings/oauth`。
 - 待 M7b-2 收尾的小项：两个 secret 输入框 `autoComplete` 改 `off`；Logo 读文件前先按 `file.size` 粗筛；默认强调色时可读性提示与 `tokens.css` 的 `accent-text` 值不一致；会话时长提示文案用 shared 常量；注册成功但取会话失败时提示"账号已创建，请去登录"。
+
+### 2026-11-20 UI-3 通过
+
+- 执行：sonnet-5-5#high（`ses_e09313850ffe7INAHx6EaIz0kU`）；验收：opus-5-5#high（`ses_e08e75a70ffe4crGQeP5OJz5F9`），"有条件通过"，2 项必修：JSON 模式语法错误时仍可保存"上一份能解析的配置"且离开不提示；两处写死 `maxLength`（规则组名称 200 与接口上限 64 不一致）。
+- 修复由主 agent 直接核对（可机械验证）：语法错误时 `saveBlockedReason` 禁止保存并计为 1 处未保存（离开提示、可放弃）；`maxLength` 改用 `RULE_GROUP_API_LIMITS.nameMaxLength` 与 `RULE_GROUP_LIMITS.maxNameLength`。另修：全选 >500 明确报错；从邮件建草稿时测试器默认试跑该邮件；`REASON_TEXT` 按原因码联合类型定型；库内配置损坏时允许直接保存覆盖。
+- 合并：主 agent 把含 UI-4b 的 main 合入 `ui3`，`endpoints.ts`/`queries.ts`/`router.tsx`/`styles/index.css` 追加冲突两边保留（`getAdminMail` 取 UI-3 新签名），执行者把超 70 行的 `createEndpoints` 拆为 `endpoints-admin.ts` 与 `endpoints-settings.ts`，并删掉与真页面重复的路由占位。合并后 typecheck/lint 三包 Done，web 33 文件 283 用例、worker 70 文件 1536 用例通过，web build 成功。
+- 验收确认：iframe sandbox 精确、`srcdoc` 为后端文档；导入里的 `<img onerror>` 显示为文本；3 份复杂配置（嵌套 not/any、`case_sensitive`、`redact`、`extract`、`code_regex`、`allow_domains`、`since.fixed`、`max_mails`）表单 ↔ JSON 往返逐字一致；互斥约束当场说明原因；409 重新加载；测试器用未保存配置、防抖且旧结果不覆盖新结果；收件地址表 36px、红色只在删除、Tab 可达、对话框焦点陷阱；<1100 时测试器移到表单下方。
+- 遗留（后端缺口，已在 M7b-1）：标签清单、有无链接筛选与计数、测试器不可见邮件的发件人与主题、`draft-from-mail` schema。
