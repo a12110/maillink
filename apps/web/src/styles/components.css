@@ -150,6 +150,7 @@
   .callout[data-tone="danger"] > svg { color: var(--color-danger); }
   .callout-body { min-width: 0; display: grid; gap: var(--space-1); }
   .callout-body b { font-weight: var(--weight-strong); }
+  .dialog-form > .callout { margin-bottom: var(--space-4); }
   .callout-actions { display: flex; gap: var(--space-3); margin-top: var(--space-1); }
   .text-action { background: none; border: 0; padding: 0; font-size: var(--text-sm); font-weight: var(--weight-strong); text-decoration: underline; text-underline-offset: 3px; }
   .empty { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-10) var(--space-6); text-align: center; color: var(--color-text-muted); }

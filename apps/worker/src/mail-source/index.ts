@@ -1,5 +1,6 @@
 export { addressForms, expandAddressForms, lowerDomain } from "./addresses";
 export { getCandidateById, getCandidatesByIds, listAdminMails, listAfter, listCandidates } from "./candidates";
+export { getMailDbCompat } from "./compat";
 export { getLastReceivedAt } from "./last-received";
 export { latestMailId } from "./latest";
 export type { ListAfterParams, ListCandidatesParams } from "./candidates";

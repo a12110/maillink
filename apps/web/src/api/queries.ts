@@ -1,6 +1,6 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import type { AdminMailboxListQuery, AdminUserListQuery, SettingGroup } from "@maillink/shared";
-import { MAIL_DETAIL_STALE_MS, SESSION_STALE_MS } from "../constants";
+import { MAIL_DB_COMPAT_STALE_MS, MAIL_DETAIL_STALE_MS, SESSION_STALE_MS } from "../constants";
 import { api } from "./instance";
 
 // 查询键集中在这里；失效与清缓存都靠前缀匹配
@@ -16,6 +16,7 @@ export const queryKeys = {
   adminRuleGroups: ["admin", "rule-groups"] as const,
   adminAudit: ["admin", "audit"] as const,
   adminSettings: ["admin", "settings"] as const,
+  adminMailDb: ["admin", "system", "mail-db"] as const,
   adminOAuthProviders: ["admin", "oauth-providers"] as const,
 };
 
@@ -26,6 +27,13 @@ export const setupStatusQuery = () =>
     queryFn: api.setupStatus,
     staleTime: (query) => (query.state.data?.needs_setup === false ? Infinity : 0),
   });
+
+/** 初始化页：沿用守卫已取到的状态，不在挂载时再探测一次 MAIL_DB */
+export const setupStatusForPageQuery = () => ({ ...setupStatusQuery(), refetchOnMount: false as const });
+
+/** 收件地址页与导入对话框共用的邮件库兼容状态（管理员接口，缓存的探测结果） */
+export const adminMailDbQuery = () =>
+  queryOptions({ queryKey: queryKeys.adminMailDb, queryFn: api.mailDbCompat, staleTime: MAIL_DB_COMPAT_STALE_MS });
 
 export const publicConfigQuery = () =>
   queryOptions({ queryKey: queryKeys.publicConfig, queryFn: api.publicConfig, staleTime: SESSION_STALE_MS });

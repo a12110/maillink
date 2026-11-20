@@ -1,16 +1,17 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { PASSWORD_MIN_LENGTH, setupRequestSchema, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@maillink/shared";
 import { isApiError } from "../../api/errors";
 import { api } from "../../api/instance";
-import { queryKeys } from "../../api/queries";
+import { queryKeys, setupStatusForPageQuery } from "../../api/queries";
 import { queryClient } from "../../app/query-client";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { fieldErrorsFromZod } from "../../lib/forms";
 import type { FieldErrors } from "../../lib/forms";
 import { describeError } from "../../lib/messages";
+import { MailDbNotice } from "../mail-db/MailDbNotice";
 import { Button, Callout, ErrorCallout, TextField, useToast } from "../../ui";
 
 const FIELDS = ["username", "password", "setup_token"] as const;
@@ -48,6 +49,7 @@ function SetupError({ error }: { error: unknown }) {
 export function SetupPage() {
   useDocumentTitle("初始化");
   const setup = useSetup();
+  const status = useQuery(setupStatusForPageQuery()).data;
   const [values, setValues] = useState<Record<Field, string>>({ username: "", password: "", setup_token: "" });
   const [clientErrors, setClientErrors] = useState<FieldErrors<Field>>({});
   const tokenError = isApiError(setup.error, "invalid_setup_token") ? setup.error.message : undefined;
@@ -75,6 +77,7 @@ export function SetupPage() {
       <h1>初始化系统</h1>
       <p className="auth-lead">创建第一个管理员账号。初始化令牌是部署时设置的 SETUP_TOKEN。</p>
       <form className="auth-form" onSubmit={submit} noValidate>
+        {status?.needs_setup ? <MailDbNotice compat={status.mail_db} where="setup" /> : null}
         <TextField label="用户名" autoComplete="username" autoFocus
           hint={`${USERNAME_MIN_LENGTH}–${USERNAME_MAX_LENGTH} 个字符，字母或数字开头，可含 . _ -`} {...bind("username")} />
         <TextField label="密码" type="password" autoComplete="new-password"

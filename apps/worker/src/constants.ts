@@ -458,3 +458,6 @@ export const SETTINGS_AUDIT_VALUE_MAX_LENGTH = 256;
 
 /** links.default_expires_in_days 换算成秒的单位（一天） */
 export const LINK_DEFAULT_EXPIRES_UNIT_SEC = SECONDS_PER_DAY;
+
+/** MAIL_DB 探测结果"健康但缺 to_address"的缓存时长：管理员执行迁移后，各 isolate 最多这么久内重探并生效 */
+export const MAIL_SCHEMA_DEGRADED_CACHE_TTL_SEC = 60;

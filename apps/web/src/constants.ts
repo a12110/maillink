@@ -24,6 +24,8 @@ export const TESTER_DEBOUNCE_MS = 600;
 export const IMPORT_PREVIEW_ROWS = 100;
 /** 邮件详情缓存新鲜期：邮件内容不会变，只有解析器升级才会不同 */
 export const MAIL_DETAIL_STALE_MS = 60_000;
+/** 邮件库兼容状态缓存新鲜期：只在管理员迁移 temp_email 后才会变 */
+export const MAIL_DB_COMPAT_STALE_MS = 60_000;
 /** `partial` 重取的退避（DESIGN.md：1s / 2s / 4s，最多 3 次） */
 export const PARTIAL_RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 4000];
 /** 邮件筛选文本的长度上限，与后端 adminMailListQuerySchema 一致（RFC 5321 邮箱长度上限） */

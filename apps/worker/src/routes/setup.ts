@@ -9,13 +9,20 @@ import { insertFirstAdminWithTemplates } from "../db/setup";
 import { countUsers } from "../db/users";
 import type { AppEnv } from "../env";
 import { ApiError, notFoundError } from "../errors";
+import { getMailDbCompat } from "../mail-source";
 import { parseJsonBody } from "../validate";
 import { HTTP_CREATED, HTTP_FORBIDDEN, HTTP_SERVICE_UNAVAILABLE } from "../http-status";
 
 export const setupRoutes = new Hono<AppEnv>();
 
 setupRoutes.get("/status", async (c) => {
-  const body: SetupStatus = { needs_setup: (await countUsers(c.env.APP_DB)) === 0 };
+  // 已初始化时不探测 MAIL_DB、不返回 mail_db：根路由守卫每次页面加载都会请求本接口，且它是公开的
+  if ((await countUsers(c.env.APP_DB)) > 0) {
+    const done: SetupStatus = { needs_setup: false };
+    return c.json(done);
+  }
+  // 页面提示"执行迁移后刷新本页确认"，所以这里强制重探，不吃 isolate 里缓存的旧结果（只在尚未初始化时发生）
+  const body: SetupStatus = { needs_setup: true, mail_db: await getMailDbCompat(c.env.MAIL_DB, { refresh: true }) };
   return c.json(body);
 });
 

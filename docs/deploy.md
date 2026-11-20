@@ -38,7 +38,7 @@ wrangler d1 create mail-link
 
   这是唯一一处允许对 MAIL_DB 执行的写语句，只用于撤销误操作；计数不是 0 时不要删，先查明是谁写的。
 - temp_email 升级后，部署后的健康检查会重新探测表结构（见 §6）。
-- **`to_address` 迁移之前的旧邮件按别名查不到**：`raw_mails.to_address`（真实收件人，iCloud 隐私邮箱别名就记在这里）是 temp_email 的迁移 `db/2026-08-02-to-address.sql` 加的列（CHANGELOG v1.15.0；fork 独有，不改 `DB_VERSION`，仍是 `v0.0.11`）。这次迁移只加列和索引、不回填，执行之前收到的邮件 `to_address` 为空，MailLink 只能按 `address`（信封收件人，即转发链最后一跳的 temp_email 邮箱）匹配它们，所以以 iCloud 别名作为收件地址时看不到这些旧邮件，管理员"全部邮件"里不带地址筛选仍能看到。没有执行该迁移时健康检查会报缺列警告（见 §6）。
+- **`to_address` 迁移之前的旧邮件按别名查不到**：`raw_mails.to_address`（真实收件人，iCloud 隐私邮箱别名就记在这里）是 temp_email 的迁移 `db/2026-08-02-to-address.sql` 加的列（CHANGELOG v1.15.0；fork 独有，不改 `DB_VERSION`，仍是 `v0.0.11`）。这次迁移只加列和索引、不回填，执行之前收到的邮件 `to_address` 为空，MailLink 只能按 `address`（信封收件人，即转发链最后一跳的 temp_email 邮箱）匹配它们，所以以 iCloud 别名作为收件地址时看不到这些旧邮件，管理员"全部邮件"里不带地址筛选仍能看到。没有执行该迁移时健康检查会报缺列警告（见 §6）。初始化页（`/setup`，仅在尚未初始化时探测）与管理员的「收件地址」页、导入对话框也会显示同一条"不支持 iCloud 隐私邮箱（Hide My Email）"提示；执行迁移后刷新初始化页或收件地址页即可确认。Worker 对"缺 `to_address`"的探测结果只缓存 60 秒（`MAIL_SCHEMA_DEGRADED_CACHE_TTL_SEC`），所以迁移后最多约 1 分钟内所有实例都会改按 `to_address` 查邮件、提示消失，不需要重启；完全兼容的结果缓存到实例结束。
 
 ### 2.3 远程迁移（只针对 APP_DB）
 
