@@ -33,6 +33,7 @@ export type DenyReason =
   | "password_required"
   | "no_mailbox"
   | "start_required"
+  | "turnstile_failed"
   | "turnstile_unavailable";
 
 /** 对外统一成"已失效"的原因（PLAN 裁定：撤销 / 暂停 / 过期 / 总次数用尽；IP 与国家白名单同样不透露） */
@@ -70,6 +71,7 @@ const SPECS: Record<Exclude<DenyReason, "revoked" | "paused" | "expired" | "expi
   password_required: { status: HTTP_BAD_REQUEST, code: LINK_PUBLIC_ERRORS.passwordRequired, message: "需要输入访问口令" },
   no_mailbox: { status: HTTP_CONFLICT, code: LINK_PUBLIC_ERRORS.noMailbox, message: "这个链接暂无可用的邮箱，请联系链接提供者" },
   start_required: { status: HTTP_UNAUTHORIZED, code: LINK_PUBLIC_ERRORS.startRequired, message: "请先点击\"开始取码\"" },
+  turnstile_failed: { status: HTTP_BAD_REQUEST, code: "turnstile_failed", message: "人机验证未通过，请重试" },
   turnstile_unavailable: { status: HTTP_SERVICE_UNAVAILABLE, code: LINK_PUBLIC_ERRORS.turnstileNotConfigured, message: "人机验证暂不可用" },
 };
 

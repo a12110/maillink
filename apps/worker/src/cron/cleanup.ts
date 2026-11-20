@@ -1,4 +1,4 @@
-import { CLEANUP_DELETE_BATCH_SIZE, CLEANUP_MAX_BATCHES } from "../constants";
+import { CLEANUP_DELETE_BATCH_SIZE, CLEANUP_MAX_BATCHES, LINK_PASSWORD_FAILURE_WINDOW_SEC } from "../constants";
 import { sessionLimits } from "../auth/session";
 import { getSettings } from "../db/settings";
 import { nowSec } from "../clock";
@@ -6,7 +6,7 @@ import { cleanOrphanIndexRows } from "./orphans";
 import { CronTaskError, describeError } from "./types";
 import type { CronEnv, Processed } from "./types";
 
-// 每日清理（01 §2 cron、03 §7）：过期会话、过期日志、MAIL_DB 里已不存在的索引行。
+// 每日清理（01 §2 cron、03 §7）：过期会话、过期日志、口令失败名额、过期的一次性流程令牌、MAIL_DB 里已不存在的索引行。
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 
@@ -20,14 +20,24 @@ async function deleteExpiredSessions(db: D1Database, now: number): Promise<numbe
   return result.meta.changes;
 }
 
-type LogTable = "link_access_logs" | "audit_logs";
+/** 可分批清理的表与"该删"的条件（?1 = 界线）。表名与条件都是这里写死的常量，不含外部输入 */
+const CLEANUP_CONDITIONS = {
+  link_access_logs: "created_at < ?1",
+  audit_logs: "created_at < ?1",
+  link_password_attempts: "created_at < ?1",
+  // 与 db/flow-tokens.ts 的 purgeExpired 同一口径：expires_at <= now 即过期
+  auth_flow_tokens: "expires_at <= ?1",
+} as const;
 
-/** 删除 created_at 早于 cutoff 的日志（等于 cutoff 的保留），分批删，单次运行有上限 */
-async function deleteLogsBefore(db: D1Database, table: LogTable, cutoff: number): Promise<number> {
+type CleanupTable = keyof typeof CLEANUP_CONDITIONS;
+
+/** 按条件分批删除（用 rowid，auth_flow_tokens 的主键是 jti 而不是 id），单次运行有批数上限 */
+async function deleteInBatches(db: D1Database, table: CleanupTable, cutoff: number): Promise<number> {
+  const condition = CLEANUP_CONDITIONS[table];
   let total = 0;
   for (let batch = 0; batch < CLEANUP_MAX_BATCHES; batch += 1) {
     const result = await db
-      .prepare(`DELETE FROM ${table} WHERE id IN (SELECT id FROM ${table} WHERE created_at < ?1 ORDER BY id LIMIT ?2)`)
+      .prepare(`DELETE FROM ${table} WHERE rowid IN (SELECT rowid FROM ${table} WHERE ${condition} ORDER BY rowid LIMIT ?2)`)
       .bind(cutoff, CLEANUP_DELETE_BATCH_SIZE)
       .run();
     total += result.meta.changes;
@@ -36,11 +46,20 @@ async function deleteLogsBefore(db: D1Database, table: LogTable, cutoff: number)
   return total;
 }
 
+/** 口令失败名额只在计数窗口内有意义：早于窗口的行（等于窗口起点的保留）已不参与计数 */
+async function cleanPasswordAttempts(db: D1Database, now: number): Promise<Processed> {
+  return { link_password_attempts_deleted: await deleteInBatches(db, "link_password_attempts", now - LINK_PASSWORD_FAILURE_WINDOW_SEC) };
+}
+
+async function cleanFlowTokens(db: D1Database, now: number): Promise<Processed> {
+  return { auth_flow_tokens_deleted: await deleteInBatches(db, "auth_flow_tokens", now) };
+}
+
 async function cleanExpiredLogs(db: D1Database, now: number): Promise<Processed> {
   const days = await getSettings(db, ["logs.access_retention_days", "logs.audit_retention_days"]);
   return {
-    access_logs_deleted: await deleteLogsBefore(db, "link_access_logs", now - days["logs.access_retention_days"] * SECONDS_PER_DAY),
-    audit_logs_deleted: await deleteLogsBefore(db, "audit_logs", now - days["logs.audit_retention_days"] * SECONDS_PER_DAY),
+    access_logs_deleted: await deleteInBatches(db, "link_access_logs", now - days["logs.access_retention_days"] * SECONDS_PER_DAY),
+    audit_logs_deleted: await deleteInBatches(db, "audit_logs", now - days["logs.audit_retention_days"] * SECONDS_PER_DAY),
   };
 }
 
@@ -52,6 +71,8 @@ export async function runDailyCleanup(env: CronEnv, now: number = nowSec()): Pro
   const steps: Array<[string, () => Promise<Processed>]> = [
     ["sessions", async () => ({ sessions_deleted: await deleteExpiredSessions(env.APP_DB, now) })],
     ["logs", () => cleanExpiredLogs(env.APP_DB, now)],
+    ["link_password_attempts", () => cleanPasswordAttempts(env.APP_DB, now)],
+    ["auth_flow_tokens", () => cleanFlowTokens(env.APP_DB, now)],
     ["mail_index_orphans", () => cleanOrphanIndexRows(env)],
   ];
   const processed: Processed = {};

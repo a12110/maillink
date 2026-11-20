@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { turnstileTokenSchema } from "./auth";
 import { VIEW_MODES } from "./rule-group";
 import { presentedMailSchema } from "./rule-group-presented-mail";
 import { LINK_REVEAL_MODES, linkPasswordSchema } from "./share-link-access";
@@ -53,6 +54,23 @@ export const linkDeliveryQuotaSchema = z.object({
 });
 export type LinkDeliveryQuota = z.infer<typeof linkDeliveryQuotaSchema>;
 
+/** 取件页的人机验证：只看链接自己的开关；site_key 只在 required 且系统已配置站点密钥时给 */
+export const linkTurnstileSchema = z.object({
+  required: z.boolean(),
+  site_key: z.string().optional(),
+});
+
+/**
+ * 取件页要显示的站点设置：show_brand=false 时不给 name / logo；
+ * logo 只给 data:image/ 形式（取件页不加载第三方资源，https Logo 不返回）；notice 为空不给。
+ */
+export const linkSiteSchema = z.object({
+  show_brand: z.boolean(),
+  name: z.string().optional(),
+  logo: z.string().optional(),
+  notice: z.string().optional(),
+});
+
 export const linkPublicStatusSchema = z.object({
   state: z.enum(LINK_PAGE_STATES),
   /** 链接是否已被首次"开始取码"（任何访客） */
@@ -61,6 +79,8 @@ export const linkPublicStatusSchema = z.object({
   visitor_registered: z.boolean(),
   requires_password: z.boolean(),
   requires_turnstile: z.boolean(),
+  turnstile: linkTurnstileSchema,
+  site: linkSiteSchema,
   view: z.enum(VIEW_MODES),
   reveal: z.enum(LINK_REVEAL_MODES),
   /** 设了取码次数上限时给出；否则为 null */
@@ -83,8 +103,8 @@ export type LinkPublicStatus = z.infer<typeof linkPublicStatusSchema>;
 
 export const linkStartRequestSchema = z.strictObject({
   password: linkPasswordSchema.optional(),
-  /** M6 接入 Turnstile 后使用 */
-  turnstile_token: z.string().max(4096).optional(),
+  /** 链接开启人机验证（status.turnstile.required）时必填；已登记设备再点"开始取码"不校验 */
+  turnstile_token: turnstileTokenSchema.optional(),
 });
 export type LinkStartRequest = z.infer<typeof linkStartRequestSchema>;
 

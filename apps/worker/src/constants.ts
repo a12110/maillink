@@ -426,3 +426,6 @@ export const LINK_DEFAULT_POLL_INTERVAL_SEC = 30;
 
 /** 审计里记录设置变更时，超过这个长度的字符串（如 data URI Logo）只记长度 */
 export const SETTINGS_AUDIT_VALUE_MAX_LENGTH = 256;
+
+/** links.default_expires_in_days 换算成秒的单位（一天） */
+export const LINK_DEFAULT_EXPIRES_UNIT_SEC = SECONDS_PER_DAY;
