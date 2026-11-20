@@ -62,7 +62,9 @@
 - 缺"注销我的其他会话"批量接口，账号页目前逐个调用 `DELETE /api/me/sessions/:id`（M5 账号安全页时补）。
 - `/api/public/config` 缺 logo 与公告（M6）。
 - 深色用户首屏闪浅色：M6 接外观接口时加 `<meta name="color-scheme">` 与内联预设脚本。
-- 主 chunk 518 kB：页面增多后对 `/admin/*` 做路由懒加载。
+- 主 chunk 518 kB（UI-2 后 553 kB）：页面增多后对 `/admin/*` 做路由懒加载。
+- "全部邮件"详情的"以此邮件创建规则"（05 §3）：等规则组编辑页（UI-3+）时补，后端 `draft-from-mail` 已在 M3b-1。
+- 管理员"全部邮件"列表无总数（同用户列表）。
 
 ## 需要用户提供（不阻塞开发）
 
@@ -86,7 +88,8 @@
 | M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 进行中（worktree `m5-mfa-passkey-oauth`，分支 `m5`，基于 `5b33f97`，端口 8798，迁移号 0005；与 M3 无关，并发） | 执行会话 `ses_e0a26007fffe162XUPKIsWf9PB` |
 | M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
-| UI-2+ | 其余页面（随后端里程碑推进） | sonnet-5-5#high | 待办 | |
+| UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
+| UI-3+ | 收件地址、规则组编辑与测试器、取件链接、取件页、我的邮件、账号安全的 2FA/通行密钥/第三方账号、系统设置（随后端推进） | sonnet-5-5#high | 待办 | |
 | M7 | 审计、cron、限流、加固 | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
 
@@ -143,3 +146,11 @@
 - 复验实测（headless Chrome + CDP）：`theme`/`accent`/`radius` 非法值均显示提示不白屏；首次 `/api/setup/status` 失败后点重试会再发请求并恢复；390×844 `/account` 文档宽 390；窄屏侧板焦点进入、Esc 关闭并回到原行。
 - 保留 happy-dom：vitest 下无 `document` 时 TanStack Router 判定为服务端模式，导航行为不同；强制客户端又会访问 `window`。
 - 遗留：深色首屏闪浅色（M6）；主 chunk 518 kB（路由懒加载）；用户列表无总数（后端待补）。
+
+### 2026-11-20 UI-2 通过
+
+- 执行：sonnet-5-5#high（`ses_e0a10cc85ffe3001C80GaFTLEF`）；验收：opus-5-5#high（`ses_e09c44082ffeut0sP0NiDY7SBO`），"有条件通过"，1 项必修：详情"链接列表"把不可信邮件里的 http(s) 链接做成可点 `<a target=_blank>`，管理员误点可能消耗买家一次性令牌。修复为等宽纯文本 + 复制按钮。
+- 必修项由主 agent 直接核对（改动小、可机械验证）：`MailDetailSections.tsx` 无 `<a`/`href=`（仅注释提及）；新增测试断言链接列表与正文区无 `<a>`；截图 `ui2-shots/detail-links-light.png` 确认。
+- 主 agent 复跑：web 14 文件 111 用例通过；首轮复跑 worker 37 文件 999 用例通过；改动只在 `apps/web/`、无新增依赖。
+- 验收确认：iframe sandbox 精确为 `allow-popups allow-popups-to-escape-sandbox`、`srcDoc` 原样；纯文本不链接化、全仓无 `dangerouslySetInnerHTML`；partial 1s/2s/4s 退避不推进游标、筛选变化时旧请求作废无竞态；队列行两行（约 60px）符合 DESIGN.md（36px 只针对表格）；构建 3 分 28 秒复测 2.78 s，系机器负载。
+- 另做：`mailsRoute` 专属错误页留在工作区并可"清除筛选"；刷新保留旧列表。
