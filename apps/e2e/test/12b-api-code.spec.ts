@@ -4,7 +4,7 @@ import { CODE_ONLY_GROUP_NAME, requirePriorData, SEED_ADDRESSES, warmMailIndex }
 import { expect, test } from "../support/fixtures";
 import { createLinkViaWizard, openLinkPanel } from "../support/links";
 
-// API 取码 GET /api/s/<token>/code：向导建链接（默认允许 API）→ 不带任何 Cookie 调接口取到种子验证码 → 计次反映到管理端。
+// API 取码 GET /api/s/<token>/code：向导建链接（默认允许 API）→ 不带任何 Cookie、带 X-MailLink-Api 头调接口取到种子验证码 → 计次反映到管理端。
 // 只用已保存的管理员会话，不新增登录。
 
 test.use({ storageState: ADMIN_STATE });
@@ -25,8 +25,9 @@ test("API 取码：建链接 → 接口取到种子验证码 → 同一封不重
 
   // 脚本视角：全新的请求上下文，没有任何 Cookie
   const script = await playwright.request.newContext({ baseURL: ORIGIN });
+  const API_HEADER = { "X-MailLink-Api": "1" };
   const call = async () => {
-    const response = await script.get(`/api/s/${link.token}/code`);
+    const response = await script.get(`/api/s/${link.token}/code`, { headers: API_HEADER });
     expect(response.status(), await response.text()).toBe(200);
     expect(response.headers()["cache-control"]).toBe("no-store");
     expect(response.headers()["set-cookie"]).toBeUndefined();
@@ -37,8 +38,13 @@ test("API 取码：建链接 → 接口取到种子验证码 → 同一封不重
   expect(JSON.stringify(first)).not.toContain(link.token);
   const again = await call();
   expect(again).toMatchObject({ code: NEWEST_CODE, mail_id: first.mail_id, remaining: { total: 2, today: null } });
-  const future = await script.get(`/api/s/${link.token}/code?since=${Math.floor(Date.now() / 1000) + 3600}`);
+  const future = await script.get(`/api/s/${link.token}/code?since=${Math.floor(Date.now() / 1000) + 3600}`, { headers: API_HEADER });
   expect(((await future.json()) as CodeBody).status).toBe("no_code");
+  // 不带 X-MailLink-Api（聊天软件预览机器人的样子）：400、什么也不做，剩余次数不变
+  const bare = await script.get(`/api/s/${link.token}/code`);
+  expect(bare.status()).toBe(400);
+  expect(((await bare.json()) as { error: { code: string } }).error.code).toBe("api_header_required");
+  expect((await call()).remaining).toEqual({ total: 2, today: null });
   await script.dispose();
 
   // 管理端：累计取码 1、设备 1（接口占的那台），侧板给出接口地址（token 占位）与 curl 示例
@@ -49,6 +55,7 @@ test("API 取码：建链接 → 接口取到种子验证码 → 同一封不重
   const api = panel.locator("section", { has: page.getByRole("heading", { name: "API 取码" }) });
   await expect(api.getByRole("switch", { name: "允许 API 取码" })).toBeChecked();
   await expect(api).toContainText("/api/s/<token>/code");
-  await expect(api.getByLabel("curl 示例")).toContainText("curl -s");
+  await expect(api.getByLabel("curl 示例")).toContainText("curl -s -H 'X-MailLink-Api: 1'");
+  await expect(api).toContainText("不要把接口地址贴进聊天软件");
   expect(await page.content()).not.toContain(link.token);
 });

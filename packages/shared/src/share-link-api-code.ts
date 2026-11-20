@@ -9,6 +9,13 @@ export const LINK_API_CODE_LIMITS = {
   limitDefault: 1,
 } as const;
 
+/**
+ * 有副作用的取码必须带这个头（值为 "1"）：接口地址被贴进聊天软件时，预览机器人只会发不带自定义头的 GET，
+ * 缺头时 400 且不做任何事，不会占设备、开始首次访问倒计时或消耗次数。
+ */
+export const LINK_API_REQUIRED_HEADER = "X-MailLink-Api";
+export const LINK_API_REQUIRED_HEADER_VALUE = "1";
+
 /** 口令走请求头（不进 URL，避免出现在访问日志与代理记录里）；这个头只接受 ASCII */
 export const LINK_API_PASSWORD_HEADER = "X-Link-Password";
 /** 非 ASCII 口令：UTF-8 字节的标准 base64；与 X-Link-Password 只能给一个 */

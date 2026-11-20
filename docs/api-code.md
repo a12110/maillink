@@ -6,11 +6,13 @@
 - 只返回验证码和少量元信息（时间、发件人、收件地址，按规则组打码），**不返回主题和正文**。
 - 每个链接都有"允许 API 取码"开关（`access.api`），默认开；在创建链接的第 3 步或链接侧板的"API 取码"里改。
 - 接口地址在管理端链接侧板里显示（token 用 `<token>` 占位）；带完整 token 的地址在"复制链接"对话框里给出（取得完整链接会写审计）。
+- **不要把接口地址贴进聊天软件**。调用必须带请求头 `X-MailLink-Api: 1`：聊天软件的链接预览机器人只会发不带自定义头的请求，缺这个头时接口直接返回 400、什么也不做（不占设备、不开始"首次取码后 N 天失效"的倒计时、不消耗次数）。
 
 ## 请求
 
 ```
 GET <PUBLIC_ORIGIN>/api/s/<token>/code?since=<Unix 秒>&limit=<1–10>
+X-MailLink-Api: 1                    （必填）
 X-Link-Password: <口令>              （链接设了口令时，口令只含 ASCII）
 X-Link-Password-Base64: <base64>     （口令含中文等非 ASCII 字符时，改用这个）
 ```
@@ -18,6 +20,7 @@ X-Link-Password-Base64: <base64>     （口令含中文等非 ASCII 字符时，
 | 参数 | 位置 | 说明 |
 | --- | --- | --- |
 | `token` | 路径 | 取件链接 `/s/<token>` 里的那一段 |
+| `X-MailLink-Api` | 请求头，必填 | 固定为 `1`。缺失或不是 `1` 时 400 `api_header_required`，在查链接之前就返回，没有任何副作用，也不写访问日志 |
 | `since` | 查询，可选 | Unix 秒；只看收到时间 **≥ since** 的邮件。常见用法：触发发码之前记下当前时间，轮询时带上它，避免拿到上一次的旧码 |
 | `limit` | 查询，可选 | 1–10，默认 1；按收到时间从新到旧最多返回几封 |
 | `X-Link-Password` | 请求头 | 链接设了口令时必填。**只接受 ASCII**，含非 ASCII 字符直接 400 `link_password_encoding` |
@@ -25,7 +28,7 @@ X-Link-Password-Base64: <base64>     （口令含中文等非 ASCII 字符时，
 
 为什么口令要分两个头：HTTP 头的值按字节传输，各客户端与运行时对非 ASCII 字节的处理不一致（实测 Workers 按 UTF-8 解码、坏字节被替换掉；Python `requests` 按 latin-1 编码，中文直接报错）。口令不进 URL，是为了不出现在代理和访问记录里。
 
-不需要 Cookie，也不会设置 Cookie。响应带 `Cache-Control: no-store`、`Referrer-Policy: no-referrer`。
+只支持 `GET`；`HEAD` 一律 405（不产生副作用）。不需要 Cookie，也不会设置 Cookie。响应带 `Cache-Control: no-store`、`Referrer-Policy: no-referrer`。
 
 ## 响应（200）
 
@@ -77,11 +80,14 @@ X-Link-Password-Base64: <base64>     （口令含中文等非 ASCII 字符时，
 | 200 | （`status: no_code`） | 可见邮件里没有验证码，或 `since` 之后没有 | 按 `retry_after_sec` 重试 |
 | 200 | （`status: no_code`，`reason: view_meta_only`） | 规则组只给元信息 | 不要重试 |
 | 200 | （`status: pending`） | 比已检查过的邮件更新的邮件还在解析，尚未找到验证码 | 按 `retry_after_sec` 重试（不计次） |
+| 400 | `api_header_required` | 没带 `X-MailLink-Api: 1`（无任何副作用） | 加上这个头 |
+| 405 | `method_not_allowed` | 用了 `HEAD` 等非 `GET` 方法 | 用 `GET` |
 | 400 | `validation_error` | `since` / `limit` 不合法；口令长度不在 4–128 | 改请求 |
 | 400 | `link_password_encoding` | `X-Link-Password` 含非 ASCII；base64 无效或解码后不是 UTF-8；两个口令头同时出现 | 见"请求" |
 | 400 | `link_password_required` | 链接设了口令但没给 | 带口令头 |
 | 403 | `link_password_invalid` | 口令错误（计入口令锁定） | 检查口令 |
 | 429 | `link_password_locked` | 口令错太多次被锁（与取件页共用计数）；带 `retry_after_at` 与 `Retry-After` | 等到 `Retry-After` 秒后 |
+| 429 | `link_password_busy` | 同一链接 + 同一 IP 同时在校验的口令太多（并发请求）；带 1 秒的 `Retry-After`，**不锁定、不计失败** | 1 秒后重试，别并发 |
 | 403 | `api_disabled` | 链接关闭了"允许 API 取码" | 联系链接提供者 |
 | 403 | `turnstile_required` | 链接开了人机验证，脚本无法完成 | 只能用取件页，或让提供者关闭人机验证 |
 | 403 | `link_not_yet_valid` | 未到生效时间；带 `valid_from` | 到时间再来 |
@@ -95,36 +101,38 @@ X-Link-Password-Base64: <base64>     （口令含中文等非 ASCII 字符时，
 | 503 | `mail_db_unhealthy` | 邮件库不可用 | 稍后重试 |
 | 503 | `rate_limiter_not_configured` | 服务端缺限流配置 | 联系提供者 |
 
-检查顺序：token → 状态 → 生效 / 过期 → IP / 国家 → 限流 → 总次数 → 是否允许 API → 人机验证 → 有无收件地址 → 口令 → `meta_only` → 设备 → 每日次数。
+检查顺序：请求方法与 `X-MailLink-Api` 头 → token → 状态 → 生效 / 过期 → IP / 国家 → 限流 → 总次数 → 是否允许 API → 人机验证 → 有无收件地址 → 口令 → `meta_only` → 设备 → 每日次数。
 
 ## 计次、设备、口令、人机验证
 
 - **计次**：只对"点击取码"（`reveal = click`）的链接生效，自动显示的链接不计次。与取件页共用同一份取码记录和次数上限（`max_deliveries_total`、`max_deliveries_per_day`）：按**不同邮件**计，同一封无论在网页还是接口里取过，再取都不再计；并发请求也不会多计。`pending`、`no_code` 不计次。
 - **额度不够时**：从最新一封开始逐封计次，遇到第一封计不了次就停，只返回它之前（更新）的那几封——例如 `limit=3` 但只剩 2 次，返回最新的 2 封。最新一封就计不了时：总次数用尽 → 410 `link_unavailable`；每日次数用尽 → 429 `link_daily_limit`。已经取过的邮件不受每日额度影响，照常返回。
 - **设备**：接口整体占这个链接 **1 台设备**（管理端设备列表与预览里显示为 `api`），第一次成功调用时登记，等同在取件页点了"开始取码"——写入首次取码时间，"首次取码后 N 天失效"从这时开始计时。名额已被浏览器占满时返回 403 `link_device_limit`；反过来接口先占了名额，浏览器也会看到"设备已满"。管理员"重置设备"后接口下次调用重新登记。`meta_only` 的调用不登记设备、不激活链接。
-- **口令**：每次请求都要带（接口没有 Cookie，不会记住你）。口令错误与取件页共用锁定计数：同一链接 + 同一 IP 15 分钟内错 5 次，或同一链接累计错 20 次，就会锁定一段时间。
+- **口令**：每次请求都要带（接口没有 Cookie，不会记住你）。只有**校验失败**才计入锁定，与取件页共用计数：同一链接 + 同一 IP 15 分钟内错 5 次，或同一链接累计错 20 次，就会锁定到窗口滚过。正在进行的校验另有上限（同一链接 + IP 5 个、同一链接 20 个），超出时返回 `link_password_busy`，稍后重试即可，不会被锁。因此锁定前最多能试"失败上限 + 进行中上限"次。
 - **人机验证**：开了人机验证的链接一律 403 `turnstile_required`。
 - **访问日志**：每次调用在链接的访问日志里记一条"API 取码"，原因是结果（`ok` / `no_code` / `pending` / `view_meta_only`）或被拒原因；新计次的邮件另记一条"取码"。日志不记 token、口令和验证码。
 
 ## 轮询建议
 
-1. 触发对方发验证码**之前**记下 `since = 当前 Unix 秒`（留几秒余量更稳）。
-2. 带 `since` 请求；`status` 为 `no_code` 或 `pending` 时，按 `retry_after_sec` 等待后再请求。
-3. `ok` 就停；`410` 停止；`429` 按 `Retry-After` 等待；`403`、`404`、`view_meta_only` 不要重试。
-4. 设一个总超时（例如 3–5 分钟），超时就放弃。点击取码的链接每取到一封新邮件就用掉一次次数，不要用 `limit` 一次拉很多封。
+1. 每个请求都带 `X-MailLink-Api: 1`；不要并发请求同一个链接（并发的口令校验会得到 `link_password_busy`）。
+2. 触发对方发验证码**之前**记下 `since = 当前 Unix 秒`（留几秒余量更稳）。
+3. 带 `since` 请求；`status` 为 `no_code` 或 `pending` 时，按 `retry_after_sec` 等待后再请求。
+4. `ok` 就停；`410` 停止；`429` 按 `Retry-After` 等待；`403`、`404`、`view_meta_only` 不要重试。
+5. 设一个总超时（例如 3–5 分钟），超时就放弃。点击取码的链接每取到一封新邮件就用掉一次次数，不要用 `limit` 一次拉很多封。
 
 ## 示例
 
 ```sh
 # 最新一封的验证码
-curl -s 'https://mail.example.com/api/s/<token>/code'
+curl -s -H 'X-MailLink-Api: 1' 'https://mail.example.com/api/s/<token>/code'
 
 # 带口令（ASCII）、只看 5 分钟内的邮件
-curl -s -H 'X-Link-Password: open-sesame' \
+curl -s -H 'X-MailLink-Api: 1' -H 'X-Link-Password: open-sesame' \
   "https://mail.example.com/api/s/<token>/code?since=$(($(date +%s) - 300))"
 
-# 口令含中文：发 UTF-8 字节的 base64
-curl -s -H "X-Link-Password-Base64: $(printf '%s' '口令-1234' | base64)" \
+# 口令含中文：发 UTF-8 字节的 base64。tr -d '\n' 去掉换行：GNU base64 每 76 个字符折行，长口令不去换行会被截断；
+# macOS 与 Linux 的 base64 都适用
+curl -s -H 'X-MailLink-Api: 1' -H "X-Link-Password-Base64: $(printf %s '口令-1234' | base64 | tr -d '\n')" \
   'https://mail.example.com/api/s/<token>/code'
 ```
 
@@ -138,7 +146,7 @@ PASSWORD = None          # 有口令时填字符串
 TIMEOUT_SEC = 300
 
 def fetch_code(since):
-    req = urllib.request.Request(f"{URL}?since={since}")
+    req = urllib.request.Request(f"{URL}?since={since}", headers={"X-MailLink-Api": "1"})
     if PASSWORD is not None:
         req.add_header("X-Link-Password-Base64", base64.b64encode(PASSWORD.encode("utf-8")).decode("ascii"))
     try:
@@ -157,6 +165,8 @@ while time.time() < deadline:
         break
     if status == 200 and body.get("reason") != "view_meta_only":
         time.sleep(body["retry_after_sec"])
+    elif status == 429 and body["error"]["code"] == "link_password_busy":
+        time.sleep(int(retry_after or 1))
     elif status == 429:
         time.sleep(int(retry_after or 60))
     else:

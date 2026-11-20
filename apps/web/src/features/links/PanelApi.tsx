@@ -6,7 +6,7 @@ import { linkKeys } from "../../api/links-queries";
 import { describeError } from "../../lib/messages";
 import { Callout, ErrorCallout, Switch, useToast } from "../../ui";
 import { API_TOGGLE_LABEL } from "./CreateAccessStep";
-import { API_TOKEN_PLACEHOLDER, accessWithApi, apiCodeUrl, curlExample } from "./api-code";
+import { API_SHARE_WARNING, API_TOKEN_PLACEHOLDER, accessWithApi, apiCodeUrl, curlExample } from "./api-code";
 
 type Props = { link: AdminShareLink; origin: string };
 
@@ -43,6 +43,7 @@ export function ApiSection({ link, origin }: Props) {
         <span className="field-label">curl 示例</span>
         <pre className="api-curl" tabIndex={0} aria-label="curl 示例">{curlExample(url, access.has_password)}</pre>
       </div>
+      <p className="field-hint api-warning" role="note">{API_SHARE_WARNING}</p>
       <ul className="api-notes">
         <li>{API_TOKEN_PLACEHOLDER} 是完整 token：在“复制链接”里取得（会写审计），那里同时给出完整的接口地址。</li>
         {access.has_password ? <li>口令含中文等非 ASCII 字符时，改用 {LINK_API_PASSWORD_BASE64_HEADER} 头（UTF-8 字节的 base64）。</li> : null}

@@ -57,6 +57,7 @@ const REASON_LABEL: Record<string, string> = {
   daily_limit: "每日取码次数已用尽",
   bad_password: "口令错误",
   password_locked: "口令错误过多，已锁定",
+  password_busy: "同时校验口令的请求过多（未计失败）",
   password_required: "未输入口令",
   no_mailbox: "没有可用的收件地址",
   start_required: "未开始取码",

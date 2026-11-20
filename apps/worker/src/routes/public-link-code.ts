@@ -1,5 +1,8 @@
 import type { Context, Hono } from "hono";
 import {
+  LINK_API_REQUIRED_HEADER,
+  LINK_API_REQUIRED_HEADER_VALUE,
+  LINK_PUBLIC_ERRORS,
   linkApiCodeQuerySchema,
   type LinkApiCodeItem,
   type LinkApiCodeResponse,
@@ -22,7 +25,8 @@ import {
 } from "../db/link-activity";
 import type { ShareLinkRow } from "../db/share-links";
 import type { AppEnv } from "../env";
-import { HTTP_OK } from "../http-status";
+import { ApiError } from "../errors";
+import { HTTP_BAD_REQUEST, HTTP_METHOD_NOT_ALLOWED, HTTP_OK } from "../http-status";
 import { LinkDenied } from "../links/guard";
 import { apiPasswordFromHeaders } from "../links/api-password";
 import { checkLinkPassword } from "../links/password";
@@ -34,7 +38,7 @@ import { parseQuery } from "../validate";
 // API 取码：GET /api/s/:token/code（PLAN"API 取码接口"，文档 docs/api-code.md）。
 //
 // 用 GET 便于脚本调用，是对 02 §6"所有 GET 无副作用"的有意例外：会登记 API 设备、写 first_access_at、计次、写日志。
-// 预览机器人只抓 /s/<token> 页面，不会访问这个地址。
+// 为此必须带 X-MailLink-Api: 1（见 requireApiRequest）：接口地址被贴进聊天软件时，预览机器人的抓取不会产生副作用。
 // 不经 CSRF：CSRF 中间件只检查写方法；而且这里的鉴权只有路径里的 token 与口令请求头（links/api-password.ts），
 // 不设也不读任何 Cookie（访客 Cookie、会话 Cookie 都不看），跨站页面无法替受害者带上凭据，没有 CSRF 可利用的环境权限。
 // 检查顺序与取件页一致：token → 状态 → 生效 / 过期 → IP / 国家 → 限流 → 总次数（loadLinkRequest），
@@ -141,7 +145,27 @@ function statusOf(entries: readonly CodeEntry[], partial: boolean): LinkApiCodeS
   return partial ? "pending" : "no_code";
 }
 
+/**
+ * 预览机器人防护（PLAN"API 取码接口"安全验收后补充）：缺 X-MailLink-Api: 1 时 400，在查 token 之前就返回——
+ * 不查口令、不登记设备、不写 first_access_at、不计次，也不写访问日志（此时还没查库，不知道是哪条链接；机器人反复抓也刷不了日志）。
+ * HEAD 一律 405：Hono 会把 HEAD 交给 GET 处理器，不拦就会照常产生副作用。
+ */
+function requireApiRequest(c: Context<AppEnv>): void {
+  if (c.req.method === "HEAD") {
+    c.header("Allow", "GET");
+    throw new ApiError(HTTP_METHOD_NOT_ALLOWED, "method_not_allowed", "API 取码只支持 GET");
+  }
+  if (c.req.header(LINK_API_REQUIRED_HEADER)?.trim() !== LINK_API_REQUIRED_HEADER_VALUE) {
+    throw new ApiError(
+      HTTP_BAD_REQUEST,
+      LINK_PUBLIC_ERRORS.apiHeaderRequired,
+      `需要请求头 ${LINK_API_REQUIRED_HEADER}: ${LINK_API_REQUIRED_HEADER_VALUE}（防止聊天软件的链接预览触发取码）`,
+    );
+  }
+}
+
 async function apiCode(c: Context<AppEnv>): Promise<LinkApiCodeResponse> {
+  requireApiRequest(c);
   const query = parseQuery(c, linkApiCodeQuerySchema);
   const req = await loadLinkRequest(c, LOG);
   if (!req.access.api) await rejectWith(c, req, "api_disabled", LOG);

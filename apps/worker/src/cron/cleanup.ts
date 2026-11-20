@@ -25,6 +25,8 @@ const CLEANUP_CONDITIONS = {
   link_access_logs: "created_at < ?1",
   audit_logs: "created_at < ?1",
   link_password_attempts: "created_at < ?1",
+  // 进行中的口令校验占位：正常结束即删，这里只清 Worker 被中断后残留的过期占位
+  link_password_inflight: "expires_at <= ?1",
   // 与 db/flow-tokens.ts 的 purgeExpired 同一口径：expires_at <= now 即过期
   auth_flow_tokens: "expires_at <= ?1",
 } as const;
@@ -46,9 +48,12 @@ async function deleteInBatches(db: D1Database, table: CleanupTable, cutoff: numb
   return total;
 }
 
-/** 口令失败名额只在计数窗口内有意义：早于窗口的行（等于窗口起点的保留）已不参与计数 */
+/** 口令失败名额只在计数窗口内有意义：早于窗口的行（等于窗口起点的保留）已不参与计数；进行中占位过期即无意义 */
 async function cleanPasswordAttempts(db: D1Database, now: number): Promise<Processed> {
-  return { link_password_attempts_deleted: await deleteInBatches(db, "link_password_attempts", now - LINK_PASSWORD_FAILURE_WINDOW_SEC) };
+  return {
+    link_password_attempts_deleted: await deleteInBatches(db, "link_password_attempts", now - LINK_PASSWORD_FAILURE_WINDOW_SEC),
+    link_password_inflight_deleted: await deleteInBatches(db, "link_password_inflight", now),
+  };
 }
 
 async function cleanFlowTokens(db: D1Database, now: number): Promise<Processed> {

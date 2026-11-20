@@ -30,6 +30,7 @@ export type DenyReason =
   | "daily_limit"
   | "bad_password"
   | "password_locked"
+  | "password_busy"
   | "password_required"
   | "no_mailbox"
   | "start_required"
@@ -70,6 +71,7 @@ const SPECS: Record<Exclude<DenyReason, "revoked" | "paused" | "expired" | "expi
   daily_limit: { status: HTTP_TOO_MANY_REQUESTS, code: LINK_PUBLIC_ERRORS.dailyLimit, message: "今日取码次数已用完，请稍后再试" },
   bad_password: { status: HTTP_FORBIDDEN, code: LINK_PUBLIC_ERRORS.passwordInvalid, message: "访问口令不正确" },
   password_locked: { status: HTTP_TOO_MANY_REQUESTS, code: LINK_PUBLIC_ERRORS.passwordLocked, message: "口令错误次数过多，请稍后再试" },
+  password_busy: { status: HTTP_TOO_MANY_REQUESTS, code: LINK_PUBLIC_ERRORS.passwordBusy, message: "同时校验口令的请求太多，请稍后重试" },
   password_required: { status: HTTP_BAD_REQUEST, code: LINK_PUBLIC_ERRORS.passwordRequired, message: "需要输入访问口令" },
   no_mailbox: { status: HTTP_CONFLICT, code: LINK_PUBLIC_ERRORS.noMailbox, message: "这个链接暂无可用的邮箱，请联系链接提供者" },
   start_required: { status: HTTP_UNAUTHORIZED, code: LINK_PUBLIC_ERRORS.startRequired, message: "请先点击\"开始取码\"" },

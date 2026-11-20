@@ -194,6 +194,23 @@ export const LINK_PASSWORD_FAILURE_WINDOW_SEC = 15 * 60;
 /** 按链接的全局上限：同一链接在窗口内累计这么多次口令错误后，对所有新设备锁定（已登记设备 start 时不再要口令） */
 export const LINK_PASSWORD_MAX_FAILURES_PER_LINK = 20;
 
+/**
+ * 同时进行中的口令校验（link_password_inflight）上限：链接 + IP 桶与失败上限相同，链接全局与按链接的失败上限相同。
+ * 进行中的不计入失败，所以暴力猜测在锁定前最多试"失败上限 + 进行中上限"次（链接 + IP 桶 5 + 5，链接全局 20 + 20）。
+ * 超出时 429 link_password_busy，不锁定、不计失败。
+ */
+export const LINK_PASSWORD_MAX_INFLIGHT = LINK_PASSWORD_MAX_FAILURES;
+export const LINK_PASSWORD_MAX_INFLIGHT_PER_LINK = LINK_PASSWORD_MAX_FAILURES_PER_LINK;
+
+/** link_password_busy 的 Retry-After（秒） */
+export const LINK_PASSWORD_BUSY_RETRY_SEC = 1;
+
+/**
+ * 进行中占位的过期兜底（秒）：正常在 PBKDF2 结束时删除；Worker 被中断没删掉的，过期后不再计数。
+ * 一次 PBKDF2（PBKDF2_ITERATIONS 次迭代）在 Workers 上是百毫秒级，加上前后几次 D1 往返也远小于这个值。
+ */
+export const LINK_PASSWORD_INFLIGHT_TTL_SEC = 10;
+
 /** 口令错误按 IP 计数时 IPv6 合并到的网段字节数：8 字节 = /64（一个用户通常拿到整个 /64） */
 export const LINK_PASSWORD_IPV6_BUCKET_BYTES = 8;
 

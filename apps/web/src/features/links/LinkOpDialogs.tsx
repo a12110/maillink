@@ -6,7 +6,7 @@ import { api } from "../../api/instance";
 import { linkKeys } from "../../api/links-queries";
 import { describeError } from "../../lib/messages";
 import { Button, Callout, ConfirmDialog, ErrorCallout, FormDialog, useToast } from "../../ui";
-import { apiCodeUrlFromLink } from "./api-code";
+import { API_SHARE_WARNING, apiCodeUrlFromLink } from "./api-code";
 import { LinkUrlBox } from "./LinkUrlBox";
 import { MailboxPicker } from "./MailboxPicker";
 import type { PickedMailbox } from "./MailboxPicker";
@@ -52,6 +52,7 @@ function ApiUrlBox({ linkUrl }: { linkUrl: string }) {
     <div className="field">
       <span className="field-label">API 取码地址</span>
       <LinkUrlBox url={url} label="完整 API 取码地址" />
+      <p className="field-hint api-warning" role="note">{API_SHARE_WARNING}</p>
     </div>
   );
 }

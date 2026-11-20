@@ -25,6 +25,8 @@ export const LINK_PUBLIC_ERRORS = {
   passwordRequired: "link_password_required",
   passwordInvalid: "link_password_invalid",
   passwordLocked: "link_password_locked",
+  /** 同一链接 + IP 同时进行中的口令校验已满：稍后重试（带 1–2 秒 Retry-After），不锁定、不计失败 */
+  passwordBusy: "link_password_busy",
   noMailbox: "link_no_mailbox",
   revealNotApplicable: "link_reveal_not_applicable",
   turnstileNotConfigured: "turnstile_not_configured",
@@ -34,6 +36,8 @@ export const LINK_PUBLIC_ERRORS = {
   turnstileRequired: "turnstile_required",
   /** API 取码：口令请求头编码不对（X-Link-Password 含非 ASCII、base64 / UTF-8 无效、两个口令头同时出现） */
   passwordEncoding: "link_password_encoding",
+  /** API 取码：缺少 X-MailLink-Api: 1（防止聊天软件的预览机器人抓取接口地址时产生副作用） */
+  apiHeaderRequired: "api_header_required",
 } as const;
 
 /**

@@ -76,9 +76,9 @@ describe("接口地址与 curl 示例", () => {
     expect(apiCodeUrlFromLink(`${ORIGIN}/admin/links`)).toBeNull();
   });
 
-  it("有口令时示例带 X-Link-Password 头（占位），没有口令不带", () => {
-    expect(curlExample("U", false)).toBe("curl -s 'U'");
-    expect(curlExample("U", true)).toBe("curl -s -H 'X-Link-Password: <口令>' 'U'");
+  it("示例总带 X-MailLink-Api 头；有口令时再带 X-Link-Password 头（占位）", () => {
+    expect(curlExample("U", false)).toBe("curl -s -H 'X-MailLink-Api: 1' 'U'");
+    expect(curlExample("U", true)).toBe("curl -s -H 'X-MailLink-Api: 1' -H 'X-Link-Password: <口令>' 'U'");
   });
 
   it("开关的请求体：原样带回其余约束，只改 api，不带 password", () => {
@@ -116,7 +116,8 @@ describe("侧板：API 取码", () => {
   it("显示占位接口地址与 curl 示例，不出现完整 token；无口令时示例不带口令头", async () => {
     const root = await render(createElement(ApiSection, { link: makeLink(), origin: ORIGIN }));
     expect(root.textContent).toContain(`GET ${ORIGIN}/api/s/<token>/code`);
-    expect(root.querySelector("pre.api-curl")?.textContent).toBe(`curl -s '${ORIGIN}/api/s/<token>/code'`);
+    expect(root.querySelector("pre.api-curl")?.textContent).toBe(`curl -s -H 'X-MailLink-Api: 1' '${ORIGIN}/api/s/<token>/code'`);
+    expect(root.textContent).toContain("不要把接口地址贴进聊天软件；调用需带 X-MailLink-Api: 1 头。");
     expect(root.textContent).not.toContain(FULL_TOKEN);
     expect(root.textContent).not.toContain("X-Link-Password");
     expect((root.querySelector('input[role="switch"]') as HTMLInputElement).checked).toBe(true);
@@ -124,7 +125,7 @@ describe("侧板：API 取码", () => {
 
   it("有口令：示例带口令头并提示 base64 头；开了人机验证时提示接口不可用", async () => {
     const root = await render(createElement(ApiSection, { link: makeLink({ has_password: true, turnstile: true }), origin: ORIGIN }));
-    expect(root.querySelector("pre.api-curl")?.textContent).toBe(`curl -s -H 'X-Link-Password: <口令>' '${ORIGIN}/api/s/<token>/code'`);
+    expect(root.querySelector("pre.api-curl")?.textContent).toBe(`curl -s -H 'X-MailLink-Api: 1' -H 'X-Link-Password: <口令>' '${ORIGIN}/api/s/<token>/code'`);
     expect(root.textContent).toContain("X-Link-Password-Base64");
     expect(root.textContent).toContain("turnstile_required");
   });
