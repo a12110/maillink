@@ -41,6 +41,7 @@ describe("内置模板", () => {
       "resale_shared",
       "resale_buyout",
       "resale_login_link",
+      "sender_full",
     ]);
   });
 
@@ -91,6 +92,20 @@ describe("内置模板", () => {
     const filled = template.config.filter.rules.map((r) => ({ ...r, enabled: true, when: leaf("sender.domain", "domain_is", ["openai.com"]) }));
     const config = { ...template.config, filter: { ...template.config.filter, rules: filled } };
     expect(evaluate(compileOrThrow(config), okInput(openaiLogin()), noBound).visible).toBe(true);
+  });
+
+  it("指定发件人（完整显示）：openai.com / chatgpt.com（含子域名）放行且为 full 视图，其他域名不放行", () => {
+    const compiled = byKey("sender_full");
+    const from = (domain: string) => makeFacts({ sender: { addresses: [`noreply@${domain}`], domains: [domain] } });
+    for (const domain of ["openai.com", "email.openai.com", "chatgpt.com"]) {
+      expect(evaluate(compiled, okInput(from(domain)), noBound).visible, domain).toBe(true);
+    }
+    expect(compiled.config.present.view).toBe("full");
+    for (const domain of ["fakeopenai.com", "openai.com.evil.io", "example.com"]) {
+      const result = evaluate(compiled, okInput(from(domain)), noBound);
+      expect(result.visible, domain).toBe(false);
+      expect(result.reason_code, domain).toBe("no_allow_match");
+    }
   });
 
   it("完整访问模板：黑名单、无规则、full 视图", () => {

@@ -16,6 +16,7 @@ import {
   itemsToValue,
   newLeaf,
   newRule,
+  templateChoices,
   templateConfig,
   valueItems,
 } from "./config";
@@ -30,9 +31,32 @@ function templateByKey(key: string): RuleGroupConfig {
 }
 
 describe("配置 ↔ 表单：模板与 JSON 往返", () => {
-  it("6 个内置模板都能进表单模式，且通过保存校验（无错误）", () => {
+  it("「指定发件人（完整显示）」在模板列表末尾，选中后表单预填正确", () => {
+    const choices = templateChoices();
+    expect(choices[choices.length - 1]).toMatchObject({ key: "sender_full", name: "指定发件人（完整显示）" });
+    const found = templateConfig("sender_full");
+    expect(found?.name).toBe("指定发件人（完整显示）");
+    expect(found?.config.filter).toEqual({
+      mode: "whitelist",
+      rules: [
+        {
+          id: "allow-sender",
+          name: "允许的发件人",
+          enabled: true,
+          effect: "allow",
+          when: { field: "sender.domain", op: "domain_is", value: ["openai.com", "chatgpt.com"] },
+        },
+      ],
+    });
+    expect(found?.config.time).toEqual({ since: { type: "subject_created", lookback_minutes: 0 } });
+    expect(found?.config.present.view).toBe("full");
+    expect(found?.config.present.links).toBe("keep");
+    expect(found?.config.present.attachments).toBe("download");
+  });
+
+  it("7 个内置模板都能进表单模式，且通过保存校验（无错误）", () => {
     const templates = builtinRuleGroupTemplates();
-    expect(templates).toHaveLength(6);
+    expect(templates).toHaveLength(7);
     for (const template of templates) {
       const form = asFormConfig(template.config);
       expect(form, template.key).not.toBeNull();

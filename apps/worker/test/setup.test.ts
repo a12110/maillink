@@ -73,7 +73,7 @@ describe("首次初始化", () => {
     expect(await (await api("/api/setup/status")).json()).toEqual({ needs_setup: false });
   });
 
-  it("同一个 batch 写入 6 个内置规则组模板，全部可编译，created_by 为新管理员", async () => {
+  it("同一个 batch 写入 7 个内置规则组模板，全部可编译，created_by 为新管理员", async () => {
     expect((await api("/api/setup", { json: VALID })).status).toBe(201);
     const admin = (await userRows())[0];
     const { results } = await env.APP_DB.prepare("SELECT name, revision, config, created_by FROM rule_groups ORDER BY id").all<{
@@ -83,7 +83,8 @@ describe("首次初始化", () => {
       created_by: number;
     }>();
     expect(results.map((row) => row.name)).toEqual(builtinRuleGroupTemplates().map((template) => template.name));
-    expect(results).toHaveLength(6);
+    expect(results).toHaveLength(7);
+    expect(results[6]?.name).toBe("指定发件人（完整显示）");
     for (const row of results) {
       expect(row.revision).toBe(1);
       expect(row.created_by).toBe(admin?.id);
@@ -94,7 +95,7 @@ describe("首次初始化", () => {
   it("并发初始化输掉的一方不会重复写模板", async () => {
     await Promise.all(["first", "second"].map((username) => api("/api/setup", { json: { ...VALID, username } })));
     const count = await env.APP_DB.prepare("SELECT COUNT(*) AS n FROM rule_groups").first<{ n: number }>();
-    expect(count?.n).toBe(6);
+    expect(count?.n).toBe(7);
   });
 
   it("库里已有用户时 setup 不写任何模板", async () => {

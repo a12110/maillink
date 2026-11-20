@@ -30,7 +30,7 @@ function TemplateList({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** 新建规则组：从 6 个内置模板（或空白）选一个起步；模板只是初始值，进入编辑页后可随意改，保存前不会写入 */
+/** 新建规则组：从 7 个内置模板（或空白）选一个起步；模板只是初始值，进入编辑页后可随意改，保存前不会写入 */
 export function NewRuleGroupDialog({ open, onOpenChange }: Props) {
   return (
     <FormDialog open={open} onOpenChange={onOpenChange} title="新建规则组" description="选一个起点，进入编辑页后再改；保存之前不会创建。">
