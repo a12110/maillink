@@ -10,6 +10,8 @@ export type Bindings = {
   ASSETS: Fetcher;
   /** 登录与链接访问限流；未绑定时相关功能必须显式报"未配置" */
   RATE_LIMITER?: RateLimit;
+  /** 取件链接访问限流，阈值独立于 RATE_LIMITER；未绑定时取件链接接口显式报"未配置" */
+  LINK_RATE_LIMITER?: RateLimit;
   /** WebAuthn RP ID、OAuth 回调地址、Cookie 域的唯一来源 */
   PUBLIC_ORIGIN: string;
   /** 主密钥（secret），本地放 .dev.vars */

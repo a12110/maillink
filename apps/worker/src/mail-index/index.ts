@@ -1,6 +1,6 @@
 import { MAX_PARSE_PER_REQUEST, PARSER_VERSION } from "../constants";
-import { rowToFacts } from "../mail-parse";
-import type { MailFacts, MailIndexRow } from "../mail-parse";
+import { rowCodeSource, rowToFacts } from "../mail-parse";
+import type { CodeSource, MailFacts, MailIndexRow } from "../mail-parse";
 import { parseMail, MailParseError } from "../mail-parse";
 import { getRawBatch } from "../mail-source";
 import type { MailCandidate } from "../mail-source";
@@ -18,7 +18,7 @@ export type MailIndexDbs = { APP_DB: D1Database; MAIL_DB: D1Database };
  * - pending：本次请求没轮到解析（超出 MAX_PARSE_PER_REQUEST），"未就绪"。
  */
 export type IndexedItem =
-  | { status: "ok"; candidate: MailCandidate; row: MailIndexRow; facts: MailFacts }
+  | { status: "ok"; candidate: MailCandidate; row: MailIndexRow; facts: MailFacts; code_source: CodeSource | null }
   | { status: "failed"; candidate: MailCandidate; row: MailIndexRow; error: string }
   | { status: "pending"; candidate: MailCandidate };
 
@@ -27,6 +27,8 @@ export type GetOrBuildResult = {
   items: IndexedItem[];
   /** 有邮件未就绪，调用方响应里带 partial: true，前端稍后重取 */
   partial: boolean;
+  /** 本次现场解析（尝试）的封数；多次调用的调用方据此控制单次请求的总解析量 */
+  attempted: number;
 };
 
 /** 索引行可直接使用：message_id、received_at、recipient 与候选一致，且解析器版本是当前版本（01 §4.2） */
@@ -65,7 +67,7 @@ function toItem(candidate: MailCandidate, row: MailIndexRow): IndexedItem {
   if (row.parse_status === "failed") {
     return { status: "failed", candidate, row, error: row.parse_error ?? "解析失败（未记录原因）" };
   }
-  return { status: "ok", candidate, row, facts: rowToFacts(row) };
+  return { status: "ok", candidate, row, facts: rowToFacts(row), code_source: rowCodeSource(row) };
 }
 
 /**
@@ -97,5 +99,5 @@ export async function getOrBuild(
     // 轮到解析但原文已不在 MAIL_DB：邮件被删了，不返回；没轮到的才是"未就绪"
     else if (!attemptedIds.has(candidate.id)) items.push({ status: "pending", candidate });
   }
-  return { items, partial: items.some((item) => item.status === "pending") };
+  return { items, partial: items.some((item) => item.status === "pending"), attempted: toBuild.length };
 }

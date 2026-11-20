@@ -5,7 +5,8 @@ import { AUDIT_ACTIONS, recordAudit } from "../audit";
 import { timingSafeEqualStrings } from "../auth/crypto";
 import { hashPassword } from "../auth/password";
 import { nowSec } from "../clock";
-import { countUsers, insertFirstAdmin } from "../db/users";
+import { insertFirstAdminWithTemplates } from "../db/setup";
+import { countUsers } from "../db/users";
 import type { AppEnv } from "../env";
 import { ApiError, notFoundError } from "../errors";
 import { parseJsonBody } from "../validate";
@@ -28,17 +29,16 @@ setupRoutes.post("/", async (c) => {
   if (!expectedToken) {
     throw new ApiError(HTTP_SERVICE_UNAVAILABLE, "setup_token_not_configured", "服务端未配置 SETUP_TOKEN，无法初始化");
   }
-  // TODO(M7): 初始化尝试按 IP 限流（RATE_LIMITER 未配置时要显式报错，不静默放行）
   if (!(await timingSafeEqualStrings(body.setup_token, expectedToken))) {
     throw new ApiError(HTTP_FORBIDDEN, "invalid_setup_token", "初始化令牌错误");
   }
 
   const passwordHash = await hashPassword(c.env, body.password);
-  const adminId = await insertFirstAdmin(db, { username: body.username, password_hash: passwordHash }, nowSec());
+  const adminId = await insertFirstAdminWithTemplates(db, { username: body.username, password_hash: passwordHash }, nowSec());
   // 校验之后、写入之前被并发的初始化抢先：同样视为"已初始化"
   if (adminId === null) throw notFoundError();
 
-  // TODO(M3a): 同时写入内置规则组模板（依赖规则 schema）。默认设置不落库，读取时取 db/settings.ts 里的默认值。
+  // 内置规则组模板已与管理员同一个 batch 写入。默认设置不落库，读取时取 db/settings.ts 里的默认值。
   await recordAudit(c, {
     action: AUDIT_ACTIONS.setupComplete,
     actorUserId: adminId,

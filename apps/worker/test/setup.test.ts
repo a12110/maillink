@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
+import { builtinRuleGroupTemplates } from "@maillink/shared";
 import { verifyPassword } from "../src/auth/password";
+import { compileRuleGroup } from "../src/rules";
 import { api, createUser, resetApp } from "./helpers";
 
 const VALID = { username: "Admin", password: "a-long-enough-password", setup_token: "test-setup-token" };
@@ -9,8 +11,8 @@ type ErrorBody = { error: { code: string; message: string } };
 
 async function userRows() {
   const { results } = await env.APP_DB
-    .prepare("SELECT username, username_lc, role, status, password_hash FROM users")
-    .all<{ username: string; username_lc: string; role: string; status: string; password_hash: string }>();
+    .prepare("SELECT id, username, username_lc, role, status, password_hash FROM users")
+    .all<{ id: number; username: string; username_lc: string; role: string; status: string; password_hash: string }>();
   return results;
 }
 
@@ -69,6 +71,37 @@ describe("首次初始化", () => {
     expect(audit.results.map((row) => row.action)).toEqual(["setup.complete"]);
 
     expect(await (await api("/api/setup/status")).json()).toEqual({ needs_setup: false });
+  });
+
+  it("同一个 batch 写入 6 个内置规则组模板，全部可编译，created_by 为新管理员", async () => {
+    expect((await api("/api/setup", { json: VALID })).status).toBe(201);
+    const admin = (await userRows())[0];
+    const { results } = await env.APP_DB.prepare("SELECT name, revision, config, created_by FROM rule_groups ORDER BY id").all<{
+      name: string;
+      revision: number;
+      config: string;
+      created_by: number;
+    }>();
+    expect(results.map((row) => row.name)).toEqual(builtinRuleGroupTemplates().map((template) => template.name));
+    expect(results).toHaveLength(6);
+    for (const row of results) {
+      expect(row.revision).toBe(1);
+      expect(row.created_by).toBe(admin?.id);
+      expect(compileRuleGroup(JSON.parse(row.config)).ok, row.name).toBe(true);
+    }
+  });
+
+  it("并发初始化输掉的一方不会重复写模板", async () => {
+    await Promise.all(["first", "second"].map((username) => api("/api/setup", { json: { ...VALID, username } })));
+    const count = await env.APP_DB.prepare("SELECT COUNT(*) AS n FROM rule_groups").first<{ n: number }>();
+    expect(count?.n).toBe(6);
+  });
+
+  it("库里已有用户时 setup 不写任何模板", async () => {
+    await createUser({ username: "someone" });
+    expect((await api("/api/setup", { json: VALID })).status).toBe(404);
+    const count = await env.APP_DB.prepare("SELECT COUNT(*) AS n FROM rule_groups").first<{ n: number }>();
+    expect(count?.n).toBe(0);
   });
 
   it("已初始化后：POST /api/setup 永久 404（即使令牌正确），不新增用户", async () => {

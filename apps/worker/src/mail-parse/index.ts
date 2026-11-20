@@ -1,6 +1,6 @@
 export { classifyMail } from "./category";
 export { extractAiCode, extractBuiltinCode, resolveCode } from "./code-extract";
-export { rowToFacts } from "./facts";
+export { rowCodeSource, rowToFacts } from "./facts";
 export type { CodeSource, MailCategory, MailFacts, MailIndexRow } from "./facts";
 export { hmeSender, parseHmeFields } from "./hme";
 export { decodeHtmlEntities, extractHtml } from "./html-text";

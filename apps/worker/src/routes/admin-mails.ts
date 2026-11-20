@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { adminMailListQuerySchema } from "@maillink/shared";
+import { adminMailListQuerySchema, wrapMailHtmlDocument } from "@maillink/shared";
+import { adminCompiledPolicy } from "../access";
 import type {
   AdminMailDetail,
   AdminMailListQuery,
@@ -18,6 +19,7 @@ import type { IndexedItem } from "../mail-index";
 import { MailParseError, parseMail, parseMime, visibleAttachments } from "../mail-parse";
 import type { ParsedMail } from "../mail-parse";
 import { getCandidateById, getRawBatch, listAdminMails } from "../mail-source";
+import { HtmlSanitizeError, sanitizeEmailHtml } from "../render";
 import type { AdminMailFilters, MailCandidate, RawMailResult } from "../mail-source";
 import { parseIdParam, parseQuery, parseWith } from "../validate";
 import { attachmentDisposition } from "./content-disposition";
@@ -100,7 +102,10 @@ adminMailRoutes.get("/", async (c) => {
   return c.json(body, HTTP_OK);
 });
 
-const detailQuerySchema = z.object({ raw: z.enum(["0", "1"]).optional() });
+const detailQuerySchema = z.object({
+  raw: z.enum(["0", "1"]).optional(),
+  remote_images: z.enum(["block", "allow"]).default("block"),
+});
 
 type DetailParts = { parsed: ParsedMail | null; error: string | null };
 
@@ -116,7 +121,24 @@ async function tryParse(candidate: MailCandidate, result: RawMailResult): Promis
   }
 }
 
-function toDetailParsed(parsed: ParsedMail): NonNullable<AdminMailDetail["parsed"]> {
+/**
+ * 管理员预览同样走清洗加包装（PLAN"邮件 HTML 展示的硬性要求"第 2 条）：完整访问的呈现配置（links=keep），
+ * 远程图片默认阻止，可用 ?remote_images=allow 放开。清洗失败只给纯文本并记日志，绝不回退原始 HTML。
+ */
+async function adminHtml(mailId: number, parsed: ParsedMail, remoteImages: "block" | "allow"): Promise<string | undefined> {
+  if (parsed.html === null) return undefined;
+  const { links } = adminCompiledPolicy().presentation.config;
+  try {
+    const sanitized = await sanitizeEmailHtml(parsed.html, { links, allowDomains: null, remoteImages });
+    return wrapMailHtmlDocument(sanitized, remoteImages);
+  } catch (error) {
+    if (!(error instanceof HtmlSanitizeError)) throw error;
+    console.error(`admin mail ${mailId}: HTML 清洗失败，只返回纯文本`, error);
+    return undefined;
+  }
+}
+
+function toDetailParsed(parsed: ParsedMail, html: string | undefined): NonNullable<AdminMailDetail["parsed"]> {
   const { facts } = parsed;
   return {
     subject: facts.subject,
@@ -131,19 +153,20 @@ function toDetailParsed(parsed: ParsedMail): NonNullable<AdminMailDetail["parsed
     code_source: parsed.code_source satisfies CodeSource | null,
     category: facts.category,
     headers: parsed.headers,
-    // TODO(M3b): 清洗器（render/）接上后在这里开放 HTML 正文；本里程碑只告知有 HTML
     has_html: facts.has_html,
+    ...(html !== undefined && { html }),
   };
 }
 
 adminMailRoutes.get("/:id", async (c) => {
   const id = parseIdParam(c);
-  const { raw: rawFlag } = parseQuery(c, detailQuerySchema);
+  const { raw: rawFlag, remote_images: remoteImages } = parseQuery(c, detailQuerySchema);
   const candidate = await getCandidateById(c.env.MAIL_DB, id);
   const result = (await getRawBatch(c.env.MAIL_DB, [id]))[0];
   if (!candidate || !result) throw notFoundError("邮件不存在");
 
   const { parsed, error } = await tryParse(candidate, result);
+  const html = parsed ? await adminHtml(id, parsed, remoteImages) : undefined;
   const body: AdminMailDetail = {
     id,
     received_at: candidate.received_at,
@@ -152,7 +175,7 @@ adminMailRoutes.get("/:id", async (c) => {
     parse_status: parsed ? "ok" : "failed",
     parse_error: error,
     raw_size: parsed?.facts.raw_size ?? null,
-    parsed: parsed ? toDetailParsed(parsed) : null,
+    parsed: parsed ? toDetailParsed(parsed, html) : null,
     // 解析失败的邮件仍可看原文（只要原文本身取得到）
     ...(rawFlag === "1" && result.ok && { raw: result.raw }),
   };

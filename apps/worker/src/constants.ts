@@ -210,3 +210,133 @@ export const MFA_USER_LOCK_SEC = 900;
 
 /** 没有密码的账号做敏感操作（启用 2FA、添加通行密钥）时，会话创建不超过这么久才视为"刚登录过" */
 export const RECENT_AUTH_SEC = 600;
+// ---- 限流（M7a，01 §2 RATE_LIMITER） ----
+
+/**
+ * Workers Rate Limiting 的阈值是"每个 binding 一组"：limit 与 period 写在 wrangler.jsonc 的
+ * `ratelimits[].simple` 里，运行时 `limit({ key })` 只传 key。period 只能是 10 或 60 秒。
+ * 下面的数值必须与 wrangler.jsonc 保持一致（用于 Retry-After 与一致性测试，代码里不再另设阈值）；
+ * 各用途靠 key 前缀互相隔离，彼此的计数不混用。
+ */
+export const RATE_LIMIT_PERIOD_SEC = 60;
+export const RATE_LIMIT_MAX_REQUESTS = 10;
+
+/**
+ * 取件链接单独一个 binding：访客页每 LINK_POLL_MIN_SEC（10 秒）轮询一次，即每个标签页约 6 次/分钟，
+ * 再加开始取码、取码、下载；同一 NAT 下多个标签页或设备共用 `link:<token_hash>:<ip>` 一个桶，
+ * 取 120 次/分钟既容得下正常使用，又足以拦住脚本。
+ */
+export const LINK_RATE_LIMIT_PERIOD_SEC = 60;
+export const LINK_RATE_LIMIT_MAX_REQUESTS = 120;
+
+/** 两个限流 binding 的阈值，键是 env 上的绑定名 */
+export const RATE_LIMITER_SETTINGS = {
+  RATE_LIMITER: { limit: RATE_LIMIT_MAX_REQUESTS, periodSec: RATE_LIMIT_PERIOD_SEC },
+  LINK_RATE_LIMITER: { limit: LINK_RATE_LIMIT_MAX_REQUESTS, periodSec: LINK_RATE_LIMIT_PERIOD_SEC },
+} as const;
+export type RateLimiterBindingName = keyof typeof RATE_LIMITER_SETTINGS;
+
+/** 限流 key 里单个片段（用户名、IP、token 哈希）的长度上限，防止超长输入撑大 key */
+export const RATE_LIMIT_KEY_PART_MAX_LENGTH = 128;
+
+/** 请求没有 CF-Connecting-IP（本地开发、测试）时统一归入的 IP 片段：共用一个桶，偏严而不是放行 */
+export const RATE_LIMIT_NO_IP_PART = "no-ip";
+
+/** 限流用途，同时也是 key 前缀：`<用途>:<片段>[:<片段>]`，如 `login:ip:203.0.113.7` */
+export const RATE_LIMIT_PURPOSES = {
+  loginIp: "login:ip",
+  loginUser: "login:user",
+  setupIp: "setup:ip",
+  mfaIp: "mfa:ip",
+  passkeyIp: "passkey:ip",
+  oauthIp: "oauth:ip",
+  /** 再确认类：改密码、2FA 管理、重新生成恢复码，都要求验证旧密码或一次性码，可被拿来猜 */
+  reauthIp: "reauth:ip",
+  /** 通行密钥管理（注册、改名、删除） */
+  passkeyManageIp: "passkey-manage:ip",
+  registerIp: "register:ip",
+  /** 取件链接访问（M3b-2）：`link:<token_hash>:<ip>` */
+  link: "link",
+} as const;
+export type RateLimitPurpose = (typeof RATE_LIMIT_PURPOSES)[keyof typeof RATE_LIMIT_PURPOSES];
+
+/** 每个用途使用哪个 binding；Record 保证新增用途时必须在这里表态 */
+export const RATE_LIMIT_BINDING_BY_PURPOSE: Record<RateLimitPurpose, RateLimiterBindingName> = {
+  "login:ip": "RATE_LIMITER",
+  "login:user": "RATE_LIMITER",
+  "setup:ip": "RATE_LIMITER",
+  "mfa:ip": "RATE_LIMITER",
+  "passkey:ip": "RATE_LIMITER",
+  "oauth:ip": "RATE_LIMITER",
+  "reauth:ip": "RATE_LIMITER",
+  "passkey-manage:ip": "RATE_LIMITER",
+  "register:ip": "RATE_LIMITER",
+  link: "LINK_RATE_LIMITER",
+};
+
+type RateLimitedMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
+/**
+ * 受限流保护的路由清单：index.ts 遍历它挂载中间件，测试读同一份并检查 app.routes 没有漏网的写接口。
+ * 新增认证类或再确认类写接口时，必须加进来。
+ * `usernameKeyed`：请求体里有用户名，除 IP 外再按用户名限流（只有登录）。
+ * 路径按 Hono 语法，`/*` 同时匹配前缀本身与其下所有子路径。
+ */
+export const RATE_LIMITED_ROUTES: ReadonlyArray<{
+  method: RateLimitedMethod;
+  path: string;
+  purpose: RateLimitPurpose;
+  usernameKeyed?: true;
+}> = [
+  { method: "POST", path: "/api/auth/login", purpose: RATE_LIMIT_PURPOSES.loginIp, usernameKeyed: true },
+  { method: "POST", path: "/api/auth/register", purpose: RATE_LIMIT_PURPOSES.registerIp },
+  { method: "POST", path: "/api/setup", purpose: RATE_LIMIT_PURPOSES.setupIp },
+  { method: "POST", path: "/api/auth/mfa/*", purpose: RATE_LIMIT_PURPOSES.mfaIp },
+  { method: "POST", path: "/api/auth/passkey/*", purpose: RATE_LIMIT_PURPOSES.passkeyIp },
+  { method: "GET", path: "/api/auth/oauth/*", purpose: RATE_LIMIT_PURPOSES.oauthIp },
+  { method: "POST", path: "/api/me/password", purpose: RATE_LIMIT_PURPOSES.reauthIp },
+  { method: "POST", path: "/api/me/totp/*", purpose: RATE_LIMIT_PURPOSES.reauthIp },
+  { method: "DELETE", path: "/api/me/totp/*", purpose: RATE_LIMIT_PURPOSES.reauthIp },
+  { method: "POST", path: "/api/me/recovery-codes", purpose: RATE_LIMIT_PURPOSES.reauthIp },
+  { method: "POST", path: "/api/me/passkeys/*", purpose: RATE_LIMIT_PURPOSES.passkeyManageIp },
+  { method: "PATCH", path: "/api/me/passkeys/*", purpose: RATE_LIMIT_PURPOSES.passkeyManageIp },
+  { method: "DELETE", path: "/api/me/passkeys/*", purpose: RATE_LIMIT_PURPOSES.passkeyManageIp },
+];
+
+/** 登录请求体读取上限（字节）：用户名与密码都有长度上限，4 KB 绰绰有余，超出直接 413 */
+export const LOGIN_BODY_MAX_BYTES = 4096;
+
+// ---- 定时任务（M7a，01 §2 cron） ----
+
+/** 与 wrangler.jsonc 的 triggers.crons 保持一致 */
+export const CRON_PREWARM = "*/5 * * * *";
+export const CRON_DAILY_CLEANUP = "17 3 * * *";
+
+/**
+ * 每次预热最多取多少封新邮件、最多解析多少封。
+ * 单封解析约十到几十毫秒 CPU，20 封远低于 Workers cron 的 CPU 上限；积压的邮件下个 5 分钟继续。
+ */
+export const PREWARM_BATCH_SIZE = 20;
+
+/** 日志保留天数默认值（可被系统设置覆盖） */
+export const ACCESS_LOG_RETENTION_DAYS_DEFAULT = 90;
+export const AUDIT_LOG_RETENTION_DAYS_DEFAULT = 365;
+
+/** 清理删除的分批大小与每张表每次运行的最大批数（超出的留给第二天，避免单次 DELETE 过大） */
+export const CLEANUP_DELETE_BATCH_SIZE = 1000;
+export const CLEANUP_MAX_BATCHES = 50;
+
+/** 孤儿索引扫描：每批检查多少行、每次运行最多几批（游标记在 settings，扫完一圈回到 0） */
+export const ORPHAN_SCAN_BATCH_SIZE = 500;
+export const ORPHAN_SCAN_MAX_BATCHES = 20;
+
+/** settings 里 cron 相关的键 */
+export const CRON_SETTING_KEYS = {
+  prewarmCursor: "system.cron.prewarm_after_id",
+  orphanScanCursor: "system.cron.orphan_scan_after_id",
+  lastRunPrewarm: "system.cron.prewarm.last_run",
+  lastRunCleanup: "system.cron.cleanup.last_run",
+} as const;
+
+/** last_run.error 的长度上限 */
+export const CRON_ERROR_MAX_LENGTH = 1000;
