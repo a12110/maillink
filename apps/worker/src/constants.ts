@@ -340,3 +340,19 @@ export const CRON_SETTING_KEYS = {
 
 /** last_run.error 的长度上限 */
 export const CRON_ERROR_MAX_LENGTH = 1000;
+
+// ---- 系统设置、注册与 Turnstile（M6） ----
+
+export { TURNSTILE_TOKEN_MAX_LENGTH } from "@maillink/shared";
+
+/** Cloudflare Turnstile 服务端校验端点（固定地址，不来自任何配置） */
+export const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+/** 校验请求的超时与响应体上限 */
+export const TURNSTILE_FETCH_TIMEOUT_MS = 5000;
+export const TURNSTILE_FETCH_MAX_BYTES = 16_384;
+
+/** 取件链接默认轮询间隔（秒）的设置默认值 */
+export const LINK_DEFAULT_POLL_INTERVAL_SEC = 30;
+
+/** 审计里记录设置变更时，超过这个长度的字符串（如 data URI Logo）只记长度 */
+export const SETTINGS_AUDIT_VALUE_MAX_LENGTH = 256;

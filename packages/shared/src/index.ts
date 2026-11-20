@@ -22,3 +22,5 @@ export * from "./rule-groups-api";
 export * from "./visible-mails";
 export * from "./audit";
 export * from "./system-status";
+export * from "./settings";
+export * from "./theme-contrast";
