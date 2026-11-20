@@ -25,6 +25,7 @@ export * from "./ip-cidr";
 export * from "./share-link-access";
 export * from "./share-links-api";
 export * from "./share-link-public";
+export * from "./share-link-api-code";
 export * from "./audit";
 export * from "./system-status";
 export * from "./settings";

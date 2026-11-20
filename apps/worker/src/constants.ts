@@ -218,6 +218,12 @@ export const LINK_USER_AGENT_MAX_LENGTH = 255;
 
 /** 管理员预览里 visitor_hash 显示的前几位 */
 export const LINK_VISITOR_HINT_LENGTH = 8;
+
+/**
+ * API 取码整体占的那台设备在 link_visitors.visitor_hash 里的固定标识（服务端给，不依赖 Cookie）。
+ * 浏览器访客是 64 位十六进制的 SHA-256，不会与它相同；管理员预览里显示为 "api"。
+ */
+export const LINK_API_VISITOR_HASH = "api";
 // ---- 两步验证、通行密钥、OAuth（M5） ----
 
 // 前后端共用的认证输入上限定义在 packages/shared/src/auth-limits.ts

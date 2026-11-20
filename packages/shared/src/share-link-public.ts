@@ -28,6 +28,10 @@ export const LINK_PUBLIC_ERRORS = {
   noMailbox: "link_no_mailbox",
   revealNotApplicable: "link_reveal_not_applicable",
   turnstileNotConfigured: "turnstile_not_configured",
+  /** API 取码（GET /api/s/:token/code）：链接关闭了 access.api */
+  apiDisabled: "api_disabled",
+  /** API 取码：链接开了人机验证，脚本无法完成，一律拒绝 */
+  turnstileRequired: "turnstile_required",
 } as const;
 
 /**

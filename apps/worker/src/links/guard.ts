@@ -34,7 +34,9 @@ export type DenyReason =
   | "no_mailbox"
   | "start_required"
   | "turnstile_failed"
-  | "turnstile_unavailable";
+  | "turnstile_unavailable"
+  | "api_disabled"
+  | "turnstile_required";
 
 /** 对外统一成"已失效"的原因（PLAN 裁定：撤销 / 暂停 / 过期 / 总次数用尽；IP 与国家白名单同样不透露） */
 const UNAVAILABLE_REASONS: ReadonlySet<DenyReason> = new Set([
@@ -73,6 +75,8 @@ const SPECS: Record<Exclude<DenyReason, "revoked" | "paused" | "expired" | "expi
   start_required: { status: HTTP_UNAUTHORIZED, code: LINK_PUBLIC_ERRORS.startRequired, message: "请先点击\"开始取码\"" },
   turnstile_failed: { status: HTTP_BAD_REQUEST, code: "turnstile_failed", message: "人机验证未通过，请重试" },
   turnstile_unavailable: { status: HTTP_SERVICE_UNAVAILABLE, code: LINK_PUBLIC_ERRORS.turnstileNotConfigured, message: "人机验证暂不可用" },
+  api_disabled: { status: HTTP_FORBIDDEN, code: LINK_PUBLIC_ERRORS.apiDisabled, message: "这个链接不允许通过 API 取码" },
+  turnstile_required: { status: HTTP_FORBIDDEN, code: LINK_PUBLIC_ERRORS.turnstileRequired, message: "这个链接需要人机验证，只能在取件页使用" },
 };
 
 export function denial(reason: DenyReason, extra: Record<string, unknown> = {}): LinkDenied {

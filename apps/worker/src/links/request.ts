@@ -33,10 +33,17 @@ export function clientInfo(c: Context<AppEnv>): ClientInfo {
   };
 }
 
-/** 被拒时写一条 denied 日志（只在 POST 上调用：GET 一律无副作用）然后抛出对外错误 */
-export async function rejectWith(c: Context<AppEnv>, req: Pick<LinkRequest, "row" | "now" | "client">, reason: DenyReason, log: boolean, extra?: Record<string, unknown>): Promise<never> {
-  if (log) {
-    await insertAccessLog(c.env.APP_DB, { link_id: req.row.id, event: "denied", mail_id: null, reason, created_at: req.now, ...req.client });
+/**
+ * 拒绝日志：false 不写（取件页的 GET 无副作用）；true 写 denied 事件（POST）；
+ * "api_code" 写 api_code 事件（API 取码，reason 同样是具体原因），管理员能区分是取件页还是脚本被拒。
+ */
+export type DenyLogMode = boolean | "api_code";
+
+/** 被拒时按 log 写一条日志然后抛出对外错误 */
+export async function rejectWith(c: Context<AppEnv>, req: Pick<LinkRequest, "row" | "now" | "client">, reason: DenyReason, log: DenyLogMode, extra?: Record<string, unknown>): Promise<never> {
+  if (log !== false) {
+    const event = log === true ? "denied" : log;
+    await insertAccessLog(c.env.APP_DB, { link_id: req.row.id, event, mail_id: null, reason, created_at: req.now, ...req.client });
   }
   throw denial(reason, extra);
 }
@@ -56,11 +63,11 @@ async function findByToken(c: Context<AppEnv>): Promise<{ row: ShareLinkRow; tok
 }
 
 /**
- * `log`：是否把拒绝原因写进 link_access_logs（POST 写，GET 不写）。
+ * `log`：是否把拒绝原因写进 link_access_logs（POST 写 denied，API 取码写 api_code，取件页 GET 不写）。
  * 限流在 02 §6 的位置是 IP / 国家之后、访客 Cookie 之前；但 POST 在更早一步被拒时也要写日志，
  * 为了不让被拒的写请求绕过限流刷日志，这种情况下先限流再写（同一请求只计一次）。
  */
-export async function loadLinkRequest(c: Context<AppEnv>, log: boolean): Promise<LinkRequest> {
+export async function loadLinkRequest(c: Context<AppEnv>, log: DenyLogMode): Promise<LinkRequest> {
   const { row, tokenHash } = await findByToken(c);
   const now = nowSec();
   const access = parseStoredAccess(row.access);
@@ -68,7 +75,7 @@ export async function loadLinkRequest(c: Context<AppEnv>, log: boolean): Promise
   const base = { row, now, client };
   const limit = () => enforceRateLimit(c, RATE_LIMIT_PURPOSES.link, tokenHash, requestIp(c));
   const earlyReject = async (reason: DenyReason, extra?: Record<string, unknown>): Promise<never> => {
-    if (log) await limit();
+    if (log !== false) await limit();
     return await rejectWith(c, base, reason, log, extra);
   };
   const timeIssue = checkStatusAndTime(row, now);
@@ -83,6 +90,16 @@ export async function loadLinkRequest(c: Context<AppEnv>, log: boolean): Promise
     await rejectWith(c, base, "total_limit", log);
   }
   return { row, access, tokenHash, now, client, counts };
+}
+
+/** 取码次数没写进去且不是"已交付过"时：区分总数用尽（410，对外"已失效"）与每日用尽（429，带大约恢复时间） */
+export async function rejectExhaustedDeliveries(c: Context<AppEnv>, req: LinkRequest, log: DenyLogMode): Promise<never> {
+  const counts = await deliveryCounts(c.env.APP_DB, req.row.id, req.now);
+  if (req.access.max_deliveries_total !== undefined && counts.total >= req.access.max_deliveries_total) {
+    await rejectWith(c, req, "total_limit", log);
+  }
+  const quota = deliveryQuota(req.access, counts);
+  return await rejectWith(c, req, "daily_limit", log, { retry_after_at: quota?.daily_resets_at ?? null });
 }
 
 export function deliveryQuota(access: LinkAccessStored, counts: DeliveryCounts | null): LinkDeliveryQuota | null {

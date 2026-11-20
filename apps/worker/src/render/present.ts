@@ -36,11 +36,7 @@ export function presentListItem(
 ): PresentedMail {
   const { config } = presentation;
   const shape = VIEW_SHAPES[config.view];
-  const mail: PresentedMail = { id: facts.mail_id, received_at: facts.received_at };
-  const sender = SENDER_PRESENTERS[config.sender](senderParts(facts));
-  if (sender !== null) mail.sender = sender;
-  const recipient = presentRecipient(config.recipient, facts.recipient);
-  if (recipient !== null) mail.recipient = recipient;
+  const mail: PresentedMail = { id: facts.mail_id, received_at: facts.received_at, ...presentParties(config, facts) };
   if (shape.subject) mail.subject = processText(normalizeText(facts.subject), presentation, facts.links, "subject");
   if (shape.snippet && config.snippet) {
     mail.snippet = makeSnippet(processText(normalizeText(facts.body), presentation, facts.links, "body"));
@@ -49,6 +45,16 @@ export function presentListItem(
   if (attachments !== null) mail.attachments = attachments;
   if (shape.extract) Object.assign(mail, presentExtraction(config, extracted, facts.mail_id));
   return mail;
+}
+
+/** 发件人与收件地址按 present.sender / present.recipient 裁剪（列表项与 API 取码共用）；被隐藏的不出现 */
+export function presentParties(config: Pick<PresentConfig, "sender" | "recipient">, facts: MailFacts): Pick<PresentedMail, "sender" | "recipient"> {
+  const parties: Pick<PresentedMail, "sender" | "recipient"> = {};
+  const sender = SENDER_PRESENTERS[config.sender](senderParts(facts));
+  if (sender !== null) parties.sender = sender;
+  const recipient = presentRecipient(config.recipient, facts.recipient);
+  if (recipient !== null) parties.recipient = recipient;
+  return parties;
 }
 
 function presentRecipient(mode: PresentConfig["recipient"], recipient: string): string | null {

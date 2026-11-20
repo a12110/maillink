@@ -42,7 +42,10 @@ export type ScanResult = {
   exhausted: boolean;
 };
 
-type ScanState = ScanResult & { scanned: number; parseBudget: ParseBudget };
+/** 可见邮件里只保留满足条件的（凑目标数也只数这些）；不给时全部保留 */
+export type KeepEntry = (entry: VisibleEntry) => boolean;
+
+type ScanState = ScanResult & { scanned: number; parseBudget: ParseBudget; keep: KeepEntry | undefined };
 
 export async function scanVisible(
   dbs: MailIndexDbs,
@@ -51,6 +54,7 @@ export async function scanVisible(
   fetch: FetchBatch,
   target: number,
   parseBudget: ParseBudget = { remaining: MAX_PARSE_PER_REQUEST },
+  keep?: KeepEntry,
 ): Promise<ScanResult> {
   const state: ScanState = {
     visible: [],
@@ -60,6 +64,7 @@ export async function scanVisible(
     exhausted: false,
     scanned: 0,
     parseBudget,
+    keep,
   };
   while (state.visible.length < target && state.scanned < SCAN_CAP_PER_REQUEST) {
     const limit = Math.min(LIST_PAGE_SIZE, SCAN_CAP_PER_REQUEST - state.scanned);
@@ -104,14 +109,16 @@ async function processBatch(
     if (item === undefined || item.status === "failed") continue;
     const evaluation = evaluateIndexed(compiled, item, lowerBound);
     if (!evaluation.visible) continue;
-    state.visible.push({
+    const entry: VisibleEntry = {
       mail_id: candidate.id,
       message_id: candidate.message_id,
       received_at: candidate.received_at,
       recipient: candidate.recipient,
       facts: item.facts,
       evaluation,
-    });
+    };
+    if (state.keep !== undefined && !state.keep(entry)) continue;
+    state.visible.push(entry);
     if (state.visible.length >= target) return true;
   }
   return false;

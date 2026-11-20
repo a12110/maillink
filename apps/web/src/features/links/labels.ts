@@ -40,6 +40,7 @@ export const EVENT_LABEL: Record<LinkLog["event"], string> = {
   deliver: "取码",
   download: "下载附件",
   denied: "被拒绝",
+  api_code: "API 取码",
 };
 
 /** 访问日志里的被拒原因（对访问者统一显示“已失效”，这里给管理员看具体原因） */
@@ -61,6 +62,13 @@ const REASON_LABEL: Record<string, string> = {
   start_required: "未开始取码",
   turnstile_failed: "人机验证未通过",
   turnstile_unavailable: "人机验证不可用",
+  // API 取码（api_code 事件）的结果与专有原因
+  ok: "取到验证码",
+  no_code: "暂无验证码",
+  pending: "邮件处理中",
+  view_meta_only: "仅元信息视图，不返回验证码",
+  api_disabled: "未允许 API 取码",
+  turnstile_required: "需要人机验证（API 不可用）",
 };
 
 export function describeReason(reason: string | null): string {
