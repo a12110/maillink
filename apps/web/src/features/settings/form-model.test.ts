@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { SESSION_DURATION_MAX_SEC, SESSION_DURATION_MIN_SEC } from "@maillink/shared";
 import type { SettingsByGroup, WritableSettingGroup } from "@maillink/shared";
-import { countChanged, GROUP_SPECS, toNumber } from "./form-model";
+import { countChanged, formatDuration, GROUP_SPECS, SESSION_DURATION_MAX_TEXT, SESSION_DURATION_MIN_TEXT, toNumber } from "./form-model";
 
 const SAMPLES: { [G in WritableSettingGroup]: SettingsByGroup[G] } = {
   site: { name: "MailLink", logo: "", description: "说明", footer: "页脚", login_notice: "", pickup_notice: "公告" },
@@ -54,6 +55,19 @@ describe("设置表单与 schema 往返", () => {
     if (!tooShort.ok) expect(Object.keys(tooShort.fields)).toEqual(["session_idle_hours"]);
     const inverted = GROUP_SPECS.security.toInput({ ...draft, session_idle_hours: "1000" });
     expect(inverted.ok).toBe(false);
+  });
+
+  it("安全：会话时长的范围提示与客户端校验都由 shared 的常量换算", () => {
+    expect(SESSION_DURATION_MIN_TEXT).toBe("1 小时");
+    expect(SESSION_DURATION_MAX_TEXT).toBe("365 天");
+    expect(formatDuration(SESSION_DURATION_MIN_SEC)).toBe("1 小时");
+    expect(formatDuration(SESSION_DURATION_MAX_SEC)).toBe("365 天");
+    const draft = GROUP_SPECS.security.toDraft(SAMPLES.security);
+    const tooShort = GROUP_SPECS.security.toInput({ ...draft, session_idle_hours: "0.5" });
+    expect(tooShort).toMatchObject({ ok: false, fields: { session_idle_hours: "不能短于 1 小时" } });
+    const tooLong = GROUP_SPECS.security.toInput({ ...draft, session_absolute_days: "366" });
+    expect(tooLong).toMatchObject({ ok: false, fields: { session_absolute_days: "不能长于 365 天" } });
+    expect(GROUP_SPECS.security.toInput({ ...draft, session_idle_hours: "1", session_absolute_days: "365" })).toMatchObject({ ok: true });
   });
 
   it("站点：名称为空、Logo 不是 https 或 data URI 都被 shared 的 schema 拦下", () => {

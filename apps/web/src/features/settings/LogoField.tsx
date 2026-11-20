@@ -15,19 +15,34 @@ function readAsDataUri(file: File): Promise<string> {
   });
 }
 
-/** data URI 的字符数上限折算成大致的原图字节数（base64 约 4/3 倍，再扣掉 data:…;base64, 前缀的余量） */
+/** base64 约 4/3 倍：data URI 的字符数上限折算成原图字节数时乘它 */
 const BASE64_RATIO = 3 / 4;
+const BYTES_PER_KB = 1024;
+
+/**
+ * 原图字节数上限：shared 只有 data URI 的字符数上限（SITE_LOGO_MAX_LENGTH），这里按 base64 比例折算，
+ * 用来在读文件之前就拦下明显过大的图片；折算是上界，通过后仍要按真实的 data URI 长度再校验一次。
+ */
+export const LOGO_MAX_FILE_BYTES = Math.floor(SITE_LOGO_MAX_LENGTH * BASE64_RATIO);
 
 export function isDataUri(value: string): boolean {
   return value.startsWith("data:");
 }
 
-/** 返回 null 表示可用，否则是中文原因 */
-export function checkLogoUpload(file: { type: string }, dataUri: string): string | null {
+/** 读文件之前的检查（只看类型与大小，不读内容）；返回 null 表示可以读，否则是中文原因 */
+export function checkLogoFile(file: { type: string; size: number }): string | null {
   if (!file.type.startsWith("image/")) return `只能上传图片文件（收到 ${file.type || "未知类型"}）`;
+  if (file.size > LOGO_MAX_FILE_BYTES) {
+    const sizeKb = Math.ceil(file.size / BYTES_PER_KB);
+    return `图片太大：${sizeKb} KB，上限约 ${Math.floor(LOGO_MAX_FILE_BYTES / BYTES_PER_KB)} KB`;
+  }
+  return null;
+}
+
+/** 读出 data URI 之后的检查（含 data:…;base64, 前缀）；返回 null 表示可用 */
+export function checkLogoDataUri(dataUri: string): string | null {
   if (dataUri.length > SITE_LOGO_MAX_LENGTH) {
-    const approxKb = Math.floor((SITE_LOGO_MAX_LENGTH * BASE64_RATIO) / 1024);
-    return `图片太大：编码后 ${dataUri.length} 个字符，上限 ${SITE_LOGO_MAX_LENGTH}（原图约 ${approxKb} KB 以内）`;
+    return `图片太大：编码后 ${dataUri.length} 个字符，上限 ${SITE_LOGO_MAX_LENGTH}`;
   }
   return null;
 }
@@ -41,9 +56,12 @@ export function LogoField({ value, onChange, error, disabled }: LogoFieldProps) 
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    const tooBig = checkLogoFile(file);
+    setUploadError(tooBig);
+    if (tooBig !== null) return;
     try {
       const uri = await readAsDataUri(file);
-      const problem = checkLogoUpload(file, uri);
+      const problem = checkLogoDataUri(uri);
       setUploadError(problem);
       if (problem === null) onChange(uri);
     } catch (cause) {

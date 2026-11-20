@@ -57,9 +57,15 @@ export function canOpenDetail(mail: MyMailListItem): boolean {
   return mail.locked !== true && viewHasDetail(mail.view);
 }
 
-/** 邮件详情接口的 `mailbox_id`：单个邮箱时带上，“全部”不带（后端按邮件自己的收件地址定位授权） */
-export function detailMailboxId(scope: InboxScope): number | undefined {
-  return scope.kind === "mailbox" ? scope.mailbox.mailbox_id : undefined;
+/**
+ * 邮件详情接口的 `mailbox_id`（后端 `GET /api/me/mails/:id?mailbox_id=<收件地址 id>`）：
+ * 单个邮箱用它自己；“全部”用被选中那一项自带的 `mailbox_id`（各封来自不同授权）。
+ * 选中的邮件还不在已加载的列表里（深链接）时返回 undefined，此时由后端按邮件自己的收件地址定位授权。
+ */
+export function detailMailboxId(scope: InboxScope, items: readonly MyMailListItem[], selectedId: number | null): number | undefined {
+  if (scope.kind === "mailbox") return scope.mailbox.mailbox_id;
+  if (scope.kind !== "all" || selectedId === null) return undefined;
+  return items.find((item) => item.id === selectedId)?.mailbox_id;
 }
 
 /** 呈现后的发件人：名称与地址都有时 `名称 <地址>`；否则名称、地址、域名依次回退；全被隐藏返回 null */

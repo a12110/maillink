@@ -97,6 +97,17 @@ describe("提供方列表与编辑对话框", () => {
     expect(document.body.textContent).toContain("已有 3 个绑定");
   });
 
+  it("client_secret 是密码框且 autoComplete=new-password，client_id 用 off（不被浏览器自动填入登录凭据）", async () => {
+    stubFetch({ "GET /api/admin/oauth-providers": { items: [PROVIDER] } });
+    await open();
+    await click(byText("编辑", mounted?.container));
+    const secret = document.body.querySelector<HTMLInputElement>('input[name="client_secret"]');
+    const clientId = document.body.querySelector<HTMLInputElement>('input[name="client_id"]');
+    expect(secret?.type).toBe("password");
+    expect(secret?.getAttribute("autocomplete")).toBe("new-password");
+    expect(clientId?.getAttribute("autocomplete")).toBe("off");
+  });
+
   it("“从 issuer 自动发现”调用 discover 并填入端点", async () => {
     const { requests } = stubFetch({
       "GET /api/admin/oauth-providers": { items: [PROVIDER] },

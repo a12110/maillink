@@ -43,6 +43,34 @@ function Matched({ item }: { item: RuleGroupTestItem }) {
   );
 }
 
+const UNPARSED_TEXT = { pending: "尚未解析", failed: "无法解析" } as const;
+
+function senderText(sender: NonNullable<RuleGroupTestItem["sender"]>): string | null {
+  if (sender.name && sender.address) return `${sender.name} <${sender.address}>`;
+  return sender.address ?? sender.name;
+}
+
+type FactProps = { className: string; label: string; value: string | null; unparsed: string; labelValue?: boolean };
+
+/** 有值时只有 labelValue 才带标签（主题单独成行更醒目）；没有值时总是带标签，说明缺的是什么 */
+function Fact({ className, label, value, unparsed, labelValue = false }: FactProps) {
+  if (value === null) return <div className={`${className} t-unknown`}>{label}：{unparsed}</div>;
+  if (value === "") return <div className={`${className} t-unknown`}>{label}：（空）</div>;
+  return <div className={className} title={value}>{labelValue ? `${label}：` : ""}{value}</div>;
+}
+
+/** 管理员视角的主题与发件人（不受呈现设置影响，不可见的邮件也有）；解析失败 / 尚未解析时是弱化的占位文案，都按纯文本渲染 */
+function MailFacts({ item }: { item: RuleGroupTestItem }) {
+  const unparsed = item.parse_status === "pending" ? UNPARSED_TEXT.pending : UNPARSED_TEXT.failed;
+  const sender = item.sender === null ? null : senderText(item.sender);
+  return (
+    <>
+      <Fact className="t-subject" label="主题" value={item.subject} unparsed={unparsed} />
+      <Fact className="t-sender" label="发件人" value={sender} unparsed={unparsed} labelValue />
+    </>
+  );
+}
+
 /** 一封邮件的试跑结果：可见 / 不可见、原因码、命中规则与条件、提取到的码，点开看访客视角预览 */
 export function TesterItem({ item, now }: { item: RuleGroupTestItem; now: Date }) {
   const state = item.visible ? "ok" : item.reason_code === "parse_failed" || item.reason_code === "body_truncated" ? "warn" : "off";
@@ -57,7 +85,7 @@ export function TesterItem({ item, now }: { item: RuleGroupTestItem; now: Date }
         <span className="from" title={item.recipient}>{item.recipient}</span>
         <span className="when" title={String(item.received_at)}>{formatRelative(item.received_at, now)}</span>
       </div>
-      {item.preview?.subject ? <div className="t-subject" title={item.preview.subject}>{item.preview.subject}</div> : null}
+      <MailFacts item={item} />
       <Reason item={item} />
       <Matched item={item} />
       {item.preview ? (

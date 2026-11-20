@@ -4,6 +4,8 @@ import {
   linksSettingsSchema,
   logsSettingsSchema,
   securitySettingsSchema,
+  SESSION_DURATION_MAX_SEC,
+  SESSION_DURATION_MIN_SEC,
   siteSettingsSchema,
   turnstileSettingsInputSchema,
 } from "@maillink/shared";
@@ -27,6 +29,24 @@ import { fieldErrorsFromZod } from "../../lib/forms";
 
 const SECONDS_PER_HOUR = 3600;
 const SECONDS_PER_DAY = 86_400;
+
+/** 秒数的中文说法：整天用“天”，整小时用“小时”，其余用“秒” */
+export function formatDuration(seconds: number): string {
+  if (seconds % SECONDS_PER_DAY === 0) return `${seconds / SECONDS_PER_DAY} 天`;
+  if (seconds % SECONDS_PER_HOUR === 0) return `${seconds / SECONDS_PER_HOUR} 小时`;
+  return `${seconds} 秒`;
+}
+
+/** 会话时长的范围提示，取自 shared（与服务端同一份常量） */
+export const SESSION_DURATION_MIN_TEXT = formatDuration(SESSION_DURATION_MIN_SEC);
+export const SESSION_DURATION_MAX_TEXT = formatDuration(SESSION_DURATION_MAX_SEC);
+
+/** 会话时长超出 shared 允许的范围时的中文原因；范围内返回 null */
+function sessionRangeError(seconds: number): string | null {
+  if (seconds < SESSION_DURATION_MIN_SEC) return `不能短于 ${SESSION_DURATION_MIN_TEXT}`;
+  if (seconds > SESSION_DURATION_MAX_SEC) return `不能长于 ${SESSION_DURATION_MAX_TEXT}`;
+  return null;
+}
 
 export type TurnstileDraft = { enabled: boolean; site_key: string; secret: string; scopes: TurnstileScope[] };
 export type SecurityDraft = {
@@ -133,6 +153,14 @@ const security: GroupSpec<"security"> = {
       session_absolute_sec: Math.round((values.session_absolute_days ?? 0) * SECONDS_PER_DAY),
       password_min_length: values.password_min_length ?? 0,
     };
+    const idleRange = sessionRangeError(raw.session_idle_sec);
+    const absoluteRange = sessionRangeError(raw.session_absolute_sec);
+    if (idleRange !== null || absoluteRange !== null) {
+      return failed({
+        ...(idleRange === null ? {} : { session_idle_hours: idleRange }),
+        ...(absoluteRange === null ? {} : { session_absolute_days: absoluteRange }),
+      });
+    }
     return validate(securitySettingsSchema, raw, Object.keys(raw), {
       session_idle_sec: "session_idle_hours",
       session_absolute_sec: "session_absolute_days",

@@ -15,3 +15,11 @@ export const REGISTER_ERROR_TEXTS: ErrorTexts = {
 export function describeRegisterError(error: unknown): { message: string; detail: string } {
   return describeErrorWith(REGISTER_ERROR_TEXTS, error);
 }
+
+/** 注册请求已成功（账号已创建），但随后获取会话失败；保留原始错误，页面据此提示去登录，而不是当作注册失败 */
+export class SessionAfterRegisterError extends Error {
+  constructor(readonly original: unknown) {
+    super("账号已创建，但获取登录状态失败");
+    this.name = "SessionAfterRegisterError";
+  }
+}

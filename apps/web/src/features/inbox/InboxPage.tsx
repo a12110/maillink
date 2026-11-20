@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { Inbox, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
-import type { MyMailbox } from "@maillink/shared";
+import type { MyMailbox, MyMailListItem } from "@maillink/shared";
 import { myMailboxesQuery } from "../../api/queries-auth";
 import { DESKTOP_MEDIA_QUERY } from "../../constants";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
@@ -11,6 +11,7 @@ import { describeError } from "../../lib/messages";
 import { PageHeader } from "../../shell/PageHeader";
 import { Button, Callout, EmptyState, ErrorCallout, Select } from "../../ui";
 import { listItems } from "../mails/list-store";
+import type { MailListState } from "../mails/list-store";
 import { InboxDetail } from "./InboxDetail";
 import { InboxList } from "./InboxList";
 import { buildOptions, detailMailboxId, resolveScope, scopeUnavailableReason, viewHasDetail } from "./inbox-model";
@@ -83,14 +84,21 @@ function UnavailableNotice({ count, scope }: { count: number; scope: InboxScope 
   return <Callout tone="warning" title={`有 ${count} 个邮箱暂时不可用`}>它们的显示规则出了问题，邮件暂时看不到，请联系管理员。下拉里已灰显。</Callout>;
 }
 
-type DetailProps = { selectedId: number | null; scope: InboxScope; onBack: () => void };
+type DetailProps = { selectedId: number | null; scope: InboxScope; list: MailListState<MyMailListItem>; onBack: () => void };
 
-function DetailColumn({ selectedId, scope, onBack }: DetailProps) {
-  const mailboxId = detailMailboxId(scope);
+/** “全部”里深链接指向的邮件还没加载出来：先等列表，拿到它自带的 mailbox_id 再请求详情，避免请求两次 */
+function waitingForList(scope: InboxScope, mailboxId: number | undefined, list: MailListState<MyMailListItem>): boolean {
+  return scope.kind === "all" && mailboxId === undefined && list.pages.length === 0 && !list.hasError;
+}
+
+function DetailColumn({ selectedId, scope, list, onBack }: DetailProps) {
+  const mailboxId = detailMailboxId(scope, listItems(list), selectedId);
   return (
     <section className="mail-detail-col" aria-label="邮件详情">
       {selectedId === null ? (
         <EmptyState icon={Inbox} title="选择一封邮件" description="在左侧列表里点一封邮件，这里显示它的内容。" />
+      ) : waitingForList(scope, mailboxId, list) ? (
+        <span className="skeleton mail-detail-skeleton" role="status" aria-label="正在加载邮件" />
       ) : (
         <InboxDetail key={`${mailboxId ?? "all"}-${selectedId}`} id={selectedId} mailboxId={mailboxId} onBack={onBack} />
       )}
@@ -129,7 +137,7 @@ function Workspace({ mailboxes }: { mailboxes: readonly MyMailbox[] }) {
                 onSelect={select} onLoadMore={() => store.loadMore()} onRetry={() => store.retry()} />
             </div>
           </section>
-          {showDetail ? <DetailColumn selectedId={selectedId} scope={scope} onBack={() => select(null)} /> : null}
+          {showDetail ? <DetailColumn selectedId={selectedId} scope={scope} list={state} onBack={() => select(null)} /> : null}
         </div>
       )}
     </div>
