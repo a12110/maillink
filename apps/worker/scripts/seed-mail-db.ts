@@ -1,7 +1,8 @@
 // 本地种子脚本：用 cloudflare_temp_email 的 db/schema.sql 在【本地】MAIL_DB 建表，并灌入合成邮件。
 // 这是仓库里唯一允许写 MAIL_DB 的地方（且只写本地 miniflare 存储，永远不带 --remote）。
 // 用法（在仓库根目录）：pnpm --filter worker db:seed-mail
-// 环境变量：TEMP_EMAIL_SCHEMA 覆盖 schema.sql 路径，默认取与本仓库同级的 cloudflare_temp_email。
+// 环境变量：TEMP_EMAIL_SCHEMA 覆盖 schema.sql 路径，默认取与本仓库同级的 cloudflare_temp_email；
+// PERSIST_TO 指定本地存储目录（给 wrangler 追加 --persist-to，e2e 用来隔离数据），不设置时用 wrangler 的默认目录。
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -18,6 +19,7 @@ const fixturesDir = join(workerDir, "test/fixtures");
 const wranglerBin = join(workerDir, "node_modules/.bin/wrangler");
 const schemaPath =
   process.env["TEMP_EMAIL_SCHEMA"] ?? resolve(repoRoot, "../cloudflare_temp_email/db/schema.sql");
+const persistTo = process.env["PERSIST_TO"];
 
 /** temp_email 当前的 DB_VERSION（worker/src/constants.ts） */
 const MAIL_DB_VERSION = "v0.0.11";
@@ -161,7 +163,8 @@ function main(): void {
   try {
     writeFileSync(sqlFile, statements.join("\n"), "utf8");
     // 只用 --local：永远不触碰 Cloudflare 上的库
-    execFileSync(wranglerBin, ["d1", "execute", "MAIL_DB", "--local", "--file", sqlFile], {
+    const persistArgs = persistTo ? ["--persist-to", persistTo] : [];
+    execFileSync(wranglerBin, ["d1", "execute", "MAIL_DB", "--local", "--file", sqlFile, ...persistArgs], {
       cwd: workerDir,
       stdio: "inherit",
     });
