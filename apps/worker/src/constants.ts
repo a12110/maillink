@@ -145,6 +145,23 @@ export const ADMIN_DETAIL_BODY_CAP_BYTES = 262_144;
  */
 export const IMPORTED_SCOPE_MAX_ADDRESSES = 10_000;
 
+// ---- 用户授权与收件箱（M4） ----
+
+// 批量授权的上限（定义在 shared，zod schema 要用），业务代码统一从这里取
+export {
+  GRANT_BATCH_MAX_MAILBOXES,
+  GRANT_BATCH_MAX_PAIRS,
+  GRANT_BATCH_MAX_USERS,
+} from "@maillink/shared";
+
+/**
+ * "全部"邮件一次最多合并的作用域数（同规则组、同时间下界的授权合成一个；设了 max_mails 的授权各占一个）。
+ * 作用域顺序扫描，共用一份解析预算，所以一次请求的工作量上界是：
+ *   - 现场解析 ≤ MAX_PARSE_PER_REQUEST 封（与单个作用域相同，不随作用域数放大）；
+ *   - 扫描候选行 ≤ ME_ALL_MAX_SCOPES × SCAN_CAP_PER_REQUEST（最坏情况：每个作用域都扫满上限仍凑不够一页）。
+ * 超出作用域数时明确拒绝，让用户改选具体邮箱，不静默截断。
+ */
+export const ME_ALL_MAX_SCOPES = 20;
 // ---- 两步验证、通行密钥、OAuth（M5） ----
 
 // 前后端共用的认证输入上限定义在 packages/shared/src/auth-limits.ts

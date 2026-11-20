@@ -1,6 +1,7 @@
 export { addressForms, expandAddressForms, lowerDomain } from "./addresses";
 export { getCandidateById, getCandidatesByIds, listAdminMails, listAfter, listCandidates } from "./candidates";
 export { getLastReceivedAt } from "./last-received";
+export { latestMailId } from "./latest";
 export type { ListAfterParams, ListCandidatesParams } from "./candidates";
 export { MAIL_DB_UNHEALTHY_CODE, requireMailSchema } from "./guard";
 export { getRawBatch } from "./raw";

@@ -20,6 +20,7 @@ export * from "./oauth";
 export * from "./mailboxes";
 export * from "./rule-groups-api";
 export * from "./visible-mails";
+export * from "./grants";
 export * from "./audit";
 export * from "./system-status";
 export * from "./settings";

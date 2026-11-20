@@ -49,6 +49,11 @@
   - 详情判定用的正文（02 §5 与 §7 冲突，主 agent 裁定）：§5"用完整正文再判一次"理解为"重新解析原文、不信任索引"；判定用正文仍截到 `BODY_INDEX_CAP_BYTES`，`body_truncated` 按 §3.5 不可见、详情 404，与列表一致。原因：§7 的正则回溯防线以被匹配文本 ≤32 KB 为前提，详情跑完整正文时 200 KB 正文可达 15.7 s。展示正文仍用 `display_body`。
   - `max_mails` 是全局上限：列表首页、增量轮询、详情都以"最新 N 封"这一个集合为准（轮询不得绕过）。
   - 限流：`wrangler.jsonc` 正式配置 `RATE_LIMITER` binding；运行时缺失时受保护接口返回 503 `rate_limiter_not_configured`，health 标出未配置（01 §2"不静默放行"）。
+  - 用户收件箱的邮箱参数用 04 原写的 `mailbox_id`（收件地址 id），不用授权 id：同一用户对同一地址最多一条授权（UNIQUE(user_id, mailbox_id)），地址 id 足以唯一定位授权。`/api/me/mailboxes` 每项同时给出 `mailbox_id` 与 `grant_id`。
+  - 授权换成 `first_access` 锚点的规则组时沿用原 `first_access_at`（换组不重置计时；需要重新计时就删掉重建授权）。
+  - 设了口令的链接，访客通过口令前 `GET /api/s/:token` 不返回收件地址（卖号场景里收件地址就是登录邮箱，口令要连账号身份一起挡住）。
+  - 附件下载写 `download` 日志是"GET 无副作用"的唯一例外：要求已登记访客 Cookie，预览机器人在写入前就被 401 挡住，且不改变激活、设备、计次。
+  - 取件链接 M3b-2 的取舍（已接受）：总次数用尽在限流之后、访客 Cookie 之前判定（对外等同"已失效"，与访客无关）；IP/国家被拒归入"已失效"；拒绝日志只在 POST 上写，GET 不写（避免预览机器人与轮询刷日志）；访客 Cookie 名 `mlv_<链接id>`；撤销为终态；`access/tester.ts` 加可选 `anchors` 让管理员预览复用测试器。
   - 限流拆成两个 binding（对 01 §2 的修订）：`RATE_LIMITER`（登录、初始化、注册、再确认类接口，10 次/60 秒）与 `LINK_RATE_LIMITER`（取件链接公开接口，阈值容纳正常轮询）。原因：Workers Rate Limiting 一个 binding 只有一组阈值，共用会让正常取件被误拦。
   - 限流的已知取舍：simple binding 不能只数失败，任何人从多个 IP 每分钟发 10 次即可锁住某个用户名的登录；NAT 后多人共用 `login:ip` 配额。按用户的第二因素失败上限由 M5 在应用层实现，不依赖 binding。
   - M2 / M3a 分工：内置验证码提取与 `category` 分类在 `mail-parse`（M2，符合 01 §1）；规则组级的 `code_regex` 与 `login_link` 提取在 `rules`（M3a）。两边以 01 §4.1 的 `MailFacts` 对接，具体 TS 结构由主 agent 在两份派发说明里写成同一份，M3b 合并时去重。
@@ -88,13 +93,15 @@
 | M2 | mail-source / 解析（含内置验证码提取与 `category` 分类）/ mail_index、管理员全部邮件 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M2 |
 | M3a | 规则引擎纯函数：schema 与保存校验、求值与 trace、时间下界、规则组级提取、呈现与 HTML 清洗、模板与预设、规则草稿 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M3a |
 | M3b-1 | 取件流水线（access）、收件地址 API、规则组 API（含测试器与草稿）、setup 写模板、管理员邮件 HTML、M3a 遗留加固 | opus-5-5#high（集成核心，按复杂任务升级） | 通过，已合并 | 见记录 2026-11-20 M3b-1 |
-| M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 进行中（worktree `m3b2-share-links`，分支 `m3b2`，基于 `94958bb`，端口 8801，迁移号 0006；链接限流留 `TODO(M7a)` 合并后接线） | 执行会话 `ses_e0948db9effeKBWWnpHMEcs7Uv` |
-| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 待验收（分支提交后已合入 main 含 M7a，合并后 worker 1228 + web 111 用例通过；worktree `m4-grants-inbox`，分支 `m4`；未用迁移号） | 执行会话 `ses_e094878daffeBlFSsR5d2jlAep` |
+| M3b-2 | 取件链接管理 API 与公开取件接口 `/api/s/:token/*`（访问约束、设备、取码计次、预览、日志、导出） | opus-5-5#high | 退回修复（两位评审均"有条件通过"：口令锁定可被并发绕过、被拒写请求不经限流即写日志、设口令链接未输口令可见收件地址、批量创建可能超 D1 单值 2 MB、撤销终态竞态；并入按链接的口令全局上限等；`0e63a21`；评审会话 `ses_e0929eca7ffeG70WQfaFPEjndA`、`ses_e0929a3adffe5oSTvS8KVEUtm3`；迁移号 0006） | 执行会话 `ses_e0948db9effeKBWWnpHMEcs7Uv` |
+| M4 | 用户授权、用户收件箱 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M4 |
 | M5 | TOTP、Passkey、OAuth2/OIDC（后端），批量注销会话，公开配置登录方式 | opus-5-5#xhigh | 通过，已合并 | 见记录 2026-11-20 M5 |
-| M6 | 系统设置、外观、注册、Turnstile | sonnet-5-5#high | 待办 | |
+| M6 | 系统设置、外观、注册、Turnstile（后端） | sonnet-5-5#high | 进行中（worktree `m6-settings-turnstile`，分支 `m6`，基于 `5375ffa`，端口 8803，迁移号 0009） | 执行会话 `ses_e0931a6edffeIdfcs1y2apCnZW` |
 | UI-1 | 前端基础（令牌接入、主题运行时、API 客户端、路由守卫）、三套外壳、`/setup` `/login` `/admin/users` `/account` | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 UI-1 |
 | UI-2 | `/admin/mails`（队列 + 详情、筛选、partial 退避重取、原文与邮件头）与可复用邮件组件（`MailHtmlFrame` 等） | sonnet-5-5#high | 通过，已合并（HTML 正文字段待 M3b-1 合并后接线） | 见记录 2026-11-20 UI-2 |
-| UI-3+ | 收件地址、规则组编辑与测试器、取件链接、取件页、我的邮件、账号安全的 2FA/通行密钥/第三方账号、系统设置（随后端推进） | sonnet-5-5#high | 待办 | |
+| UI-3 | 收件地址页、规则组列表与编辑（含测试器）、全部邮件 HTML 接线与"以此邮件创建规则"、审计日志页 | sonnet-5-5#high | 进行中（worktree `ui3-mailboxes-rulegroups`，分支 `ui3`，基于 `5375ffa`，端口 8804） | 执行会话 `ses_e09313850ffe7INAHx6EaIz0kU` |
+| UI-4 | 登录两步验证/通行密钥/OAuth、注册、账号安全（2FA、恢复码、通行密钥、第三方账号）、用户侧板凭据清除与授权块、系统设置页 | sonnet-5-5#high | 待办（等 M4、M6 合并） | |
+| UI-5 | 取件链接管理页、取件页 `/s/:token`（两种视图与全部状态）、我的邮件 | sonnet-5-5#high | 待办（等 M3b-2、M4 合并） | |
 | M7a | 审计日志列表、cron（预热 mail_index、每日清理）、限流基础设施 | sonnet-5-5#high | 通过，已合并 | 见记录 2026-11-20 M7a |
 | M7b | e2e、部署文档、最终加固 | sonnet-5-5#high | 待办 | |
 | 终验 | 整体验收 | fable-5-2#xhigh | 待办 | |
@@ -188,3 +195,12 @@
 - 复验证据：只有会话不知密码时启用 2FA 与注册通行密钥均失败且无写入；关闭 oauth 后回调 `provider_unavailable`、不换 token；伪造 HS256 id_token 留下 1 条 `auth.login_failed`；15 个并发错码正好 10×401、5×429；锁定后恢复码登录、重新生成恢复码、通行密钥 options 均 429，恢复码未被消耗。
 - 首轮已确认：TOTP 时间步一次性（6 并发同码只 1 成功）、恢复码原子（5 并发只 1 成功）、`pending_auth` 并发计数正好 5；通行密钥凭据归属、challenge 一次性、"计数器固定 0"不削弱库检查；Cookie 类型隔离；PKCE、state/nonce 一次性、alg 白名单；SSRF 出口 20+ 绕过写法被拒；自动关联 8 条规则全部强制。
 - 遗留：无法防 DNS rebinding（Workers 无 DNS 结果）；OAuth link 模式不要求再确认；知道密码者可故意输错锁住某用户 2FA 15 分钟（按用户上限的固有代价，有审计）；密码登录本身尚不受 `auth.login_methods` 控制（M6）；前端登录页尚未处理 `mfa_required`（UI 线）。
+
+### 2026-11-20 M4 通过
+
+- 执行：sonnet-5-5#high（`ses_e094878daffeBlFSsR5d2jlAep`）；验收：opus-5-5#high（`ses_e09333d61fferG8LbScGdgFLup`），首轮"有条件通过"，修复后复验"通过"。
+- 首轮必修："全部"视图最多 20 个作用域 `Promise.all` 并行扫描，单次请求现场解析量与扫描行数超单作用域上限 20 倍；`first_access_at` 在构造作用域前写入，422/503 失败的请求也开始计时。主 agent 裁定：参数改回 04 的 `mailbox_id`（收件地址 id）；换规则组沿用 `first_access_at`；批准给 `access/listVisibleMails` 加可选解析预算（向后兼容）。
+- 修复：作用域顺序扫描并共用 `ParseBudget`（单次请求解析量同单作用域）；成功取到结果后才写 `first_access_at`；批量授权新增/更新/审计同一 `db.batch`；新增只读 `mail-source/latest.ts`。
+- 主 agent 复跑：typecheck/lint 三包 Done；worker 59 文件 1321 用例、web 111 用例通过。
+- 验收证据：越权（他人授权、过期/删除/停用、`code_only`/`meta_only` 详情、白名单外、`max_mails` 外）统一 404；`address_lc` UNIQUE 与 UNIQUE(user_id, mailbox_id) 保证按地址定位授权无旁路；随机模拟（首轮 5 种子 × 300 轮，复验另 5 种子 × 300 轮）翻页与 `after_id` 无漏无重；预算只有 `inbox/list.ts` 传入且固定，不能被请求放大；每次 partial 请求至少写回 1 封索引，不会饿死。
+- 遗留：`mailbox_grant_count` 统计全部授权（含失效，前端标"含失效"）；"全部"请求会给规则组失效被跳过的授权写 `first_access_at`（影响小）；`after_id` 跨组时偶尔晚一轮拿全；`max_mails` 作用域每页取整组。
