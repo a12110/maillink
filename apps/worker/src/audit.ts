@@ -16,6 +16,14 @@ export const AUDIT_ACTIONS = {
   userPasswordReset: "user.password_reset",
   userSessionsRevoke: "user.sessions_revoke",
   sessionRevoke: "auth.session_revoke",
+  // M3b：规则组与收件地址
+  ruleGroupCreate: "rule_group.create",
+  ruleGroupUpdate: "rule_group.update",
+  ruleGroupDelete: "rule_group.delete",
+  mailboxImport: "mailbox.import",
+  mailboxUpdate: "mailbox.update",
+  mailboxDelete: "mailbox.delete",
+  mailboxBatch: "mailbox.batch",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
@@ -23,7 +31,7 @@ export type AuditInput = {
   action: AuditAction;
   /** 执行者；登录失败等没有已确认身份的场景为 null */
   actorUserId: number | null;
-  targetType?: "user" | "session";
+  targetType?: "user" | "session" | "rule_group" | "mailbox";
   targetId?: number | string;
   /** 会被 JSON 序列化。禁止放密码、令牌、哈希 */
   detail?: Record<string, unknown>;

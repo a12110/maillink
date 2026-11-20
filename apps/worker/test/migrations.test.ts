@@ -29,6 +29,10 @@ const EXPECTED_INDEXES = [
   "idx_slm_mailbox",
   "idx_ld_link_time",
   "idx_mail_index_recipient",
+  "idx_mailbox_tags_tag",
+  "idx_share_links_rule_group",
+  "idx_umg_mailbox",
+  "idx_umg_rule_group",
   "idx_lal_link",
 ];
 

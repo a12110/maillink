@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { BODY_INDEX_CAP_BYTES } from "../src/constants";
-import { MailParseError, hmeSender, parseHmeFields, parseMail, parseMime, rowToFacts } from "../src/mail-parse";
+import { MailParseError, hmeSender, parseHmeFields, parseMail, parseMime, rowCodeSource, rowToFacts } from "../src/mail-parse";
 import type { MailFacts, MailIndexRow } from "../src/mail-parse";
 import { buildLargeMail, LARGE_MAIL_CODE, LARGE_MAIL_TAIL_MARKER } from "./fixtures/build-large-mail";
+import { buildMail } from "./access-helpers";
 import { candidateOf, fixture } from "./mail-helpers";
 
 async function parseFixture(name: string, overrides: Parameters<typeof candidateOf>[0] = { id: 1 }, metadata: string | null = null) {
@@ -322,5 +323,20 @@ describe("rowToFacts", () => {
 
   it("JSON 列被改坏：抛错而不是当成空", () => {
     expect(() => rowToFacts({ ...okRow, sender_address: "{oops" })).toThrow(/sender_address/);
+  });
+
+  it("rowCodeSource：与 code 一致才返回；不一致或取值未知抛错", () => {
+    expect(rowCodeSource(okRow)).toBe("builtin");
+    expect(rowCodeSource({ ...okRow, code: null, code_source: null })).toBeNull();
+    expect(() => rowCodeSource({ ...okRow, code_source: null })).toThrow(/code_source/);
+    expect(() => rowCodeSource({ ...okRow, code: null })).toThrow(/code_source/);
+    expect(() => rowCodeSource({ ...okRow, code_source: "magic" as never })).toThrow(/code_source/);
+  });
+});
+
+describe("HTML 部分无法解析", () => {
+  it("lol-html 放弃解析的 HTML：抛 MailParseError（整封按解析失败处理，不退回只用纯文本）", async () => {
+    const raw = buildMail({ text: "plain", html: "<select><style>p{}</style></select>" });
+    await expect(parseMail({ candidate: candidateOf({ id: 1 }), raw, metadata: null })).rejects.toBeInstanceOf(MailParseError);
   });
 });

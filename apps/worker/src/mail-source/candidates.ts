@@ -138,6 +138,14 @@ export async function getCandidateById(db: D1Database, id: number): Promise<Mail
   return (await runQuery(db, sql, [id]))[0] ?? null;
 }
 
+/** 按 id 批量取候选（测试器用）；不存在的 id 不出现在结果里，结果按 id 倒序 */
+export async function getCandidatesByIds(db: D1Database, ids: readonly number[]): Promise<MailCandidate[]> {
+  if (ids.length === 0) return [];
+  const capabilities = (await requireMailSchema(db)).capabilities;
+  const sql = `${selectColumns(capabilities)} WHERE id IN (SELECT value FROM json_each(?1)) ORDER BY id DESC`;
+  return await runQuery(db, sql, [JSON.stringify(ids)]);
+}
+
 function addScopeCondition(query: QueryBuilder, filters: AdminMailFilters, capabilities: MailCapabilities): void {
   if (filters.scope === "all") return;
   const imported = filters.importedAddresses ?? [];

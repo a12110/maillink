@@ -298,11 +298,27 @@ describe("GET /api/admin/mails/:id", () => {
     expect(body).not.toContain("synthetic = ");
   });
 
-  it("html 邮件：只告知 has_html，不返回 HTML", async () => {
+  it("html 邮件：返回清洗并包装后的 HTML（CSP meta 开头），无脚本；远程图片默认阻止，可 ?remote_images=allow", async () => {
     const id = await insertMail({ address: "a@example.com", raw: fixture("html-newsletter.eml") });
     const body = await detail(id, "?raw=0");
     expect(body.parsed?.has_html).toBe(true);
+    const html = body.parsed?.html ?? "";
+    expect(html.startsWith('<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'')).toBe(true);
+    expect(html).toContain("img-src data:;");
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("tracker.example.com");
+    expect(html).toContain('href="https://newsletter.example.com/issues/42"');
     expect(JSON.stringify(body)).not.toContain("<script>");
+
+    const allowed = (await detail(id, "?remote_images=allow")).parsed?.html ?? "";
+    expect(allowed).toContain("img-src data: https:;");
+    expect(allowed).toContain("https://tracker.example.com/pixel.gif");
+    expect((await api(`/api/admin/mails/${id}?remote_images=yes`, { cookie })).status).toBe(400);
+  });
+
+  it("纯文本邮件不带 html 字段", async () => {
+    const id = await insertMail({ address: "a@example.com", raw: fixture("verification-code.eml") });
+    expect((await detail(id)).parsed?.html).toBeUndefined();
   });
 
   it("不存在的邮件 404；非法 id 400", async () => {

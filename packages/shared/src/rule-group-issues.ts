@@ -31,6 +31,7 @@ export const RULE_GROUP_ISSUE_CODES = [
   "regex_backreference",
   "regex_nested_quantifier",
   "regex_leading_unbounded",
+  "regex_adjacent_unbounded",
   "regex_too_slow",
   // 互斥与约束
   "blacklist_allow_rule",

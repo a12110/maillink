@@ -10,7 +10,8 @@ import { classifyUrl, decodeHtmlEntities, escapeAttributeValue, type ClassifiedU
 //
 // 规则：
 //   - 整个删除（连同内容）：script / iframe / frame / frameset / object / embed / applet / param / form 及表单控件 /
-//     link / meta / base / svg / math / noscript / template / audio / video / portal。
+//     link / meta / base / svg / math / noscript / template / audio / video / portal /
+//     title / xmp / noembed / noframes / plaintext（RCDATA 与原始文本元素，末尾截断逻辑不认它们的上下文）。
 //     svg 与 math 会切换解析命名空间，是 mXSS 的常见入口；noscript 在 lol-html 里按原始文本处理，但无脚本的 sandbox
 //     iframe 会把它当普通标记渲染（解析差异，已用实测确认），所以一律删除。
 //   - 属性按白名单保留（html-attributes.ts），其余一律删除（含 on*、ping、attributionsrc、formaction 等）；
@@ -56,6 +57,12 @@ const REMOVED_ELEMENTS: ReadonlySet<string> = new Set([
   "audio",
   "video",
   "portal",
+  // RCDATA / 原始文本元素：stripUnfinishedTail 不认它们的解析上下文，整段删除（纵深防御）
+  "title",
+  "xmp",
+  "noembed",
+  "noframes",
+  "plaintext",
 ]);
 
 const LINK_ELEMENTS: ReadonlySet<string> = new Set(["a", "area"]);

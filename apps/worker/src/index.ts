@@ -3,7 +3,9 @@ import type { AppEnv } from "./env";
 import { requireAdmin } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 import { notFound, onError } from "./middleware/error";
+import { adminMailboxRoutes } from "./routes/admin-mailboxes";
 import { adminMailRoutes } from "./routes/admin-mails";
+import { adminRuleGroupRoutes } from "./routes/admin-rule-groups";
 import { adminSystemRoutes } from "./routes/admin-system";
 import { adminUserRoutes } from "./routes/admin-users";
 import { authRoutes } from "./routes/auth";
@@ -28,6 +30,8 @@ app.route("/api/me", meRoutes);
 app.route("/api/admin/users", adminUserRoutes);
 app.route("/api/admin/system", adminSystemRoutes);
 app.route("/api/admin/mails", adminMailRoutes);
+app.route("/api/admin/mailboxes", adminMailboxRoutes);
+app.route("/api/admin/rule-groups", adminRuleGroupRoutes);
 
 export default {
   fetch: app.fetch,
