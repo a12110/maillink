@@ -1,8 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import type { UseQueryResult } from "@tanstack/react-query";
+import { getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useReducer, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { loginRequestSchema } from "@maillink/shared";
+import type { PublicConfig } from "@maillink/shared";
 import { api } from "../../api/instance";
 import { publicConfigQuery, sessionQuery } from "../../api/queries";
 import { queryClient } from "../../app/query-client";
@@ -12,10 +14,11 @@ import type { FieldErrors } from "../../lib/forms";
 import { describeError } from "../../lib/messages";
 import { browserWebAuthn } from "../../lib/webauthn";
 import type { WebAuthnClient } from "../../lib/webauthn";
-import { Button, ErrorCallout, TextField } from "../../ui";
+import { Button, Callout, ErrorCallout, TextField } from "../../ui";
 import { AlternativeLogins } from "./AlternativeLogins";
 import { INITIAL_LOGIN_STATE, loginReducer } from "./login-flow";
-import type { LoginState } from "./login-flow";
+import type { LoginEvent, LoginState } from "./login-flow";
+import { hasAnyLoginOption, loginOptionsOf } from "./login-options";
 import { LoginNotices } from "./LoginNotices";
 import { MfaStep } from "./MfaStep";
 import type { OAuthResultSearch } from "./search";
@@ -85,12 +88,46 @@ function PasswordForm({ onMfaRequired, onFailure, onSuccess, pending }: Password
   );
 }
 
+type EntryProps = {
+  config: UseQueryResult<PublicConfig>;
+  webauthn: WebAuthnClient;
+  dispatch: (event: LoginEvent) => void;
+  finishLogin: () => Promise<void>;
+};
+
+/** 密码步：按公开配置决定显示密码表单、通行密钥与 OAuth 按钮，以及公告与注册入口 */
+function EntryStep({ config, webauthn, dispatch, finishLogin }: EntryProps) {
+  const [passwordPending, setPasswordPending] = useState(false);
+  if (config.isPending) return <span className="skeleton" aria-label="加载中" />;
+  // 配置读取失败时仍显示密码表单（不因为读不到配置就把管理员锁在外面），同时说明原因
+  const options = config.data ? loginOptionsOf(config.data) : { password: true, passkey: false, providers: [] };
+  const form = options.password ? (
+    <PasswordForm
+      onMfaRequired={() => dispatch({ type: "mfa_required" })}
+      onFailure={(error) => dispatch({ type: "password_failed", error })}
+      onSuccess={finishLogin}
+      pending={setPasswordPending}
+    />
+  ) : null;
+  return (
+    <>
+      {config.data?.login_notice ? <p className="auth-notice">{config.data.login_notice}</p> : null}
+      {config.isError ? <ErrorCallout title="没能读取可用的登录方式" {...describeError(config.error)} onRetry={() => void config.refetch()} /> : null}
+      {form}
+      <AlternativeLogins options={options} divider={options.password} webauthn={webauthn} disabled={passwordPending} onSuccess={finishLogin} />
+      {hasAnyLoginOption(options) ? null : <Callout tone="warning" title="暂无可用的登录方式">请联系管理员。</Callout>}
+      {config.data?.registration_enabled ? (
+        <p className="auth-foot">没有账号？<Link to="/register" className="text-action">去注册</Link></p>
+      ) : null}
+    </>
+  );
+}
+
 export function LoginPage({ webauthn = browserWebAuthn }: { webauthn?: WebAuthnClient }) {
   useDocumentTitle("登录");
   const search = routeApi.useSearch();
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(loginReducer, search, initialState);
-  const [passwordPending, setPasswordPending] = useState(false);
   const finishLogin = useFinishLogin();
   const config = useQuery(publicConfigQuery());
 
@@ -116,19 +153,7 @@ export function LoginPage({ webauthn = browserWebAuthn }: { webauthn?: WebAuthnC
           onFailure={(failure) => dispatch({ type: "mfa_failed", failure })}
         />
       ) : (
-        <>
-          <PasswordForm
-            onMfaRequired={() => dispatch({ type: "mfa_required" })}
-            onFailure={(error) => dispatch({ type: "password_failed", error })}
-            onSuccess={finishLogin}
-            pending={setPasswordPending}
-          />
-          {config.data ? (
-            <AlternativeLogins config={config.data} webauthn={webauthn} disabled={passwordPending} onSuccess={finishLogin} />
-          ) : config.isError ? (
-            <ErrorCallout title="没能读取可用的登录方式" {...describeError(config.error)} onRetry={() => void config.refetch()} />
-          ) : null}
-        </>
+        <EntryStep config={config} webauthn={webauthn} dispatch={dispatch} finishLogin={finishLogin} />
       )}
     </>
   );

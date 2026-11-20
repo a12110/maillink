@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { MeResponse, PublicConfig } from "@maillink/shared";
+import type { MeResponse } from "@maillink/shared";
 import { byText, inputByLabel, settle, submit } from "../../test/dom";
 import { errorReply, installFakeFetch } from "../../test/fake-fetch";
+import { makePublicConfig } from "../../test/fixtures";
 import type { FakeFetch } from "../../test/fake-fetch";
 import { mountWithProviders } from "../../test/providers";
 import { click, typeInto } from "../../test/render";
@@ -17,7 +18,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-const CONFIG: PublicConfig = { site_name: "MailLink", registration_enabled: false, login_methods: ["password"], oauth_providers: [] };
+const CONFIG = makePublicConfig();
 const CODES = Array.from({ length: 10 }, (_, i) => `CODE${i}-ABCDE`);
 const SETUP = { secret: "JBSWY3DPEHPK3PXP", otpauth_uri: "otpauth://totp/MailLink:alice?secret=JBSWY3DPEHPK3PXP&issuer=MailLink", expires_at: 2_000_000_000 };
 

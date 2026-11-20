@@ -1,21 +1,23 @@
 import { useMutation } from "@tanstack/react-query";
 import { Fingerprint, LogIn } from "lucide-react";
-import type { PublicConfig } from "@maillink/shared";
 import { oauthStartPath } from "../../api/endpoints-auth";
 import { api } from "../../api/instance";
 import { describeWebAuthnError } from "../../lib/webauthn";
 import type { WebAuthnClient } from "../../lib/webauthn";
 import { Button, ErrorCallout } from "../../ui";
+import type { LoginOptions } from "./login-options";
 import { loginWithPasskey } from "./passkey-login";
 
 type Props = {
-  config: PublicConfig;
+  options: LoginOptions;
+  /** 上方有密码表单时才显示“或者”分隔线 */
+  divider: boolean;
   webauthn: WebAuthnClient;
   disabled: boolean;
   onSuccess: () => Promise<void>;
 };
 
-function PasskeyButton({ webauthn, disabled, onSuccess }: Omit<Props, "config">) {
+function PasskeyButton({ webauthn, disabled, onSuccess }: Pick<Props, "webauthn" | "disabled" | "onSuccess">) {
   const login = useMutation({
     mutationFn: async () => {
       await loginWithPasskey({ api, webauthn });
@@ -37,13 +39,12 @@ function PasskeyButton({ webauthn, disabled, onSuccess }: Omit<Props, "config">)
 }
 
 /** 密码表单下方：按公开配置出现的“通行密钥登录”与各 OAuth 提供方按钮（OAuth 是整页跳转，用链接而不是 fetch） */
-export function AlternativeLogins({ config, webauthn, disabled, onSuccess }: Props) {
-  const passkey = config.login_methods.includes("passkey");
-  const providers = config.login_methods.includes("oauth") ? config.oauth_providers : [];
+export function AlternativeLogins({ options, divider, webauthn, disabled, onSuccess }: Props) {
+  const { passkey, providers } = options;
   if (!passkey && providers.length === 0) return null;
   return (
     <div className="auth-alt">
-      <p className="auth-divider"><span>或者</span></p>
+      {divider ? <p className="auth-divider"><span>或者</span></p> : null}
       {passkey ? <PasskeyButton webauthn={webauthn} disabled={disabled} onSuccess={onSuccess} /> : null}
       {providers.map((provider) => (
         <a key={provider.slug} className="btn" data-variant="secondary" data-block="true" href={oauthStartPath(provider.slug, "login")}>

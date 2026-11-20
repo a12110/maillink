@@ -10,6 +10,10 @@
 @layer components {
   /* ── 登录 ── */
   .auth-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-4); font-size: var(--text-sm); }
+  /* 管理员设置的登录页公告：纯文本，保留换行 */
+  .auth-notice { margin: 0; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); color: var(--color-text-muted); background: var(--color-surface-sunken); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+  .auth-foot { margin: 0; text-align: center; font-size: var(--text-sm); color: var(--color-text-muted); }
+  .main > .callout { margin-bottom: var(--space-4); }
   .auth-alt { display: grid; gap: var(--space-3); }
   .auth-divider { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-xs); color: var(--color-text-subtle); }
   .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--color-border); }

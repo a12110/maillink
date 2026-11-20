@@ -11,6 +11,7 @@ import { parseMailsSearch } from "../features/mails/search";
 import { MailsPage } from "../features/mails/MailsPage";
 import { MailsRouteError } from "../features/mails/MailsRouteError";
 import { UsersPage } from "../features/users/UsersPage";
+import { AdminLayout } from "../shell/AdminLayout";
 import { AuthShell } from "../shell/AuthShell";
 import { PickupShell } from "../shell/PickupShell";
 import { PlaceholderPage } from "../shell/PlaceholderPage";
@@ -91,7 +92,7 @@ const adminLayout = createRoute({
   getParentRoute: () => workspaceLayout,
   path: "/admin",
   beforeLoad: ({ context }) => requireAdminSession(context),
-  component: Outlet,
+  component: AdminLayout,
 });
 const adminIndexRoute = createRoute({
   getParentRoute: () => adminLayout,

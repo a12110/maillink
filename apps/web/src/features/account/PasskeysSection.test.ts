@@ -6,6 +6,7 @@ import type { MeResponse, PublicConfig } from "@maillink/shared";
 import type { WebAuthnClient } from "../../lib/webauthn";
 import { byText, inputByLabel, settle, submit } from "../../test/dom";
 import { errorReply, installFakeFetch } from "../../test/fake-fetch";
+import { makePublicConfig } from "../../test/fixtures";
 import { mountWithProviders } from "../../test/providers";
 import { click, typeInto } from "../../test/render";
 import type { Mounted } from "../../test/render";
@@ -28,7 +29,7 @@ const CREDENTIAL: RegistrationResponseJSON = {
   id: "cred", rawId: "cred", type: "public-key", clientExtensionResults: {},
   response: { clientDataJSON: "a", attestationObject: "b" },
 };
-const CONFIG: PublicConfig = { site_name: "MailLink", registration_enabled: false, login_methods: ["password", "passkey"], oauth_providers: [] };
+const CONFIG = makePublicConfig({ login_methods: ["password", "passkey"] });
 const PASSKEYS = {
   items: [
     { id: 7, name: "MacBook", transports: ["internal"], created_at: 1_700_000_000, last_used_at: 1_700_100_000 },
