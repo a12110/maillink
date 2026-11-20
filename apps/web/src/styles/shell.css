@@ -52,7 +52,7 @@
   .page-head { display: flex; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
   .page-title { font-size: var(--text-xl); line-height: var(--leading-tight); }
   .summary { display: flex; flex-wrap: wrap; gap: 0 var(--space-3); color: var(--color-text-muted); font-size: var(--text-sm); }
-  .summary > * + *::before { content: "·"; margin-right: var(--space-3); color: var(--color-text-subtle); }
+  .summary > * + *::before { content: "·"; content: "·" / ""; margin-right: var(--space-3); color: var(--color-text-subtle); }
   .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-height: var(--toolbar-height); }
   .spacer { flex: 1; }
   .page-narrow { max-width: var(--content-max-width); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-8); padding-top: var(--space-2); }

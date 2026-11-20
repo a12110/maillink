@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeAuthMethod, describeUserAgent, displayNameOf, formatDateTime, formatRelative, initialOf } from "./format";
+import { describeAuthMethod, describeUserAgent, displayNameOf, formatCompactDateTime, formatDateTime, formatRelative, initialOf } from "./format";
 
 describe("formatDateTime", () => {
   it("今年内省略年份，跨年带年份", () => {
@@ -64,5 +64,15 @@ describe("formatRelative", () => {
   });
   it("未来时间（时钟偏差）按绝对时间，不写“负秒前”", () => {
     expect(formatRelative(sec + 120, now)).toBe("11-20 12:02");
+  });
+});
+
+describe("formatCompactDateTime", () => {
+  const sec = Math.floor(new Date(2025, 9, 9, 14, 23, 5).getTime() / 1000);
+  it("今年内与 formatDateTime 一致，title 是完整时间", () => {
+    expect(formatCompactDateTime(sec, new Date(2025, 11, 1))).toEqual({ text: "10-09 14:23", title: "2025-10-09 14:23:05" });
+  });
+  it("跨年只显示日期，完整时间在 title", () => {
+    expect(formatCompactDateTime(sec, new Date(2026, 0, 5))).toEqual({ text: "2025-10-09", title: "2025-10-09 14:23:05" });
   });
 });

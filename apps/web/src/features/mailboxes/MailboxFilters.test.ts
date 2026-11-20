@@ -3,10 +3,10 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { adminMailboxTagsQuery, queryKeys } from "../../api/queries";
 import { SEARCH_DEBOUNCE_MS } from "../../constants";
-import { installFakeFetch } from "../../test/fake-fetch";
+import { errorReply, installFakeFetch } from "../../test/fake-fetch";
 import type { FakeFetch } from "../../test/fake-fetch";
 import { mountWithProviders, testQueryClient } from "../../test/providers";
-import { selectValue, typeInto } from "../../test/render";
+import { click, selectValue, typeInto } from "../../test/render";
 import type { Mounted } from "../../test/render";
 import { settle } from "../../test/dom";
 import { api } from "../../api/instance";
@@ -25,7 +25,7 @@ afterEach(async () => {
 
 function Harness() {
   const state = useMailboxList();
-  return createElement(MailboxToolbar, { filters: state.filters, tags: state.tags, tagError: state.tagError, onChange: state.changeFilters, onImport: () => undefined });
+  return createElement(MailboxToolbar, { filters: state.filters, tags: state.tags, tagsError: state.tagsError, onRetryTags: state.retryTags, tagError: state.tagError, onChange: state.changeFilters, onImport: () => undefined });
 }
 
 async function open(tags: unknown = TAGS): Promise<FakeFetch> {
@@ -77,13 +77,33 @@ describe("收件地址工具栏筛选", () => {
   it("候选带使用次数", async () => {
     await open();
     const options = [...(mounted?.container.querySelectorAll("datalist option") ?? [])].map((o) => [o.getAttribute("value"), o.getAttribute("label")]);
-    expect(options).toEqual([["OpenAI", "OpenAI（12）"], ["GitHub", "GitHub（3）"]]);
+    expect(options).toEqual([["OpenAI", "12 个地址"], ["GitHub", "3 个地址"]]);
     expect(mounted?.container.textContent).not.toContain("只列出最常用");
   });
 
   it("truncated=true 时提示只列出了前 N 个", async () => {
     await open({ ...TAGS, truncated: true });
     expect(mounted?.container.textContent).toContain("只列出最常用的 2 个标签，可直接输入");
+  });
+
+  it("/tags 失败：就地显示错误码与重试，输入框仍可用，重试后恢复", async () => {
+    const failed = installFakeFetch({
+      "GET /api/admin/mailboxes": { json: EMPTY_LIST },
+      "GET /api/admin/mailboxes/tags": errorReply(500, "internal_error", "boom"),
+    });
+    mounted = await mountWithProviders(createElement(Harness));
+    await settle();
+    const alert = mounted.container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain("标签候选加载失败");
+    expect(alert?.textContent).toContain("internal_error");
+    expect(mounted.container.querySelector<HTMLInputElement>('input[aria-label="标签筛选"]')?.disabled).toBe(false);
+    failed.set("GET /api/admin/mailboxes/tags", { json: TAGS });
+    const retry = alert?.querySelector("button");
+    if (!retry) throw new Error("没有重试按钮");
+    await click(retry);
+    await settle();
+    expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
+    expect(mounted.container.querySelectorAll("datalist option")).toHaveLength(2);
   });
 
   it("链接、状态、标签、搜索组合后发出对应查询参数", async () => {

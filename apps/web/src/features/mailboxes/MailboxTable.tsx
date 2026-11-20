@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Inbox, Link2, MailX, Pencil } from "lucide-react";
 import type { AdminMailbox } from "@maillink/shared";
-import { formatDateTime } from "../../lib/format";
+import { formatCompactDateTime } from "../../lib/format";
 import { Button, Checkbox, EmptyState, ErrorCallout, SkeletonRows, Status, Tag } from "../../ui";
 import { STATUS_LABEL } from "./labels";
 import type { Selection } from "./useMailboxSelection";
@@ -52,6 +52,12 @@ function LinkCountCell({ mailbox }: { mailbox: AdminMailbox }) {
   );
 }
 
+function CompactTime({ value, empty }: { value: number | null; empty: string }) {
+  if (value === null) return <span className="dim">{empty}</span>;
+  const { text, title } = formatCompactDateTime(value);
+  return <span title={title}>{text}</span>;
+}
+
 type RowProps = { mailbox: AdminMailbox; checked: boolean; onToggle: (checked: boolean) => void; onEdit: () => void };
 
 function MailboxRow({ mailbox, checked, onToggle, onEdit }: RowProps) {
@@ -70,7 +76,7 @@ function MailboxRow({ mailbox, checked, onToggle, onEdit }: RowProps) {
       <td className="col-optional col-num"><LinkCountCell mailbox={mailbox} /></td>
       <td className="col-optional col-num"><CountCell value={mailbox.grant_count} /></td>
       <td className="time col-secondary">
-        {mailbox.last_received_at === null ? <span className="dim">从未来信</span> : formatDateTime(mailbox.last_received_at)}
+        <CompactTime value={mailbox.last_received_at} empty="从未来信" />
       </td>
       <td className="col-actions">
         <div className="row-actions" role="group" aria-label={`${address} 的操作`}>

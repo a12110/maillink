@@ -4,6 +4,7 @@ import { mailboxTagSchema } from "@maillink/shared";
 import type { MailboxStatus } from "@maillink/shared";
 import { adminMailboxesQuery, adminMailboxTagsQuery } from "../../api/queries";
 import { MAILBOXES_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "../../constants";
+import { describeError } from "../../lib/messages";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
 export type LinkFilter = "" | "with" | "without";
@@ -46,6 +47,8 @@ export function useMailboxList() {
     filtered: query.q !== undefined || tag.value !== undefined || query.status !== undefined || query.has_link !== undefined,
     tagError: parseTagFilter(filters.tag).error,
     tags: tags.data ?? null,
+    tagsError: tags.isError ? describeError(tags.error) : null,
+    retryTags: () => void tags.refetch(),
     totals,
     page: cursors.length + 1,
     hasNext: nextCursor !== null,

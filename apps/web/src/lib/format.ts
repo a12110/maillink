@@ -28,6 +28,17 @@ export function formatFullDateTime(unixSec: number): string {
   return `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+/**
+ * 窄列用：今年内 `MM-DD HH:mm`，跨年只显示日期 `YYYY-MM-DD`（带年份的完整时间约 149px，放不进 112–120px 的列）；
+ * title 始终是完整时间 `YYYY-MM-DD HH:mm:ss`。
+ */
+export function formatCompactDateTime(unixSec: number, now: Date = new Date()): { text: string; title: string } {
+  const d = new Date(unixSec * MS_PER_SECOND);
+  const title = formatFullDateTime(unixSec);
+  if (d.getFullYear() === now.getFullYear()) return { text: formatDateTime(unixSec, now), title };
+  return { text: title.slice(0, "YYYY-MM-DD".length), title };
+}
+
 const BROWSERS: ReadonlyArray<readonly [RegExp, string]> = [
   [/Edg(e|A|iOS)?\//, "Edge"],
   [/OPR\/|Opera/, "Opera"],

@@ -32,7 +32,7 @@ export function MailboxesPage() {
   const [editing, setEditing] = useState<AdminMailbox | null>(null);
   const { list } = state;
   const toolbar = (
-    <MailboxToolbar filters={state.filters} tags={state.tags} tagError={state.tagError} onChange={state.changeFilters} onImport={() => setImporting(true)} />
+    <MailboxToolbar filters={state.filters} tags={state.tags} tagsError={state.tagsError} onRetryTags={state.retryTags} tagError={state.tagError} onChange={state.changeFilters} onImport={() => setImporting(true)} />
   );
   return (
     <>
