@@ -1,6 +1,6 @@
 import { useId } from "react";
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
-import { ChevronDown } from "lucide-react";
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { ChevronDown, Lock } from "lucide-react";
 
 type FieldFrameProps = {
   label: string;
@@ -59,6 +59,43 @@ export function TextField({ label, hint, error, mono, ...rest }: TextFieldProps)
   );
 }
 
+type TextAreaFieldProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id"> & {
+  label: string;
+  hint?: string;
+  error?: string;
+  mono?: boolean;
+  /** 标签只给读屏（旁边已有可见标题时） */
+  hideLabel?: boolean;
+};
+
+export function TextAreaField({ label, hint, error, mono, hideLabel, ...rest }: TextAreaFieldProps) {
+  const id = useId();
+  return (
+    <div className="field">
+      <label className={hideLabel ? "sr-only" : "field-label"} htmlFor={id}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        className="textarea"
+        data-mono={mono ? "true" : undefined}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={describedBy(id, hint, error)}
+        {...rest}
+      />
+      {error ? (
+        <p className="field-error" id={`${id}-error`}>
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="field-hint" id={`${id}-hint`}>
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { block?: boolean };
 
 /** 原生 select 去外观 + 自绘箭头。工具栏里用 aria-label 命名 */
@@ -73,7 +110,12 @@ export function Select({ block, children, ...rest }: SelectProps) {
   );
 }
 
-type SegmentedOption<T extends string> = { value: T; label: string };
+type SegmentedOption<T extends string> = {
+  value: T;
+  label: string;
+  /** 互斥约束：保留在原位、带锁图标，点击不切换，改为通知 onLockedSelect（由调用方在控件下方写明原因） */
+  locked?: boolean;
+};
 
 type SegmentedProps<T extends string> = {
   legend: string;
@@ -81,17 +123,24 @@ type SegmentedProps<T extends string> = {
   value: T;
   options: ReadonlyArray<SegmentedOption<T>>;
   onChange: (value: T) => void;
+  onLockedSelect?: (value: T) => void;
+  /** 锁定项的原因所在元素 id，读屏用 aria-describedby 关联 */
+  lockedReasonId?: string;
   hint?: string;
   disabled?: boolean;
+  size?: "sm";
+  /** 旁边已有可见的文字标签时，只给读屏留 legend */
+  hideLegend?: boolean;
 };
 
 /** 2–4 个互斥项的分段控件，底层是原生 radio（方向键、读屏都由浏览器处理） */
-export function Segmented<T extends string>({ legend, name, value, options, onChange, hint, disabled }: SegmentedProps<T>) {
+export function Segmented<T extends string>(props: SegmentedProps<T>) {
+  const { legend, name, value, options, onChange, onLockedSelect, lockedReasonId, hint, disabled, size, hideLegend } = props;
   const hintId = useId();
   return (
     <fieldset className="segmented-group" aria-describedby={hint ? hintId : undefined}>
-      <legend className="field-label">{legend}</legend>
-      <div className="segmented">
+      <legend className={hideLegend ? "sr-only" : "field-label"}>{legend}</legend>
+      <div className="segmented" data-size={size}>
         {options.map((option) => (
           <label key={option.value}>
             <input
@@ -100,9 +149,14 @@ export function Segmented<T extends string>({ legend, name, value, options, onCh
               value={option.value}
               checked={value === option.value}
               disabled={disabled}
-              onChange={() => onChange(option.value)}
+              aria-disabled={option.locked ? "true" : undefined}
+              aria-describedby={option.locked ? lockedReasonId : undefined}
+              onChange={() => (option.locked ? onLockedSelect?.(option.value) : onChange(option.value))}
             />
-            <span>{option.label}</span>
+            <span>
+              {option.locked ? <Lock className="icon-sm" aria-hidden="true" /> : null}
+              {option.label}
+            </span>
           </label>
         ))}
       </div>

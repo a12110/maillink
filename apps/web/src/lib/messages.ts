@@ -6,6 +6,7 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
     "这是最后一个启用的管理员，不能降级、停用或删除。请先把另一个用户设为启用的管理员，再操作这个账号。",
   username_taken: "用户名已被使用",
   email_taken: "邮箱已被其他用户使用",
+  admin_2fa_required: "系统要求管理员启用两步验证。请先到“账号安全”启用，之后才能使用管理功能。",
   invalid_current_password: "当前密码错误",
   invalid_setup_token: "初始化令牌错误",
   cannot_revoke_current_session: "不能注销当前会话，请使用“退出登录”",

@@ -10,6 +10,7 @@ import { useNowSeconds } from "./hooks";
 import { DEFAULT_TITLE, RemainingTime, SiteNotice } from "./PickupHead";
 import { pickupApi } from "./pickup-api";
 import type { PickupApi } from "./pickup-api";
+import type { TurnstileLoader } from "../turnstile/loader";
 import { StartView } from "./StartView";
 import {
   DailyLimitView,
@@ -57,7 +58,7 @@ function brandOf(status: LinkPublicStatus | null): PickupBrand | undefined {
 }
 
 /** 取件页状态机：先 GET 状态，再按 `state` 与错误码渲染对应视图 */
-export function PickupPage({ token, api = pickupApi }: { token: string; api?: PickupApi }) {
+export function PickupPage({ token, api = pickupApi, turnstileLoader }: { token: string; api?: PickupApi; turnstileLoader?: TurnstileLoader }) {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const now = useNowSeconds();
   usePickupMeta();
@@ -90,7 +91,7 @@ export function PickupPage({ token, api = pickupApi }: { token: string; api?: Pi
       wide={phase.kind === "ready" && phase.status.state === "active" && phase.status.view !== "code_only"}
       topRight={phase.kind === "ready" ? <TopRight status={phase.status} now={now} /> : undefined}
     >
-      <PageBody phase={phase} token={token} api={api} title={title} onReload={() => void load()} onStatus={(status) => setPhase({ kind: "ready", status })} />
+      <PageBody phase={phase} token={token} api={api} turnstileLoader={turnstileLoader} title={title} onReload={() => void load()} onStatus={(status) => setPhase({ kind: "ready", status })} />
     </PickupShell>
   );
 }
@@ -105,6 +106,7 @@ type BodyProps = {
   phase: Phase;
   token: string;
   api: PickupApi;
+  turnstileLoader?: TurnstileLoader;
   title: string;
   onReload: () => void;
   onStatus: (status: LinkPublicStatus) => void;
@@ -134,7 +136,7 @@ function FailureBody({ failure, ...ctx }: { failure: PageFailure } & Ctx) {
   return <>{render(failure, ctx)}</>;
 }
 
-function PageBody({ phase, token, api, title, onReload, onStatus }: BodyProps) {
+function PageBody({ phase, token, api, turnstileLoader, title, onReload, onStatus }: BodyProps) {
   if (phase.kind === "loading") {
     return (
       <PickupMain>
@@ -153,7 +155,7 @@ function PageBody({ phase, token, api, title, onReload, onStatus }: BodyProps) {
   const { status } = phase;
   switch (status.state) {
     case "needs_start":
-      return <StartView token={token} status={status} api={api} onStarted={onStatus} onBlocked={onReload} />;
+      return <StartView token={token} status={status} api={api} turnstileLoader={turnstileLoader} onStarted={onStatus} onBlocked={onReload} />;
     case "active":
       return <ActiveView token={token} status={status} api={api} baseTitle={title} onBlocked={onReload} />;
     case "device_limit":

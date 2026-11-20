@@ -161,7 +161,7 @@ function Body(props: LinkTableProps) {
   return (
     <>
       {errorBlock}
-      <table className="table" aria-busy={props.loading}>
+      <table className="table link-table" aria-busy={props.loading}>
         <TableHead allChecked={allChecked} onToggleAll={props.onToggleAll} />
         <tbody>
           {links ? (

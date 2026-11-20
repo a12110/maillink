@@ -1,0 +1,89 @@
+/* 系统设置页、注册页与 Turnstile 控件的样式：只引用语义变量；尺寸常量集中在文件头。 */
+:root {
+  --settings-nav-width: 200px;
+  --settings-form-max-width: 560px;
+  --dialog-wide-max-width: 720px;
+  --logo-thumb-size: 48px;
+  --swatch-size: 24px;
+  --color-input-size: 32px;
+  --textarea-min-height: 64px;
+  --turnstile-min-height: 65px;
+  --preview-code-size: var(--text-2xl);
+}
+
+@layer components {
+  /* ── 页面骨架：左分组导航 + 右表单；窄屏导航变成可横向滚动的一行 ── */
+  .settings-layout { display: grid; gap: var(--space-5); align-items: start; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1024px) { .settings-layout { grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); } }
+  .settings-nav { display: flex; gap: var(--space-1); overflow-x: auto; padding-bottom: var(--space-1); }
+  @media (min-width: 1024px) { .settings-nav { display: grid; position: sticky; top: var(--space-5); overflow: visible; padding-bottom: 0; } }
+  .settings-nav-item {
+    display: flex; align-items: center; flex: none; height: var(--nav-item-height); padding: 0 var(--space-3);
+    border-radius: var(--radius-md); font-size: var(--text-base); white-space: nowrap;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .settings-nav-item:hover { background: var(--color-row-selected); }
+  .settings-nav-item[aria-current="page"] { background: var(--color-accent-soft); font-weight: var(--weight-strong); }
+  .settings-body { display: grid; gap: var(--space-2); min-width: 0; align-content: start; }
+  .settings-body > .section-lead { margin-bottom: var(--space-3); }
+  .settings-form { display: grid; gap: var(--space-4); max-width: var(--settings-form-max-width); }
+  .settings-form[data-wide="true"] { max-width: none; }
+
+  /* ── 勾选项 ── */
+  .check-field { display: grid; gap: var(--space-1); }
+  .check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-height); font-size: var(--text-base); }
+  .check input { width: var(--icon-size); height: var(--icon-size); margin: 0; accent-color: var(--color-selected); flex: none; }
+  .check-hint { padding-left: calc(var(--icon-size) + var(--space-2)); margin-top: calc(var(--space-1) * -1); }
+  .check-group { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: var(--space-1); }
+  .textarea { height: auto; min-height: var(--textarea-min-height); padding: var(--space-2) var(--space-3); resize: vertical; line-height: var(--leading-normal); }
+  .field-row { display: grid; gap: var(--space-3); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 639px) { .field-row { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ── Logo ── */
+  .logo-row { display: flex; gap: var(--space-3); align-items: flex-start; }
+  .logo-thumb { flex: none; width: var(--logo-thumb-size); height: var(--logo-thumb-size); object-fit: contain; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+  .logo-empty { display: block; background: var(--color-surface-sunken); }
+  .logo-controls { display: grid; gap: var(--space-2); min-width: 0; flex: 1; }
+
+  /* ── 强调色与预览 ── */
+  .accent-picker { display: grid; gap: var(--space-2); }
+  .accent-input { display: flex; gap: var(--space-2); align-items: flex-end; }
+  .accent-input .field { flex: 1; }
+  .color-input { flex: none; width: var(--control-height); height: var(--control-height); padding: 2px; border: 1px solid var(--color-border-control); border-radius: var(--radius-md); background: var(--color-surface); margin-bottom: calc(var(--text-xs) * var(--leading-snug) + var(--space-1)); }
+  .swatches { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+  .swatch { width: var(--swatch-size); height: var(--swatch-size); border-radius: 50%; border: 1px solid var(--color-border-control); }
+  .swatch[aria-pressed="true"] { outline: var(--focus-ring-width) solid var(--color-text); outline-offset: var(--focus-ring-offset); }
+  .accent-report { display: grid; gap: var(--space-2); list-style: none; padding: 0; margin: 0; }
+  .appearance-preview { display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px dashed var(--color-border-control); border-radius: var(--radius-lg); background: var(--color-bg); }
+  .preview-pickup { display: grid; gap: var(--space-2); }
+  .preview-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+  .preview-code { font-family: var(--font-mono); font-size: var(--preview-code-size); letter-spacing: var(--tracking-code); font-weight: var(--weight-strong); }
+  .preview-link { color: var(--color-accent-text); }
+
+  /* ── 系统状态 ── */
+  .kv-wide { grid-template-columns: 140px minmax(0, 1fr); gap: var(--space-3) var(--space-4); align-items: start; }
+  .cell-tags-wrap { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+  .cron-line { display: grid; gap: var(--space-1); }
+  .cron-detail { color: var(--color-text-muted); font-size: var(--text-xs); }
+
+  /* ── OAuth ── */
+  .row-actions { display: flex; justify-content: flex-end; gap: var(--space-1); }
+  /* 宽对话框：标题与按钮栏固定，只有表单体滚动 */
+  .dialog[data-wide="true"] { width: min(var(--dialog-wide-max-width), calc(100vw - var(--viewport-gutter))); display: flex; flex-direction: column; overflow: hidden; }
+  .dialog[data-wide="true"] > .dialog-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  .dialog[data-wide="true"] .dialog-scroll { overflow-y: auto; min-height: 0; flex: 1; }
+  .dialog[data-wide="true"] .dialog-foot { border-top: 1px solid var(--color-border); padding-top: var(--space-3); }
+  .dialog-lead { padding: 0 var(--space-6); color: var(--color-text-muted); }
+  .dialog[data-wide="true"] .dialog-lead { padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
+  .dialog-scroll { padding-top: var(--space-4); }
+  .dialog-form { gap: 0; }
+  .claim-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: var(--space-2); }
+  .copy-row { display: flex; gap: var(--space-2); align-items: center; }
+  .copy-value { flex: 1; min-width: 0; padding: var(--space-2) var(--space-3); background: var(--color-surface-sunken); border-radius: var(--radius-md); font-size: var(--text-sm); overflow-wrap: anywhere; color: var(--color-text); }
+
+  /* ── Turnstile 与注册 ── */
+  .turnstile { display: grid; gap: var(--space-2); }
+  .turnstile-box { min-height: var(--turnstile-min-height); }
+  .auth-alt { margin-top: 0; text-align: center; }
+  .auth-alt .text-action { color: var(--color-text); }
+}

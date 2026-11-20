@@ -47,6 +47,15 @@ describe("API 客户端", () => {
     expect(error).toMatchObject({ status: 409, code: "last_admin_protected", message: "不能…" });
   });
 
+  it("错误体里 code / message 之外的字段（如 issues）保留在 details 里，供编辑器按路径定位", async () => {
+    const issues = [{ code: "empty_value", severity: "error", path: ["a"], message: "m" }];
+    const { client } = setup(() => jsonResponse({ error: { code: "rule_group_invalid", message: "规则组配置不合法", issues, warnings: [] } }, 400));
+    const error = await client.request({ path: "/api/x", schema: okSchema }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).details).toEqual({ issues, warnings: [] });
+    expect(error).toMatchObject({ status: 400, code: "rule_group_invalid" });
+  });
+
   it("非统一格式的错误响应（如 HTML 502）标成 unexpected_response", async () => {
     const { client } = setup(() => new Response("<html>bad gateway</html>", { status: 502 }));
     const error = await client.request({ path: "/api/x", schema: okSchema }).catch((e: unknown) => e);
@@ -91,5 +100,19 @@ describe("API 客户端", () => {
     const { client, onUnauthorized } = setup(() => jsonResponse({ error: { code: "forbidden", message: "x" } }, 403));
     await expect(client.request({ path: "/api/x", schema: okSchema })).rejects.toMatchObject({ status: 403 });
     expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
+  it("429：带出 Retry-After（整数秒）；缺失或格式不对时为 undefined", async () => {
+    const limited = (retryAfter?: string) =>
+      setup(
+        () =>
+          new Response(JSON.stringify({ error: { code: "rate_limited", message: "x" } }), {
+            status: 429,
+            headers: retryAfter === undefined ? {} : { "Retry-After": retryAfter },
+          }),
+      ).client.request({ path: "/api/x", schema: okSchema });
+    await expect(limited("60")).rejects.toMatchObject({ code: "rate_limited", retryAfterSec: 60 });
+    await expect(limited()).rejects.toMatchObject({ retryAfterSec: undefined });
+    await expect(limited("Wed, 21 Oct 2026 07:28:00 GMT")).rejects.toMatchObject({ retryAfterSec: undefined });
   });
 });

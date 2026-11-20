@@ -81,3 +81,58 @@ describe("问题归类", () => {
     expect(() => applyUrlOverrides("?accent=zzz", DEFAULT_THEME_SETTINGS)).toThrow(ThemeParamError);
   });
 });
+
+function recordingTarget() {
+  const attrs = new Map<string, string>();
+  const styles = new Map<string, string>();
+  const target: ThemeTarget = {
+    setAttribute: (name, value) => void attrs.set(name, value),
+    setStyleProperty: (name, value) => void styles.set(name, value),
+    removeStyleProperty: (name) => void styles.delete(name),
+    readVariable: (name) => LIGHT_VARS[name as keyof typeof LIGHT_VARS] ?? "",
+  };
+  return { target, attrs, styles };
+}
+
+describe("主题来源：公开配置 + 预览", () => {
+  const BLUE = { mode: "light", radius: "8", accent: "#2f5fa8" } as const;
+
+  it("服务端设置到达后替换默认值", () => {
+    const { target, attrs, styles } = recordingTarget();
+    const theme = startThemeWith({ target, media: fakeMedia(true).media, search: "", report: () => undefined });
+    expect(attrs.get("data-theme")).toBe("dark");
+    theme.update(BLUE);
+    expect(attrs.get("data-theme")).toBe("light");
+    expect(attrs.get("data-radius")).toBe("8");
+    expect(styles.get("--color-accent")).toBe("#2f5fa8");
+  });
+
+  it("URL 预览参数盖在服务端设置之上", () => {
+    const { target, attrs } = recordingTarget();
+    const theme = startThemeWith({ target, media: fakeMedia(false).media, search: "?theme=dark", report: () => undefined });
+    theme.update(BLUE);
+    expect(attrs.get("data-theme")).toBe("dark");
+    expect(attrs.get("data-radius")).toBe("8");
+  });
+
+  it("预览即时生效，传 null 撤销回到服务端设置", () => {
+    const { target, attrs, styles } = recordingTarget();
+    const theme = startThemeWith({ target, media: fakeMedia(false).media, search: "", report: () => undefined });
+    theme.update(BLUE);
+    theme.preview({ mode: "dark", radius: "0", accent: "#1f7a5a" });
+    expect(attrs.get("data-radius")).toBe("0");
+    expect(styles.get("--color-accent")).not.toBe("#2f5fa8");
+    theme.preview(null);
+    expect(attrs.get("data-radius")).toBe("8");
+    expect(attrs.get("data-theme")).toBe("light");
+    expect(styles.get("--color-accent")).toBe("#2f5fa8");
+  });
+
+  it("预览期间服务端设置更新不会冲掉预览", () => {
+    const { target, attrs } = recordingTarget();
+    const theme = startThemeWith({ target, media: fakeMedia(false).media, search: "", report: () => undefined });
+    theme.preview({ mode: "light", radius: "0", accent: "#c8432b" });
+    theme.update(BLUE);
+    expect(attrs.get("data-radius")).toBe("0");
+  });
+});

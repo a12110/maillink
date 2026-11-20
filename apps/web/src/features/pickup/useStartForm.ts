@@ -16,11 +16,11 @@ type Options = {
 /** 这些错误不能就地解决（设备已满、每日上限、链接失效…），交给页面重新取状态 */
 const BLOCKING_KINDS: ReadonlySet<string> = new Set(["device_limit", "daily_limit", "unavailable", "not_found", "not_yet_valid"]);
 
-/** “开始取码”表单：口令、人机验证 token、提交与就地错误。Turnstile token 一次性，失败后换 epoch 重新验证 */
+/** “开始取码”表单：口令、人机验证 token、提交与就地错误。Turnstile token 一次性，失败后递增 resetKey 让控件重置、重新验证 */
 export function useStartForm({ token, status, api, onStarted, onBlocked }: Options) {
   const [password, setPassword] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [epoch, setEpoch] = useState(0);
+  const [resetKey, setResetKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<InlineProblem | null>(null);
   const needsTurnstile = status.turnstile.required;
@@ -47,11 +47,11 @@ export function useStartForm({ token, status, api, onStarted, onBlocked }: Optio
       setProblem(describeStartError(error));
       if (needsTurnstile) {
         setTurnstileToken(null);
-        setEpoch((value) => value + 1);
+        setResetKey((value) => value + 1);
       }
     } finally {
       setBusy(false);
     }
   };
-  return { password, setPassword, setTurnstileToken, epoch, busy, problem, ready, submit };
+  return { password, setPassword, setTurnstileToken, resetKey, busy, problem, ready, submit };
 }

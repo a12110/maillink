@@ -54,9 +54,37 @@ describe("路由树守卫（真实路由树 + 内存 history）", () => {
     expect(await landAt("/login", { session: session("user") })).toBe("/inbox");
   });
 
-  it("需要初始化时任何页面都进 /setup", async () => {
-    for (const path of ["/", "/login", "/admin/users", "/s/abc", "/inbox"]) {
+  it("需要初始化时除取件页外的任何页面都进 /setup；取件页不受影响", async () => {
+    for (const path of ["/", "/login", "/admin/users", "/inbox"]) {
       expect(await landAt(path, { session: null, needsSetup: true })).toBe("/setup");
+    }
+    expect(await landAt("/s/abc", { session: null, needsSetup: true })).toBe("/s/abc");
+  });
+
+  it("取件页路径区分大小写：/s/abc 是取件页，/S/abc 不匹配（走 404 兜底）", async () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.setupStatus, { needs_setup: false });
+    const router = createAppRouter({ client, history: createMemoryHistory({ initialEntries: ["/s/abc"] }) });
+    await router.load();
+    expect(router.state.matches.some((match) => match.routeId === "/s/$token")).toBe(true);
+    const upper = createAppRouter({ client, history: createMemoryHistory({ initialEntries: ["/S/abc"] }) });
+    await upper.load();
+    expect(upper.state.matches.some((match) => match.routeId === "/s/$token")).toBe(false);
+    expect(upper.state.matches.map((match) => match.routeId)).toEqual(["__root__"]);
+  });
+
+  it("取件页不请求 /api/setup/status（也不依赖它成功）", async () => {
+    const fetchMock = vi.fn(async () => new Response("boom", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const client = new QueryClient();
+      const router = createAppRouter({ client, history: createMemoryHistory({ initialEntries: ["/__start"] }) });
+      await router.navigate({ to: "/s/$token", params: { token: "abc" } });
+      expect(router.state.location.pathname).toBe("/s/abc");
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(client.getQueryData(queryKeys.setupStatus)).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 

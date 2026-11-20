@@ -3,7 +3,7 @@ import type { ShareLinkState } from "@maillink/shared";
 import { z } from "zod";
 
 // /admin/links 的 URL search params：只用来从别的页面带筛选进来（收件地址页的“已有链接”、规则组页的“被 N 个链接使用”）
-// 以及“生成取件链接”批量入口（create_for = 逗号分隔的收件地址 id）。页面内的筛选是本地状态。
+// 以及“生成取件链接”批量入口（create_for = 收件地址 id 列表：数组，或逗号分隔的字符串）。页面内的筛选是本地状态。
 // 路由默认把纯数字参数 JSON 解析成 number，所以数字字段同时接受 string 与 number。
 
 const blank = (value: unknown) => (value === "" || value === null ? undefined : value);
@@ -13,8 +13,8 @@ const text = z.preprocess(blank, z.union([z.string(), z.number()]).transform(Str
 const idList = z.preprocess(
   blank,
   z
-    .union([z.string(), z.number()])
-    .transform((value) => String(value).split(",").map((part) => Number(part.trim())))
+    .union([z.string(), z.number(), z.array(z.number())])
+    .transform((value) => (Array.isArray(value) ? value : String(value).split(",").map((part) => Number(part.trim()))))
     .pipe(z.array(z.number().int().positive().safe()).min(1))
     .optional(),
 );

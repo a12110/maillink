@@ -1,28 +1,31 @@
 /* 取件链接管理页（/admin/links）：表格行内操作、侧板分区、创建对话框。只引用语义变量。 */
 @layer components {
   /* 链接表的列宽档位：名称列吃剩余宽度（≥220），其余按内容定宽 */
-  .table col[data-w="check"] { width: 40px; }
-  .table col[data-w="addr"] { width: 180px; }
-  .table col[data-w="group"] { width: 112px; }
-  .table col[data-w="state"] { width: 196px; }
-  .table col[data-w="num"] { width: 64px; }
-  .table col[data-w="time"] { width: 112px; }
-  .table col[data-w="actions"] { width: 72px; }
-  .table .col-check { width: 40px; padding: 0 0 0 var(--space-3); }
-  .table th.col-check, .table td.col-check { overflow: visible; }
-  .table input[type="checkbox"], .picker input[type="checkbox"], .check-row input[type="checkbox"], .choice input[type="radio"] { accent-color: var(--color-selected); width: 16px; height: 16px; margin: 0; flex: none; }
+  .link-table col[data-w="check"] { width: 40px; }
+  .link-table col[data-w="addr"] { width: 180px; }
+  .link-table col[data-w="group"] { width: 112px; }
+  .link-table col[data-w="state"] { width: 196px; }
+  .link-table col[data-w="num"] { width: 64px; }
+  .link-table col[data-w="time"] { width: 112px; }
+  .link-table col[data-w="actions"] { width: 72px; }
+  .link-table .col-check { width: 40px; padding: 0 0 0 var(--space-3); }
+  .link-table th.col-check, .link-table td.col-check { overflow: visible; }
+  .link-table input[type="checkbox"], .picker input[type="checkbox"], .check-row input[type="checkbox"], .choice input[type="radio"] { accent-color: var(--color-selected); width: 16px; height: 16px; margin: 0; flex: none; }
   .cell-status { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
   .tag-icon { width: 12px; height: 12px; margin-right: 4px; }
   .inline-icon { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
-  .table .col-actions { width: 76px; padding: 0 var(--space-2) 0 0; text-align: right; overflow: visible; }
+  .link-table .col-actions { width: 76px; padding: 0 var(--space-2) 0 0; text-align: right; overflow: visible; }
 
   /* 行内操作：悬停 / 行内任一元素聚焦时淡入（opacity，保证键盘 Tab 可达）；触屏常驻 */
-  .row-actions { display: inline-flex; gap: 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
-  .table tbody tr:hover .row-actions, .table tbody tr:focus-within .row-actions { opacity: 1; }
-  @media (hover: none) { .row-actions { opacity: 1; } }
-  .row-actions .btn { color: var(--color-text-muted); }
-  .row-actions .btn:hover, .row-actions .btn:focus-visible { color: var(--color-text); background: var(--color-row-selected); }
+  .link-table .row-actions { display: inline-flex; gap: 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+  .link-table tbody tr:hover .row-actions, .link-table tbody tr:focus-within .row-actions { opacity: 1; }
+  @media (hover: none) { .link-table .row-actions { opacity: 1; } }
+  .link-table .row-actions .btn { color: var(--color-text-muted); }
+  .link-table .row-actions .btn:hover, .link-table .row-actions .btn:focus-visible { color: var(--color-text); background: var(--color-row-selected); }
 
+  /* 收件地址页的链接数入口：带点状下划线的数字 */
+  .num-link { display: inline-block; min-width: 28px; padding: 0 2px; text-decoration: underline dotted var(--color-border-control); text-underline-offset: 3px; border-radius: var(--radius-sm); }
+  .num-link:hover { text-decoration-style: solid; background: var(--color-row-selected); }
   .link-order-filter { width: 100px; }
   .link-order-filter .input { padding-left: var(--space-3); }
   /* 侧板打开时列表区只有 ~750px：搜索框可收缩，规则组下拉限宽，工具栏尽量一行 */
@@ -32,8 +35,8 @@
   .toolbar .link-select .select { text-overflow: ellipsis; }
   .filter-chip { display: inline-flex; align-items: center; gap: 2px; padding: 0; background: none; border: 0; color: var(--color-text-muted); }
   .filter-chip:hover { color: var(--color-text); }
-  .batch-bar { background: var(--color-surface-sunken); border-radius: var(--radius-md); padding: 0 var(--space-3); }
-  .batch-count { font-weight: var(--weight-strong); margin-right: var(--space-2); }
+  .link-batch-bar { background: var(--color-surface-sunken); border-radius: var(--radius-md); padding: 0 var(--space-3); }
+  .link-batch-count { font-weight: var(--weight-strong); margin-right: var(--space-2); }
 
   /* ── 侧板 ── */
   .plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }

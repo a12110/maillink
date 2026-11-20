@@ -62,18 +62,18 @@ describe("MailHtmlFrame（PLAN「邮件 HTML 展示的硬性要求」第 1 条�
 });
 
 describe("MailBody", () => {
-  it("有 html 时用隔离框，没有时显示纯文本并说明 HTML 尚未开放", () => {
+  it("有 html 时用隔离框，没有时显示纯文本并说明 HTML 没有显示（不回退原始 HTML）", () => {
     const withHtml = renderToStaticMarkup(createElement(MailBody, { html: "<p>h</p>", text: "t", hasHtml: true, title: "x" }));
     expect(withHtml).toContain("<iframe");
     const withoutHtml = renderToStaticMarkup(createElement(MailBody, { html: null, text: "纯文本", hasHtml: true, title: "x" }));
     expect(withoutHtml).not.toContain("<iframe");
-    expect(withoutHtml).toContain("HTML 正文将在后端开放后显示");
+    expect(withoutHtml).toContain("这封邮件的 HTML 正文没有显示");
     expect(withoutHtml).toContain("纯文本");
   });
 
-  it("邮件本来就没有 HTML 时不显示“将在后端开放”的说明", () => {
+  it("邮件本来就没有 HTML 时不显示“HTML 没有显示”的说明", () => {
     const html = renderToStaticMarkup(createElement(MailBody, { html: null, text: "只有文本", hasHtml: false, title: "x" }));
-    expect(html).not.toContain("后端开放");
+    expect(html).not.toContain("HTML 正文没有显示");
   });
 });
 

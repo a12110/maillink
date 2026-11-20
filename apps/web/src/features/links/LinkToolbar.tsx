@@ -98,8 +98,8 @@ type BatchBarProps = {
 /** 批量条：与工具栏同一位置互换，不推动表格 */
 export function BatchBar({ count, busy, onAction, onClear }: BatchBarProps) {
   return (
-    <div className="toolbar batch-bar" role="toolbar" aria-label="批量操作">
-      <span className="batch-count num">已选 {count} 项</span>
+    <div className="toolbar link-batch-bar" role="toolbar" aria-label="批量操作">
+      <span className="link-batch-count num">已选 {count} 项</span>
       <Button disabled={busy} onClick={() => onAction("extend")}>
         <CalendarPlus />
         延长有效期

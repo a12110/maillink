@@ -56,7 +56,7 @@ function TableHead() {
           <th>角色</th>
           <th>状态</th>
           <th className="col-optional">登录方式</th>
-          <th className="col-optional col-num">授权邮箱数</th>
+          <th className="col-optional col-num" title="统计全部授权，含已过期或地址已停用的">授权邮箱数<span className="dim">（含失效）</span></th>
           <th className="col-secondary">最近登录</th>
         </tr>
       </thead>

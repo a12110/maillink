@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeUserAgent, displayNameOf, formatDateTime, initialOf } from "./format";
+import { describeAuthMethod, describeUserAgent, displayNameOf, formatDateTime, formatRelative, initialOf } from "./format";
 
 describe("formatDateTime", () => {
   it("今年内省略年份，跨年带年份", () => {
@@ -39,5 +39,30 @@ describe("名称", () => {
   it("首字母头像", () => {
     expect(initialOf("alice")).toBe("A");
     expect(initialOf("爱丽丝")).toBe("爱");
+  });
+});
+
+describe("登录方式名称", () => {
+  it("密码 / 验证码 / 恢复码 / 通行密钥 / 第三方（oauth:<slug>），未知值原样显示", () => {
+    expect(describeAuthMethod("password")).toBe("密码");
+    expect(describeAuthMethod("totp")).toBe("验证码");
+    expect(describeAuthMethod("recovery")).toBe("恢复码");
+    expect(describeAuthMethod("passkey")).toBe("通行密钥");
+    expect(describeAuthMethod("oauth:github")).toBe("第三方（github）");
+    expect(describeAuthMethod("something-new")).toBe("something-new");
+  });
+});
+
+describe("formatRelative", () => {
+  const now = new Date(2026, 10, 20, 12, 0, 0);
+  const sec = now.getTime() / 1000;
+  it("秒 / 分钟 / 小时前；一天以上回到绝对时间", () => {
+    expect(formatRelative(sec - 32, now)).toBe("32 秒前");
+    expect(formatRelative(sec - 4 * 60, now)).toBe("4 分钟前");
+    expect(formatRelative(sec - 3 * 3600, now)).toBe("3 小时前");
+    expect(formatRelative(sec - 30 * 3600, now)).toBe("11-19 06:00");
+  });
+  it("未来时间（时钟偏差）按绝对时间，不写“负秒前”", () => {
+    expect(formatRelative(sec + 120, now)).toBe("11-20 12:02");
   });
 });

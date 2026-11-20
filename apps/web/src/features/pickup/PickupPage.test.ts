@@ -9,9 +9,9 @@ import { PickupPage } from "./PickupPage";
 import { PickupError } from "./pickup-api";
 import type { PickupApi } from "./pickup-api";
 
-vi.mock("./turnstile-loader", () => ({ loadTurnstile: vi.fn(), TURNSTILE_ACTION: "pickup" }));
-import { loadTurnstile } from "./turnstile-loader";
-import type { TurnstileRenderOptions } from "./turnstile-loader";
+import type { TurnstileApi, TurnstileLoader, TurnstileRenderOptions } from "../turnstile/loader";
+
+const loadTurnstile = vi.fn<TurnstileLoader>();
 
 const TOKEN = "TOKEN_SECRET_VALUE_0123456789abcdefghijklmnopqrstuv";
 const NOW = new Date(2026, 10, 20, 12, 0, 0);
@@ -82,7 +82,7 @@ function fakeApi(over: Partial<PickupApi> = {}): MockedApi {
 }
 
 async function open(api: PickupApi): Promise<HTMLElement> {
-  mounted = await mount(createElement(PickupPage, { token: TOKEN, api }));
+  mounted = await mount(createElement(PickupPage, { token: TOKEN, api, turnstileLoader: loadTurnstile }));
   await settle();
   return mounted.container;
 }
@@ -239,9 +239,10 @@ describe("开始取码：口令与人机验证", () => {
         captured.options = o;
         return "w1";
       }),
+      reset: vi.fn(),
       remove: vi.fn(),
-    };
-    vi.mocked(loadTurnstile).mockResolvedValue(widget);
+    } satisfies TurnstileApi;
+    loadTurnstile.mockResolvedValue(widget);
     return { captured, widget };
   }
   const emitToken = (captured: { options: TurnstileRenderOptions | null }, token: string) => act(async () => captured.options?.callback(token));
@@ -261,7 +262,7 @@ describe("开始取码：口令与人机验证", () => {
     expect(api.start).toHaveBeenCalledWith(TOKEN, { turnstile_token: "cf-token-1" });
   });
 
-  it("人机验证失败后 token 作废：重新渲染控件，必须重新验证", async () => {
+  it("人机验证失败后 token 作废：控件重置，必须重新验证", async () => {
     const { captured, widget } = fakeTurnstile();
     const start = vi.fn().mockRejectedValueOnce(new PickupError(400, "turnstile_failed", "未通过", {})).mockResolvedValueOnce(status());
     const root = await open(fakeApi({ status: vi.fn(async () => turnstileStatus()), start }));
@@ -269,8 +270,7 @@ describe("开始取码：口令与人机验证", () => {
     await click(buttonByText(root, "开始取码"));
     await settle();
     expect(root.textContent).toContain("人机验证未通过");
-    expect(widget.remove).toHaveBeenCalled();
-    expect(widget.render).toHaveBeenCalledTimes(2);
+    expect(widget.reset).toHaveBeenCalledWith("w1");
     expect(buttonByText(root, "开始取码").disabled).toBe(true);
     await emitToken(captured, "cf-token-2");
     await click(buttonByText(root, "开始取码"));
@@ -279,11 +279,18 @@ describe("开始取码：口令与人机验证", () => {
   });
 
   it("人机验证脚本加载失败：就地明确报错，可重试，不降级成无验证", async () => {
-    vi.mocked(loadTurnstile).mockRejectedValue(new Error("人机验证脚本加载失败（challenges.cloudflare.com 无法访问）"));
+    loadTurnstile.mockRejectedValue(new Error("人机验证脚本加载失败（challenges.cloudflare.com 无法访问）"));
     const root = await open(fakeApi({ status: vi.fn(async () => needsStart({ turnstile: { required: true, site_key: "K" } })) }));
     expect(root.textContent).toContain("人机验证脚本加载失败");
     expect(buttonByText(root, "开始取码").disabled).toBe(true);
     expect(buttonByText(root, "重试")).toBeTruthy();
+  });
+
+  it("要求人机验证但缺 site key：禁用开始取码并说明，不加载脚本", async () => {
+    const root = await open(fakeApi({ status: vi.fn(async () => needsStart({ turnstile: { required: true } })) }));
+    expect(loadTurnstile).not.toHaveBeenCalled();
+    expect(root.textContent).toContain("turnstile_not_configured");
+    expect(buttonByText(root, "开始取码").disabled).toBe(true);
   });
 });
 

@@ -92,13 +92,6 @@
   .pk-contact .muted { color: var(--color-text-muted); }
   .pk-contact .note { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-text); font-size: var(--text-md); line-height: var(--leading-normal); }
 
-  /* ── 人机验证占位 300×65 ── */
-  .pk-turnstile { display: grid; justify-items: start; gap: var(--space-2); min-height: 65px; }
-  .pk-turnstile-mount { min-height: 65px; min-width: min(300px, 100%); }
-  .pk-turnstile[data-phase="error"] .pk-turnstile-mount, .pk-turnstile[data-phase="loading"] .pk-turnstile-mount { display: none; }
-  .pk-turnstile[data-phase="loading"], .pk-turnstile[data-phase="error"] { place-items: center; padding: var(--space-3); text-align: center; border: 1px dashed var(--color-border-control); border-radius: var(--radius-md); background: var(--color-surface); font-size: var(--text-sm); color: var(--color-text-muted); }
-  .pk-turnstile-error { display: grid; gap: 2px; justify-items: center; color: var(--color-danger); }
-
   /* ── 列表 + 详情：窄屏栈式，≥1024 左 380 右详情 ── */
   .pk-split { display: block; min-width: 0; }
   .pk-list-col { display: grid; gap: var(--space-3); min-width: 0; align-content: start; }

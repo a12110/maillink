@@ -1,0 +1,35 @@
+/*
+ * 我的邮件 `/inbox`：沿用 mail.css 的队列 + 详情骨架（.mail-page / .mail-split），这里补工具栏与 code_only 验证码卡片。
+ * 只引用语义变量；验证码字号取 tokens.css 的 --text-code / --text-code-sm。
+ */
+@layer components {
+  .inbox-toolbar { display: flex; align-items: end; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .inbox-toolbar .field { flex: 1 1 16rem; max-width: 28rem; }
+  .inbox-page .callout { margin-bottom: var(--space-4); }
+  /* 没有详情的范围（code_only / meta_only）：只有列表，单栏居中，别拉成整屏宽 */
+  .inbox-page[data-detail="none"] .mail-split { grid-template-columns: minmax(0, var(--pickup-max-width)); }
+  .inbox-page[data-detail="none"][data-view] .mail-list-col { display: block; }
+
+  .mail-item-snippet { color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail-item[data-static="true"] { cursor: default; }
+  /* 窄屏栈式：进入详情后，邮箱切换条让位（与 mail.css 对筛选栏的处理一致） */
+  @media (max-width: 1023px) { .inbox-page[data-view="detail"] .inbox-toolbar, .inbox-page[data-view="detail"] .page-head { display: none; } }
+  .mail-item[data-static="true"]:hover { background: transparent; }
+
+  /* 验证码卡片：一张卡 = 一封邮件；最新一张大，较旧的缩小；超过 10 分钟的整体弱化 */
+  .mail-list[data-cards="true"] { display: grid; gap: var(--space-3); padding: var(--space-3); }
+  .mail-list[data-cards="true"] > li + li { border-top: 0; }
+  /* 混合列表（“全部”里既有验证码卡片也有普通邮件）：普通邮件也画成卡片，节奏一致 */
+  .mail-list[data-cards="true"] .mail-item { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); padding: var(--space-3) var(--space-4); }
+  .code-card { display: grid; gap: var(--space-3); justify-items: start; padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+  .code-card[data-latest="true"] { border-color: var(--color-border-control); }
+  .code-card[data-stale="true"] .code-card-code { color: var(--color-text-subtle); }
+  .code-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); font-size: var(--text-sm); color: var(--color-text-muted); }
+  .code-card-code {
+    margin: 0; font-family: var(--font-mono); font-weight: var(--weight-strong); letter-spacing: var(--tracking-code);
+    font-size: var(--text-code-sm); line-height: 1.1; overflow-wrap: anywhere; user-select: all;
+  }
+  .code-card[data-latest="true"] .code-card-code { font-size: var(--text-code); }
+  .code-link { display: grid; gap: var(--space-2); justify-items: start; }
+  .code-link-host { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--text-lg); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+}

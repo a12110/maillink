@@ -8,17 +8,9 @@ import { DESKTOP_MEDIA_QUERY } from "../../constants";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { describeError } from "../../lib/messages";
 import { Button, CloseIconButton, ConfirmDialog, ErrorCallout, useToast } from "../../ui";
+import { GrantsSection } from "./GrantsSection";
 import { LoginMethodsSection } from "./LoginMethodsSection";
 import { ProfileSection } from "./ProfileSection";
-
-function GrantsSection({ count }: { count: number }) {
-  return (
-    <section className="panel-section" aria-labelledby="grants-title">
-      <h3 className="section-title" id="grants-title">邮箱授权</h3>
-      <p className="section-lead">授权管理将在后续里程碑（M4）提供。该用户当前已授权 {count} 个邮箱。</p>
-    </section>
-  );
-}
 
 function DeleteSection({ user, onDeleted }: { user: AdminUser; onDeleted: () => void }) {
   const queryClient = useQueryClient();
@@ -83,7 +75,7 @@ export function UserPanel({ userId, onClose }: UserPanelProps) {
           <>
             <ProfileSection key={user.id} user={user} />
             <LoginMethodsSection user={user} />
-            <GrantsSection count={user.mailbox_grant_count} />
+            <GrantsSection user={user} />
             <DeleteSection user={user} onDeleted={onClose} />
           </>
         ) : null}

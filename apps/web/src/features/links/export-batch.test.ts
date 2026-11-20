@@ -67,6 +67,7 @@ describe("路由 search 与预览原因", () => {
   it("筛选参数：数字、枚举、create_for 列表；非法值直接报错", () => {
     expect(parseLinksSearch({ mailbox_id: 5, state: "active", create_for: "1,2,3" })).toMatchObject({ mailbox_id: 5, state: "active", create_for: [1, 2, 3] });
     expect(parseLinksSearch({ create_for: 7 }).create_for).toEqual([7]);
+    expect(parseLinksSearch({ create_for: [4, 5] }).create_for).toEqual([4, 5]);
     expect(parseLinksSearch({})).toEqual({});
     expect(() => parseLinksSearch({ state: "nope" })).toThrow("URL 筛选参数不合法");
     expect(() => parseLinksSearch({ create_for: "1,x" })).toThrow();

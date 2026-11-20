@@ -1,18 +1,24 @@
-import { createRootRouteWithContext, createRoute, createRouter, Outlet, redirect } from "@tanstack/react-router";
+import { createRootRouteWithContext, createRoute, createRouter, lazyRouteComponent, Outlet, redirect } from "@tanstack/react-router";
 import type { RouterHistory } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { AccountPage } from "../features/account/AccountPage";
 import { LoginPage } from "../features/auth/LoginPage";
-import { PickupPage } from "../features/pickup/PickupPage";
+import { parseOAuthResultSearch } from "../features/auth/search";
+import { InboxPage } from "../features/inbox/InboxPage";
+import { parseInboxSearch } from "../features/inbox/search";
 import { SetupPage } from "../features/auth/SetupPage";
+import { RegisterPage } from "../features/register/RegisterPage";
+import { SettingsPage } from "../features/settings/SettingsPage";
 import { LinksPage } from "../features/links/LinksPage";
 import { parseLinksSearch } from "../features/links/search";
+import { PickupPage } from "../features/pickup/PickupPage";
 import { parseMailsSearch } from "../features/mails/search";
+import { parseNewRuleGroupSearch } from "../features/rule-groups/new-search";
 import { MailsPage } from "../features/mails/MailsPage";
 import { MailsRouteError } from "../features/mails/MailsRouteError";
 import { UsersPage } from "../features/users/UsersPage";
+import { AdminLayout } from "../shell/AdminLayout";
 import { AuthShell } from "../shell/AuthShell";
-import { PlaceholderPage } from "../shell/PlaceholderPage";
 import { NotFoundPage, RouteErrorPage } from "../shell/StatusPages";
 import { WorkspaceShell } from "../shell/WorkspaceShell";
 import { queryClient } from "./query-client";
@@ -38,18 +44,15 @@ const setupRoute = createRoute({ getParentRoute: () => authLayout, path: "/setup
 const loginRoute = createRoute({
   getParentRoute: () => authLayout,
   path: "/login",
+  validateSearch: parseOAuthResultSearch,
   beforeLoad: ({ context }) => redirectIfSignedIn(context),
-  component: LoginPage,
+  component: () => <LoginPage />,
 });
 const registerRoute = createRoute({
   getParentRoute: () => authLayout,
   path: "/register",
-  component: () => (
-    <>
-      <h1>注册</h1>
-      <p className="auth-lead">注册功能将在后续里程碑实现（后端尚无注册接口）。</p>
-    </>
-  ),
+  beforeLoad: ({ context }) => redirectIfSignedIn(context),
+  component: RegisterPage,
 });
 
 // ── 取件页外壳 ──
@@ -57,7 +60,8 @@ function PickupRoute() {
   const { token } = pickupRoute.useParams();
   return <PickupPage key={token} token={token} />;
 }
-const pickupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/s/$token", component: PickupRoute });
+// caseSensitive：路由默认不区分大小写，但页面安全头（_headers）只对小写 /s/* 生效，/S/<token> 不能渲染取件页
+const pickupRoute = createRoute({ getParentRoute: () => rootRoute, path: "/s/$token", caseSensitive: true, component: PickupRoute });
 
 // ── 工作区外壳：需要登录 ──
 const workspaceLayout = createRoute({
@@ -69,16 +73,22 @@ const workspaceLayout = createRoute({
 const inboxRoute = createRoute({
   getParentRoute: () => workspaceLayout,
   path: "/inbox",
-  component: () => <PlaceholderPage title="我的邮件" description="被分配的邮箱与邮件列表需要邮件与授权接口，后端尚未提供，本页暂不显示任何数据。" />,
+  validateSearch: parseInboxSearch,
+  component: InboxPage,
 });
-const accountRoute = createRoute({ getParentRoute: () => workspaceLayout, path: "/account", component: AccountPage });
+const accountRoute = createRoute({
+  getParentRoute: () => workspaceLayout,
+  path: "/account",
+  validateSearch: parseOAuthResultSearch,
+  component: () => <AccountPage />,
+});
 
 // ── /admin/*：需要管理员 ──
 const adminLayout = createRoute({
   getParentRoute: () => workspaceLayout,
   path: "/admin",
   beforeLoad: ({ context }) => requireAdminSession(context),
-  component: Outlet,
+  component: AdminLayout,
 });
 const adminIndexRoute = createRoute({
   getParentRoute: () => adminLayout,
@@ -102,14 +112,6 @@ const mailsRoute = createRoute({
   errorComponent: MailsRouteError,
 });
 
-function placeholder<const P extends string>(path: P, title: string, description: string) {
-  return createRoute({
-    getParentRoute: () => adminLayout,
-    path,
-    component: () => <PlaceholderPage title={title} description={description} />,
-  });
-}
-
 const settingsIndexRoute = createRoute({
   getParentRoute: () => adminLayout,
   path: "/settings",
@@ -118,13 +120,36 @@ const settingsIndexRoute = createRoute({
   },
 });
 
-const adminPlaceholders = [
-  placeholder("/mailboxes", "收件地址", "收件地址的导入与管理将随邮件后端（M2）提供，本页暂不显示任何数据。"),
-  placeholder("/rule-groups", "规则组", "规则组列表与编辑器将随规则引擎（M3a）提供，本页暂不显示任何数据。"),
-  placeholder("/rule-groups/$id", "规则组编辑", "规则组编辑与测试器将在后续里程碑实现，本页暂不显示任何数据。"),
-  placeholder("/settings/$group", "系统设置", "系统设置接口将在 M6 提供，本页暂不显示任何数据。"),
-  placeholder("/audit", "审计日志", "审计日志列表将在后续里程碑实现，本页暂不显示任何数据。"),
-];
+// 本期新增的管理页按路由拆包（规则组编辑器带着 shared 的校验与正则分析，体积最大）
+const mailboxesRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/mailboxes",
+  component: lazyRouteComponent(() => import("../features/mailboxes/MailboxesPage"), "MailboxesPage"),
+});
+
+const auditRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/audit",
+  component: lazyRouteComponent(() => import("../features/audit/AuditPage"), "AuditPage"),
+});
+const ruleGroupsRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/rule-groups",
+  component: lazyRouteComponent(() => import("../features/rule-groups/RuleGroupsPage"), "RuleGroupsPage"),
+});
+// 静态的 /new 优先于 /$id
+const newRuleGroupRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/rule-groups/new",
+  validateSearch: parseNewRuleGroupSearch,
+  component: lazyRouteComponent(() => import("../features/rule-groups/RuleGroupEditPage"), "NewRuleGroupPage"),
+});
+const editRuleGroupRoute = createRoute({
+  getParentRoute: () => adminLayout,
+  path: "/rule-groups/$id",
+  component: lazyRouteComponent(() => import("../features/rule-groups/RuleGroupEditPage"), "RuleGroupEditPage"),
+});
+const settingsGroupRoute = createRoute({ getParentRoute: () => adminLayout, path: "/settings/$group", component: SettingsPage });
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -133,7 +158,19 @@ const routeTree = rootRoute.addChildren([
   workspaceLayout.addChildren([
     inboxRoute,
     accountRoute,
-    adminLayout.addChildren([adminIndexRoute, usersRoute, mailsRoute, linksRoute, settingsIndexRoute, ...adminPlaceholders]),
+    adminLayout.addChildren([
+      adminIndexRoute,
+      usersRoute,
+      mailsRoute,
+      linksRoute,
+      mailboxesRoute,
+      ruleGroupsRoute,
+      newRuleGroupRoute,
+      editRuleGroupRoute,
+      auditRoute,
+      settingsIndexRoute,
+      settingsGroupRoute,
+    ]),
   ]),
 ]);
 
