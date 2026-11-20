@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Copy, Eye, Link2, Link2Off, TriangleAlert } from "lucide-react";
 import type { AdminShareLink } from "@maillink/shared";
-import { formatDateTime } from "../../lib/format";
+import { formatCompactDateTime } from "../../lib/format";
 import { Button, EmptyState, ErrorCallout, SkeletonRows, Status, Tag } from "../../ui";
 import { ANOMALY_HINT, ANOMALY_LABEL, ANOMALY_SHORT, STATE_LABEL, STATE_TONE, addressSummary, devicesText, linkTitle } from "./labels";
 
@@ -41,7 +41,9 @@ function AddressCell({ link }: { link: AdminShareLink }) {
 }
 
 function TimeCell({ value, empty }: { value: number | null; empty: string }) {
-  return <td className="time col-secondary">{value === null ? <span className="dim">{empty}</span> : formatDateTime(value)}</td>;
+  if (value === null) return <td className="time col-secondary"><span className="dim">{empty}</span></td>;
+  const { text, title } = formatCompactDateTime(value);
+  return <td className="time col-secondary" title={title}>{text}</td>;
 }
 
 function LinkRow({ link, selected, checked, actions }: { link: AdminShareLink; selected: boolean; checked: boolean; actions: RowActions }) {

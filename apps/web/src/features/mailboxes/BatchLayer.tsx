@@ -40,7 +40,7 @@ function useCreateLinks(selection: Selection): () => void {
 type Props = {
   selection: Selection;
   total: number | undefined;
-  activeQuery: { q?: string; tag?: string; status?: "active" | "disabled" };
+  activeQuery: { q?: string; tag?: string; status?: "active" | "disabled"; has_link?: boolean };
   /** 没有选中项时显示的默认工具栏 */
   toolbar: ReactNode;
 };

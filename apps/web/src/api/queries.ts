@@ -63,6 +63,10 @@ export const adminMailboxesQuery = (query: AdminMailboxListQuery) =>
     placeholderData: keepPreviousData,
   });
 
+/** 键在 adminMailboxes 之下：导入、改标签、批量操作后失效 adminMailboxes 时一并刷新 */
+export const adminMailboxTagsQuery = () =>
+  queryOptions({ queryKey: [...queryKeys.adminMailboxes, "tags"] as const, queryFn: api.listMailboxTags });
+
 export const adminRuleGroupsQuery = () =>
   queryOptions({ queryKey: [...queryKeys.adminRuleGroups, "list"] as const, queryFn: api.listRuleGroups });
 
