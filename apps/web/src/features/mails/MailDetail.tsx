@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowLeft, WandSparkles } from "lucide-react";
 import { useState } from "react";
+import type { AdminMailDetail } from "@maillink/shared";
 import { adminMailAttachmentPath } from "../../api/endpoints";
 import { adminMailQuery } from "../../api/queries";
 import { describeError } from "../../lib/messages";
-import { ErrorCallout, Segmented } from "../../ui";
+import { Button, ErrorCallout, Segmented } from "../../ui";
 import { AttachmentList } from "../mail";
 import { MailFacts, MailHeading, MailLinks } from "./MailDetailSections";
 import { MailViewPanel, VIEW_OPTIONS } from "./MailViewPanel";
@@ -21,6 +23,30 @@ function BackButton({ onBack }: { onBack: () => void }) {
   );
 }
 
+/** “以此邮件创建规则”（05 §3）：带着这封邮件的发件人域名、主题模式与验证码正则去新建规则组；解析失败的邮件没有可用的事实 */
+function CreateRuleAction({ detail }: { detail: AdminMailDetail }) {
+  if (detail.parsed === null) {
+    return (
+      <div className="mail-actions">
+        <Button size="sm" disabled title="解析失败的邮件没有发件人与主题，无法生成规则草稿">
+          <WandSparkles />
+          以此邮件创建规则
+        </Button>
+        <span className="field-hint">解析失败的邮件无法生成规则草稿</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mail-actions">
+      <Link className="btn" data-variant="secondary" data-size="sm" to="/admin/rule-groups/new" search={{ from_mail: detail.id }}>
+        <WandSparkles />
+        以此邮件创建规则
+      </Link>
+      <span className="field-hint">按发件人域名、主题模式与验证码正则生成一条允许规则草稿，保存前可改</span>
+    </div>
+  );
+}
+
 function toView(value: string): MailView {
   const option = VIEW_OPTIONS.find((candidate) => candidate.value === value);
   if (!option) throw new Error(`未知的邮件视图：${value}`);
@@ -32,7 +58,9 @@ export function MailDetail({ id, onBack }: MailDetailProps) {
   const [chosen, setChosen] = useState<MailView | null>(null);
   // 一旦看过原文，后面的请求都带 raw=1，在几个视图间来回切换不再重新请求
   const [rawRequested, setRawRequested] = useState(false);
-  const query = useQuery(adminMailQuery(id, rawRequested));
+  // 远程图片默认阻止；每次打开一封邮件都从“阻止”开始（组件按邮件 id 重新挂载）
+  const [remoteImages, setRemoteImages] = useState(false);
+  const query = useQuery(adminMailQuery(id, rawRequested, remoteImages));
   const detail = query.data;
 
   if (!detail) {
@@ -59,11 +87,12 @@ export function MailDetail({ id, onBack }: MailDetailProps) {
         <ErrorCallout title="刷新邮件详情失败" {...describeError(query.error)} onRetry={() => void query.refetch()} />
       ) : null}
       <MailHeading detail={detail} />
+      <CreateRuleAction detail={detail} />
       <MailFacts detail={detail} />
       <section className="mail-section" aria-label="邮件内容">
         <Segmented legend="查看方式" name="mail-view" value={view} options={VIEW_OPTIONS} onChange={(value) => setChosen(toView(value))} />
         <div className="mail-view">
-          <MailViewPanel detail={detail} view={view} rawLoading={rawLoading} />
+          <MailViewPanel detail={detail} view={view} rawLoading={rawLoading} remoteImages={remoteImages} onRemoteImages={setRemoteImages} />
         </div>
       </section>
       {detail.parsed ? (

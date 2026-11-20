@@ -1,5 +1,5 @@
 import type { AdminMailDetail } from "@maillink/shared";
-import { Callout } from "../../ui";
+import { Callout, Checkbox } from "../../ui";
 import { MailBody, MailHeaderList, MailRaw, MailText } from "../mail";
 
 export type MailView = "body" | "text" | "raw" | "headers";
@@ -16,6 +16,8 @@ type MailViewPanelProps = {
   view: MailView;
   /** 原文还在请求中 */
   rawLoading: boolean;
+  remoteImages: boolean;
+  onRemoteImages: (allow: boolean) => void;
 };
 
 function TruncatedNote({ show }: { show: boolean }) {
@@ -46,7 +48,19 @@ function ParseFailed({ error }: { error: string | null }) {
   );
 }
 
-export function MailViewPanel({ detail, view, rawLoading }: MailViewPanelProps) {
+/** 远程图片开关：默认阻止（防追踪像素泄露 IP）；打开后重新请求详情（?remote_images=allow），只对当前查看生效 */
+function RemoteImagesToggle({ allow, onChange }: { allow: boolean; onChange: (allow: boolean) => void }) {
+  return (
+    <div className="mail-remote-images">
+      <Checkbox checked={allow} onChange={(event) => onChange(event.target.checked)}>加载远程图片</Checkbox>
+      <span className="field-hint">
+        {allow ? "已允许：发件方可通过图片请求得知你的 IP 与打开时间。" : "默认阻止，避免追踪像素泄露你的 IP 与打开时间。"}
+      </span>
+    </div>
+  );
+}
+
+export function MailViewPanel({ detail, view, rawLoading, remoteImages, onRemoteImages }: MailViewPanelProps) {
   const { parsed } = detail;
   if (view === "raw") return <RawView detail={detail} rawLoading={rawLoading} />;
   if (parsed === null) return <ParseFailed error={detail.parse_error} />;
@@ -59,10 +73,12 @@ export function MailViewPanel({ detail, view, rawLoading }: MailViewPanelProps) 
       </>
     );
   }
+  const html = parsed.html ?? null;
   return (
     <>
       <TruncatedNote show={parsed.body_truncated} />
-      <MailBody html={null} text={parsed.body} hasHtml={parsed.has_html} title={`邮件 ${detail.id} 的正文`} />
+      {html !== null ? <RemoteImagesToggle allow={remoteImages} onChange={onRemoteImages} /> : null}
+      <MailBody html={html} text={parsed.body} hasHtml={parsed.has_html} title={`邮件 ${detail.id} 的正文`} />
     </>
   );
 }

@@ -12,6 +12,16 @@ export const SESSION_STALE_MS = 30_000;
 export const USERS_PAGE_SIZE = 16;
 /** 管理端“全部邮件”每页条数（与后端默认 LIST_PAGE_SIZE 一致） */
 export const MAILS_PAGE_SIZE = 20;
+/** 收件地址表每页条数：1440×900 一屏 16 行 + 表尾 */
+export const MAILBOXES_PAGE_SIZE = 16;
+/** 「选择全部」逐页取地址时每页条数（后端上限） */
+export const MAILBOX_WALK_PAGE_SIZE = 100;
+/** 审计日志每页条数 */
+export const AUDIT_PAGE_SIZE = 30;
+/** 规则测试器：配置改动后停多久再试跑 */
+export const TESTER_DEBOUNCE_MS = 600;
+/** 导入预览里每个分组最多渲染的行数（超出只写“还有 N 条”，避免一次渲染 2000 行） */
+export const IMPORT_PREVIEW_ROWS = 100;
 /** 邮件详情缓存新鲜期：邮件内容不会变，只有解析器升级才会不同 */
 export const MAIL_DETAIL_STALE_MS = 60_000;
 /** `partial` 重取的退避（DESIGN.md：1s / 2s / 4s，最多 3 次） */

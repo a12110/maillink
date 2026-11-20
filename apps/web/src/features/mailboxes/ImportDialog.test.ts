@@ -1,0 +1,116 @@
+// @vitest-environment happy-dom
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createElement } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MailboxImportRequest, MailboxImportResponse } from "@maillink/shared";
+import { act } from "react";
+import { click, flush, mount, typeInto } from "../../test/render";
+import type { Mounted } from "../../test/render";
+import { ToastProvider } from "../../ui";
+import { ImportDialog } from "./ImportDialog";
+
+const importMailboxes = vi.fn<(body: MailboxImportRequest) => Promise<MailboxImportResponse>>();
+vi.mock("../../api/instance", () => ({ api: { importMailboxes: (body: MailboxImportRequest) => importMailboxes(body) } }));
+
+let mounted: Mounted | null = null;
+beforeEach(() => importMailboxes.mockReset());
+afterEach(async () => {
+  await mounted?.unmount();
+  mounted = null;
+  document.body.innerHTML = "";
+});
+
+const CSV = "a@icloud.com,备注一,OpenAI\nnot-an-email\na@icloud.com";
+
+const PREVIEW: MailboxImportResponse = {
+  dry_run: true,
+  summary: { new: 1, duplicate: 1, invalid: 1 },
+  items: [
+    { line: 1, input: "a@icloud.com", address: "a@icloud.com", status: "new", reason: null, id: null },
+    { line: 2, input: "not-an-email", address: null, status: "invalid", reason: "invalid_format", id: null },
+    { line: 3, input: "a@icloud.com", address: "a@icloud.com", status: "duplicate", reason: "duplicate_in_input", id: null },
+  ],
+};
+
+async function open(onOpenChange = vi.fn()): Promise<void> {
+  const tree = createElement(QueryClientProvider, { client: new QueryClient() }, createElement(ToastProvider, null, createElement(ImportDialog, { open: true, onOpenChange })));
+  mounted = await mount(tree);
+}
+
+const body = () => document.body;
+const button = (text: string) => {
+  const found = Array.from(body().querySelectorAll("button")).find((b) => b.textContent?.includes(text));
+  if (!found) throw new Error(`找不到按钮：${text}\n${body().textContent}`);
+  return found;
+};
+
+describe("导入两步对话框", () => {
+  it("粘贴 → 预览（dry_run）→ 显示新增 / 重复 / 无效各多少与逐条原因 → 确认才真正写入", async () => {
+    importMailboxes.mockResolvedValueOnce(PREVIEW);
+    const onOpenChange = vi.fn();
+    await open(onOpenChange);
+    await typeInto(body().querySelector("textarea") as HTMLTextAreaElement, CSV);
+    await click(button("预览导入结果"));
+
+    expect(importMailboxes).toHaveBeenCalledTimes(1);
+    expect(importMailboxes).toHaveBeenLastCalledWith({ content: CSV, tags: [], dry_run: true });
+    const counts = Array.from(body().querySelectorAll(".import-counts > div")).map((d) => d.textContent);
+    expect(counts).toEqual(["新增1", "重复1", "无效1"]);
+    // 逐条原因：无效与重复各一组，原因是中文说明
+    expect(body().textContent).toContain("不是合法的邮箱地址");
+    expect(body().textContent).toContain("本次导入内重复");
+    expect(body().textContent).toContain("第 2 行");
+    // 预览阶段没有写入
+    expect(importMailboxes.mock.calls.every(([request]) => request.dry_run === true)).toBe(true);
+
+    importMailboxes.mockResolvedValueOnce({ ...PREVIEW, dry_run: false });
+    await click(button("导入 1 个新地址"));
+    expect(importMailboxes).toHaveBeenCalledTimes(2);
+    expect(importMailboxes).toHaveBeenLastCalledWith({ content: CSV, tags: [], dry_run: false });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("上传文件：内容读进文本域并显示文件名，之后照常预览", async () => {
+    importMailboxes.mockResolvedValueOnce(PREVIEW);
+    await open();
+    const fileInput = body().querySelector<HTMLInputElement>('input[type="file"]');
+    if (!fileInput) throw new Error("没有文件输入");
+    const file = new File([CSV], "aliases.csv", { type: "text/csv" });
+    Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
+    await act(async () => {
+      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await flush();
+    expect(body().querySelector("textarea")?.value).toBe(CSV);
+    expect(body().textContent).toContain("已读入 aliases.csv");
+    await click(button("预览导入结果"));
+    expect(importMailboxes).toHaveBeenLastCalledWith({ content: CSV, tags: [], dry_run: true });
+  });
+
+  it("没有新增时确认按钮禁用并写明原因；可返回修改", async () => {
+    importMailboxes.mockResolvedValueOnce({ ...PREVIEW, summary: { new: 0, duplicate: 2, invalid: 0 }, items: PREVIEW.items.filter((i) => i.status === "duplicate") });
+    await open();
+    await typeInto(body().querySelector("textarea") as HTMLTextAreaElement, "a@icloud.com");
+    await click(button("预览导入结果"));
+    const confirm = button("没有可导入的新地址") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    await click(button("返回修改"));
+    expect(body().querySelector("textarea")?.value).toBe("a@icloud.com");
+  });
+
+  it("本地检查不通过时不发请求，就地写明原因", async () => {
+    await open();
+    await click(button("预览导入结果"));
+    expect(importMailboxes).not.toHaveBeenCalled();
+    expect(body().textContent).toContain("请粘贴地址");
+  });
+
+  it("预览失败：错误就地显示（带错误码），仍停在第 1 步，输入保留", async () => {
+    importMailboxes.mockRejectedValueOnce(new Error("boom"));
+    await open();
+    await typeInto(body().querySelector("textarea") as HTMLTextAreaElement, "a@icloud.com");
+    await click(button("预览导入结果"));
+    expect(body().querySelector('[role="alert"]')?.textContent).toContain("预览失败");
+    expect(body().querySelector("textarea")?.value).toBe("a@icloud.com");
+  });
+});
