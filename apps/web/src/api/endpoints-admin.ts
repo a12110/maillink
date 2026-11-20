@@ -7,6 +7,7 @@ import {
   adminRuleGroupListSchema,
   auditLogListSchema,
   mailboxBatchResponseSchema,
+  mailDbCompatSchema,
   mailboxImportResponseSchema,
   mailboxTagListResponseSchema,
   okResponseSchema,
@@ -43,6 +44,7 @@ export type AdminMailDetailOptions = { raw: boolean; remoteImages: boolean };
 /** 邮件相关的管理端接口：全部邮件、收件地址、规则组（含测试器）、审计日志 */
 export function createAdminEndpoints({ request }: ApiClient) {
   return {
+    mailDbCompat: () => request({ path: "/api/admin/system/mail-db", schema: mailDbCompatSchema }),
     listAdminMails: (query: AdminMailListQuery) =>
       request({ path: "/api/admin/mails", query, schema: adminMailListResponseSchema }),
     /** raw=true 时响应多一个 raw 字段（邮件原文）；remoteImages=true 时 HTML 允许加载远程图片 */

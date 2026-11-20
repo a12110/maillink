@@ -47,7 +47,33 @@ export const publicOAuthProviderSchema = z.object({
 });
 export type PublicOAuthProvider = z.infer<typeof publicOAuthProviderSchema>;
 
-export const setupStatusSchema = z.object({ needs_setup: z.boolean() });
+/** MAIL_DB 兼容状态：ok 正常；no_icloud 表健康但缺 to_address；unhealthy 缺表或缺必需列；probe_failed 探测查询本身失败 */
+export const mailDbCompatStatusSchema = z.enum(["ok", "no_icloud", "unhealthy", "probe_failed"]);
+export type MailDbCompatStatus = z.infer<typeof mailDbCompatStatusSchema>;
+
+/** 探测查询失败的错误码：binding_missing 没有绑定 MAIL_DB，query_failed 查询抛错（详情只写 Worker 日志） */
+export const MAIL_DB_PROBE_ERROR_CODES = ["binding_missing", "query_failed"] as const;
+
+/** 邮件库兼容信息，只含状态、db_version 与缺失的必需列，不含其他库结构 */
+export const mailDbCompatSchema = z.object({
+  status: mailDbCompatStatusSchema,
+  db_version: z.string().nullable(),
+  /** unhealthy 时为缺失的必需列（表不存在时为全部必需列）；其余状态为空数组 */
+  missing_required: z.array(z.string()),
+  /** 仅 probe_failed 时有 */
+  error_code: z.enum(MAIL_DB_PROBE_ERROR_CODES).optional(),
+});
+export type MailDbCompat = z.infer<typeof mailDbCompatSchema>;
+
+/**
+ * GET /api/setup/status（公开）。判别联合：
+ * - needs_setup=true：带 mail_db（初始化页据此提示邮件库兼容情况）；
+ * - needs_setup=false：不带 mail_db，服务端也不探测 MAIL_DB，避免公开接口泄露库结构。
+ */
+export const setupStatusSchema = z.discriminatedUnion("needs_setup", [
+  z.object({ needs_setup: z.literal(true), mail_db: mailDbCompatSchema }),
+  z.object({ needs_setup: z.literal(false) }),
+]);
 export type SetupStatus = z.infer<typeof setupStatusSchema>;
 
 export const setupRequestSchema = z.object({

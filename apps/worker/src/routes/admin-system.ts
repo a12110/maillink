@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import type { HealthResponse, MailSchemaProbe } from "@maillink/shared";
+import type { HealthResponse, MailDbCompat, MailSchemaProbe } from "@maillink/shared";
 import type { AppEnv, Bindings } from "../env";
 import { getLastRun } from "../db/cron-state";
-import { getMailSchema } from "../mail-source";
+import { getMailDbCompat, getMailSchema } from "../mail-source";
 import type { MailDbBinding } from "../mail-source";
 import { HTTP_OK, HTTP_SERVICE_UNAVAILABLE } from "../http-status";
 
@@ -63,4 +63,10 @@ adminSystemRoutes.get("/health", async (c) => {
   const body = await buildHealth(c.env);
   // 不健康时返回 503，让监控与前端都能直接感知；响应体结构不变
   return c.json(body, body.ok ? HTTP_OK : HTTP_SERVICE_UNAVAILABLE);
+});
+
+// 轻量版邮件库兼容状态：用缓存的 getMailSchema（不 refresh），供收件地址页与导入对话框提示用；探测失败以 probe_failed 返回并记日志
+adminSystemRoutes.get("/mail-db", async (c) => {
+  const body: MailDbCompat = await getMailDbCompat(c.env.MAIL_DB);
+  return c.json(body);
 });

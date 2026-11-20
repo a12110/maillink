@@ -1,4 +1,6 @@
 import type { MailSchemaProbe } from "@maillink/shared";
+import { nowSec } from "../clock";
+import { MAIL_SCHEMA_DEGRADED_CACHE_TTL_SEC } from "../constants";
 
 // MAIL_DB 表结构探测，契约见 docs/design/01-architecture-and-data.md §3.1。
 // 本目录只允许读：不得出现写入或改结构的 SQL，由 test/mail-source-readonly.test.ts 守卫。
@@ -9,8 +11,10 @@ export const REQUIRED_RAW_MAILS_COLUMNS = ["id", "source", "address", "raw", "cr
 /** temp_email 保存 db_version 的 settings 键 */
 export const DB_VERSION_KEY = "db_version";
 
-const WARNING_NO_TO_ADDRESS =
-  "raw_mails 缺少 to_address 列：只能按 address 匹配，iCloud 别名邮件将匹配不到";
+// 口径与前端 apps/web/src/features/mail-db/notice-text.ts 一致（测试分别断言关键词）
+export const WARNING_NO_TO_ADDRESS =
+  "raw_mails 缺少 to_address 列：不支持 iCloud 隐私邮箱（Hide My Email），以 iCloud 别名作为收件地址时收不到邮件，其他收件地址不受影响。" +
+  "请升级 temp_email 到包含 db/2026-08-02-to-address.sql 迁移的修改版（v1.15.0 起）并执行该迁移";
 const WARNING_NO_DB_VERSION = "无法读取 settings.db_version（settings 表或该键不存在）";
 
 type TableInfoRow = { name: string };
@@ -62,11 +66,21 @@ export async function probeMailSchema(db: D1Database): Promise<MailSchemaProbe> 
   };
 }
 
-// isolate 内缓存。只缓存健康结果：不健康时每次重探，修复表结构后无需重启 isolate
-let cachedProbe: MailSchemaProbe | null = null;
+// isolate 内缓存：
+// - 完全兼容（healthy 且有 to_address）：缓存到 isolate 结束；
+// - healthy 但缺 to_address：只缓存 MAIL_SCHEMA_DEGRADED_CACHE_TTL_SEC 秒，过期重探，
+//   这样管理员执行 to_address 迁移后各 isolate 无需重启即可在 TTL 内按新结构查询；
+// - 不健康：不缓存，每次重探。
+type CachedProbe = { probe: MailSchemaProbe; expiresAt: number | null };
+let cached: CachedProbe | null = null;
 
 export function resetMailSchemaCache(): void {
-  cachedProbe = null;
+  cached = null;
+}
+
+function cacheEntry(probe: MailSchemaProbe): CachedProbe | null {
+  if (!probe.healthy) return null;
+  return { probe, expiresAt: probe.capabilities.to_address ? null : nowSec() + MAIL_SCHEMA_DEGRADED_CACHE_TTL_SEC };
 }
 
 /** 带缓存的探测；`refresh: true` 强制重探并更新缓存（健康检查接口使用） */
@@ -74,10 +88,10 @@ export async function getMailSchema(
   db: D1Database,
   options: { refresh?: boolean } = {},
 ): Promise<MailSchemaProbe> {
-  if (cachedProbe && !options.refresh) return cachedProbe;
-  // 强制重探时先作废旧缓存：重探抛异常后不能留着可能已过期的"健康"结果
-  if (options.refresh) cachedProbe = null;
+  if (cached && !options.refresh && (cached.expiresAt === null || nowSec() < cached.expiresAt)) return cached.probe;
+  // 强制重探或缓存过期时先作废旧缓存：重探抛异常后不能留着可能已过期的结果
+  cached = null;
   const probe = await probeMailSchema(db);
-  cachedProbe = probe.healthy ? probe : null;
+  cached = cacheEntry(probe);
   return probe;
 }

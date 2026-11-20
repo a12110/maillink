@@ -22,7 +22,10 @@ describe("首次初始化", () => {
   it("GET /api/setup/status：没有用户时需要初始化", async () => {
     const res = await api("/api/setup/status");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ needs_setup: true });
+    expect(await res.json()).toEqual({
+      needs_setup: true,
+      mail_db: { status: "ok", db_version: "v0.0.11", missing_required: [] },
+    });
   });
 
   it("缺 setup_token：400 校验错误，不创建用户", async () => {

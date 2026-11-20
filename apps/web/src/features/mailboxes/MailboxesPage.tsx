@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { AdminMailbox, MailboxStatus } from "@maillink/shared";
 import { MAILBOXES_PAGE_SIZE } from "../../constants";
 import { describeError } from "../../lib/messages";
+import { AdminMailDbNotice } from "../mail-db/MailDbNotice";
 import { PageHeader } from "../../shell/PageHeader";
 import { BatchLayer } from "./BatchLayer";
 import { EditMailboxDialog } from "./EditMailboxDialog";
@@ -37,6 +38,7 @@ export function MailboxesPage() {
   return (
     <>
       <PageHeader title="收件地址" summary={<Summary totals={state.totals} onStatus={(status) => state.changeFilters({ ...NO_MAILBOX_FILTERS, status })} />} />
+      <AdminMailDbNotice />
       <div className="table-scope">
         <BatchLayer selection={selection} total={list.data?.total} activeQuery={state.activeQuery} toolbar={toolbar} />
         <MailboxTable

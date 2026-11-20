@@ -3,6 +3,8 @@ import type { ChangeEvent, FormEvent } from "react";
 import { MAILBOX_LIMITS, mailboxTagSchema } from "@maillink/shared";
 import { Upload } from "lucide-react";
 import { Button, ChipInput, ErrorCallout, TextAreaField } from "../../ui";
+import { AdminMailDbNotice } from "../mail-db/MailDbNotice";
+import { hasIcloudAlias } from "../mail-db/notice-text";
 import { checkImportInput } from "./import-state";
 
 export type ImportInput = { content: string; tags: string[] };
@@ -53,6 +55,7 @@ export function ImportInputStep({ value, onChange, busy, error, onCancel, onPrev
 
   return (
     <form className="dialog-form" onSubmit={submit} noValidate>
+      <AdminMailDbNotice emphasizeIcloud={hasIcloudAlias(value.content)} />
       <TextAreaField
         label="地址列表"
         mono
