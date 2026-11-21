@@ -2,6 +2,13 @@
 
 部署在 Cloudflare Workers 上的"取件链接"系统：读取 cloudflare_temp_email 的 D1 邮件库（只读），按规则组生成取件链接。设计文档见 `docs/design/README.md`。
 
+## 部署文档
+
+| 方式 | 文档 |
+| --- | --- |
+| 控制台网页部署（GUI，带截图，不需要本地命令行） | [`docs/deploy-gui.md`](docs/deploy-gui.md) |
+| 命令行部署（wrangler） | [`docs/deploy.md`](docs/deploy.md) |
+
 ## 本地开发
 
 需要 Node ≥ 22.18、pnpm 10。全程只用本地模式（本地 D1 存放在 `apps/worker/.wrangler/state`），不会连接 Cloudflare。
