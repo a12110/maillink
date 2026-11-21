@@ -6,7 +6,7 @@ import { AuthForm } from "./AuthForm";
 import { findNavItem, SETTINGS_NAV } from "./groups";
 import type { SettingsNavKey } from "./groups";
 import { OAuthProviders } from "./oauth/OAuthProviders";
-import { LinksForm, LogsForm, SecurityForm } from "./SimpleForms";
+import { LinksForm, LogsForm, PrewarmForm, SecurityForm } from "./SimpleForms";
 import { SiteForm } from "./SiteForm";
 import { SystemPanel } from "./SystemPanel";
 import { TurnstileForm } from "./TurnstileForm";
@@ -20,6 +20,7 @@ const GROUP_BODIES: Record<SettingsNavKey, () => React.JSX.Element> = {
   security: SecurityForm,
   links: LinksForm,
   logs: LogsForm,
+  prewarm: PrewarmForm,
   system: SystemPanel,
 };
 

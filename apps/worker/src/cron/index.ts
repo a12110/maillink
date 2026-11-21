@@ -6,24 +6,35 @@ import type { CronTaskName } from "../db/cron-state";
 import { withReadonlyMailDb } from "../mail-source";
 import { truncateChars } from "../text-utils";
 import { runDailyCleanup } from "./cleanup";
-import { prewarmMailIndex } from "./prewarm";
+import { isPrewarmDue, prewarmMailIndex } from "./prewarm";
 import { CronTaskError, describeError } from "./types";
 import type { CronEnv, Processed } from "./types";
 
-const TASKS: Record<string, { name: CronTaskName; run: (env: CronEnv) => Promise<Processed> }> = {
-  [CRON_PREWARM]: { name: "prewarm", run: prewarmMailIndex },
+type CronTask = {
+  name: CronTaskName;
+  /** 不给就每次触发都运行；返回 false 时本次跳过，也不写 last_run（last_run 只记真正运行过的） */
+  isDue?: (db: D1Database, now: number) => Promise<boolean>;
+  run: (env: CronEnv) => Promise<Processed>;
+};
+
+const TASKS: Record<string, CronTask> = {
+  [CRON_PREWARM]: { name: "prewarm", isDue: isPrewarmDue, run: prewarmMailIndex },
   [CRON_DAILY_CLEANUP]: { name: "cleanup", run: (env) => runDailyCleanup(env) },
 };
 
 /**
- * 按 cron 表达式分派（`scheduled` 入口调用）。
- * 无论成败都把开始/结束时间、处理数量、错误写进 settings；失败时记录后原样抛出，
+ * 按 cron 表达式分派（`scheduled` 入口调用）。now 只用于判断任务是否到点（测试里可传入模拟时刻）。
+ * 运行了的任务无论成败都把开始/结束时间、处理数量、错误写进 settings；失败时记录后原样抛出，
  * 让 Workers 的 cron 日志也能看到失败，不吞异常。
  */
-export async function runScheduled(cron: string, env: CronEnv): Promise<void> {
+export async function runScheduled(cron: string, env: CronEnv, now: number = nowSec()): Promise<void> {
   const task = TASKS[cron];
   if (!task) throw new Error(`未知的 cron 表达式：${cron}`);
+  if (task.isDue !== undefined && !(await task.isDue(env.APP_DB, now))) return;
+  await runAndRecord(task, env);
+}
 
+async function runAndRecord(task: CronTask, env: CronEnv): Promise<void> {
   const startedAt = nowSec();
   let processed: Processed = {};
   let failure: unknown = null;

@@ -407,15 +407,30 @@ export const LOGIN_BODY_MAX_BYTES = 4096;
 
 // ---- 定时任务（M7a，01 §2 cron） ----
 
-/** 与 wrangler.jsonc 的 triggers.crons 保持一致 */
-export const CRON_PREWARM = "*/5 * * * *";
+/** 与 wrangler.jsonc 的 triggers.crons 保持一致（有测试守着） */
+export const CRON_PREWARM = "*/30 * * * *";
 export const CRON_DAILY_CLEANUP = "17 3 * * *";
 
+/** CRON_PREWARM 的触发周期（分钟）；预热间隔档位（shared 的 PREWARM_INTERVAL_OPTIONS_MIN）都是它的整数倍，到点才真正运行 */
+export const PREWARM_CRON_TICK_MIN = 30;
+
 /**
- * 每次预热最多取多少封新邮件、最多解析多少封。
- * 单封解析约十到几十毫秒 CPU，20 封远低于 Workers cron 的 CPU 上限；积压的邮件下个 5 分钟继续。
+ * 判断"到没到间隔"时的容差（秒），必须小于触发周期。cron 实际触发时间有几秒到几十秒的抖动，
+ * 不留容差的话，上次晚几秒触发会让这次差几秒不到间隔，被推迟到下一个触发点。
  */
-export const PREWARM_BATCH_SIZE = 20;
+export const PREWARM_DUE_TOLERANCE_SEC = 300;
+
+/** 后台预热的设置默认值（可被系统设置覆盖）：默认关闭；打开后默认每 60 分钟一次 */
+export const PREWARM_ENABLED_DEFAULT = false;
+export const PREWARM_INTERVAL_MIN_DEFAULT = 60;
+
+/**
+ * 预热每轮取多少封新邮件并解析；一次运行循环多轮，直到追上最新邮件或达到轮数上限，剩下的下次运行继续。
+ * 单封解析约十到几十毫秒 CPU、每轮约 5–10 次 D1 查询：30 轮（300 封）在 Workers Paid 的 cron CPU（默认 30 秒）
+ * 与单次调用 1000 次 D1 查询的上限内留有余量。
+ */
+export const PREWARM_ROUND_SIZE = 10;
+export const PREWARM_MAX_ROUNDS_PER_RUN = 30;
 
 /** 日志保留天数默认值（可被系统设置覆盖） */
 export const ACCESS_LOG_RETENTION_DAYS_DEFAULT = 90;

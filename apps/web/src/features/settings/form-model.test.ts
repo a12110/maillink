@@ -11,6 +11,7 @@ const SAMPLES: { [G in WritableSettingGroup]: SettingsByGroup[G] } = {
   security: { admin_require_2fa: false, session_idle_sec: 7200, session_absolute_sec: 30 * 86_400, password_min_length: 12 },
   links: { default_expires_in_days: null, default_poll_interval_sec: 30, show_brand: true },
   logs: { access_retention_days: 30, audit_retention_days: 365 },
+  prewarm: { enabled: true, interval_minutes: 30 },
 };
 
 /** GET 响应与 PUT 请求体的差别：turnstile 的 secret_set 不会被提交 */

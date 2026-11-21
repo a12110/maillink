@@ -119,16 +119,33 @@ export type ListAfterParams = {
   limit: number;
 };
 
-/** 增量轮询，id 正序（一次取不完时调用方用最大的 id 继续） */
-export async function listAfter(db: D1Database, params: ListAfterParams): Promise<MailCandidate[]> {
-  const capabilities = (await requireMailSchema(db)).capabilities;
-  if (params.addresses.length === 0) return [];
+export type CountAfterParams = Omit<ListAfterParams, "limit">;
+
+function afterQuery(params: CountAfterParams, capabilities: MailCapabilities): QueryBuilder {
   const query = new QueryBuilder();
   query.where(recipientIn(query.bind(JSON.stringify(expandAddressForms(params.addresses))), capabilities));
   query.where(`id > ${query.bind(params.afterId)}`);
   if (params.since != null) query.where(`created_at >= ${query.bind(formatD1Utc(params.since * MS_PER_SECOND))}`);
+  return query;
+}
+
+/** 增量轮询，id 正序（一次取不完时调用方用最大的 id 继续） */
+export async function listAfter(db: D1Database, params: ListAfterParams): Promise<MailCandidate[]> {
+  const capabilities = (await requireMailSchema(db)).capabilities;
+  if (params.addresses.length === 0) return [];
+  const query = afterQuery(params, capabilities);
   const sql = `${selectColumns(capabilities)} ${query.whereClause()} ORDER BY id ASC LIMIT ${query.bind(params.limit)}`;
   return await runQuery(db, sql, query.params);
+}
+
+/** 与 listAfter 同样的条件下一共还有多少封（预热达到单次轮数上限时报告积压） */
+export async function countAfter(db: D1Database, params: CountAfterParams): Promise<number> {
+  const capabilities = (await requireMailSchema(db)).capabilities;
+  if (params.addresses.length === 0) return 0;
+  const query = afterQuery(params, capabilities);
+  const row = await db.prepare(`SELECT COUNT(*) AS n FROM raw_mails ${query.whereClause()}`).bind(...query.params).first<{ n: number }>();
+  if (row === null) throw new Error("COUNT(*) 没有返回结果行");
+  return row.n;
 }
 
 /** 按 id 取单封候选；不存在返回 null */

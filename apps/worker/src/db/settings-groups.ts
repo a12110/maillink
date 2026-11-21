@@ -47,6 +47,10 @@ export const GROUP_FIELDS = {
     access_retention_days: "logs.access_retention_days",
     audit_retention_days: "logs.audit_retention_days",
   },
+  prewarm: {
+    enabled: "prewarm.enabled",
+    interval_minutes: "prewarm.interval_minutes",
+  },
 } as const satisfies Record<WritableSettingGroup, FieldMap>;
 
 /** 读出一个分组的全部字段（库里没有的取默认值）；turnstile 组不含 secret_set，调用方补上 */

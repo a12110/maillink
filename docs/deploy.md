@@ -147,7 +147,7 @@ wrangler deploy
       -X POST $B/api/auth/login -d '{"username":"smoke-test-nobody","password":"wrong-password-123"}'
   done; echo   # 先是一串 401，之后变成 429
   ```
-- [ ] **cron 已触发**：等过 5 分钟后再看健康检查的 `cron.prewarm`，应有上次运行时间且没有错误；每日清理（UTC 03:17）次日看 `cron.cleanup`。控制台 Worker → Settings → Triggers 里应能看到两条 cron。
+- [ ] **cron 已触发**：后台预热默认关闭，关闭时 `cron.prewarm` 为 `null`。在"系统设置 → 后台预热"里打开后，过了下一个整点或半点（UTC）再看健康检查的 `cron.prewarm`，应有上次运行时间且没有错误；每日清理（UTC 03:17）次日看 `cron.cleanup`。控制台 Worker → Settings → Triggers 里应能看到两条 cron。
 - [ ] **页面安全头**：
 
   ```sh

@@ -1,14 +1,18 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, createScheduledController, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { healthResponseSchema } from "@maillink/shared";
+import { healthResponseSchema, PREWARM_INTERVAL_OPTIONS_MIN } from "@maillink/shared";
+import type { PrewarmIntervalMin } from "@maillink/shared";
 import {
   ACCESS_LOG_RETENTION_DAYS_DEFAULT,
   AUDIT_LOG_RETENTION_DAYS_DEFAULT,
   CRON_DAILY_CLEANUP,
   CRON_PREWARM,
   ORPHAN_SCAN_BATCH_SIZE,
-  PREWARM_BATCH_SIZE,
+  PREWARM_CRON_TICK_MIN,
+  PREWARM_DUE_TOLERANCE_SEC,
+  PREWARM_MAX_ROUNDS_PER_RUN,
+  PREWARM_ROUND_SIZE,
   SESSION_IDLE_SEC,
 } from "../src/constants";
 import { runDailyCleanup } from "../src/cron/cleanup";
@@ -18,10 +22,21 @@ import { insertAuditLog } from "../src/db/audit";
 import worker from "../src/index";
 import { adminSession, api, createUser, resetApp, setupMailDb } from "./helpers";
 import { insertMail } from "./mail-helpers";
+import { setRawSetting } from "./settings-helpers";
+import { readWranglerConfig } from "./wrangler-config";
 
+const MINUTE = 60;
 const DAY = 24 * 60 * 60;
 const ADDRESS = "box@example.com";
 const now = () => Math.floor(Date.now() / 1000);
+
+async function enablePrewarm(intervalMinutes: PrewarmIntervalMin = 60): Promise<void> {
+  await setRawSetting("prewarm.enabled", true);
+  await setRawSetting("prewarm.interval_minutes", intervalMinutes);
+}
+
+/** 模拟"过了很久之后的下一次触发"：不受间隔限制，测预热本身的逻辑 */
+const prewarmLater = () => runScheduled(CRON_PREWARM, env, now() + DAY);
 
 async function addMailbox(address = ADDRESS, status: "active" | "disabled" = "active"): Promise<void> {
   await env.APP_DB
@@ -47,6 +62,7 @@ describe("scheduled 入口与分派", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("通过 worker.scheduled 触发预热，并写入 last_run", async () => {
+    await enablePrewarm();
     await addMailbox();
     const id = await simpleMail("hello");
     const ctx = createExecutionContext();
@@ -54,7 +70,7 @@ describe("scheduled 入口与分派", () => {
     await waitOnExecutionContext(ctx);
     expect(await indexedIds()).toEqual([id]);
     const run = await getLastRun(env.APP_DB, "prewarm");
-    expect(run).toMatchObject({ ok: true, error: null, processed: { candidates: 1, ok: 1 } });
+    expect(run).toMatchObject({ ok: true, error: null, processed: { rounds: 1, candidates: 1, ok: 1, remaining: 0 } });
     expect(run?.finished_at).toBeGreaterThanOrEqual(run?.started_at ?? Infinity);
   });
 
@@ -64,6 +80,7 @@ describe("scheduled 入口与分派", () => {
 
   it("任务失败：console.error、写入 last_run.error，并把原错误抛出", async () => {
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    await enablePrewarm();
     await addMailbox();
     await setupMailDb({ rawMails: false });
     await expect(runScheduled(CRON_PREWARM, env)).rejects.toThrow(/MAIL_DB/);
@@ -74,8 +91,73 @@ describe("scheduled 入口与分派", () => {
   });
 });
 
-describe("预热 mail_index", () => {
+describe("预热的开关与间隔", () => {
   beforeEach(resetApp);
+
+  it("cron 表达式与 wrangler.jsonc 一致；间隔档位是触发周期的整数倍，容差小于触发周期", () => {
+    const { triggers } = readWranglerConfig<{ triggers: { crons: string[] } }>();
+    expect([...triggers.crons].sort()).toEqual([CRON_PREWARM, CRON_DAILY_CLEANUP].sort());
+    expect(CRON_PREWARM).toBe(`*/${PREWARM_CRON_TICK_MIN} * * * *`);
+    for (const minutes of PREWARM_INTERVAL_OPTIONS_MIN) expect(minutes % PREWARM_CRON_TICK_MIN).toBe(0);
+    expect(PREWARM_DUE_TOLERANCE_SEC).toBeLessThan(PREWARM_CRON_TICK_MIN * MINUTE);
+  });
+
+  it("默认关闭：触发了也不运行，不写 last_run、不建游标", async () => {
+    await addMailbox();
+    await simpleMail("ignored");
+    await runScheduled(CRON_PREWARM, env);
+    expect(await indexedIds()).toEqual([]);
+    expect(await getLastRun(env.APP_DB, "prewarm")).toBeNull();
+    expect(await getPrewarmCursor(env.APP_DB)).toBeNull();
+  });
+
+  it("打开后又关闭：不再运行，last_run 保留上次真正运行的记录", async () => {
+    await enablePrewarm();
+    await addMailbox();
+    await simpleMail("first");
+    await runScheduled(CRON_PREWARM, env);
+    const run = await getLastRun(env.APP_DB, "prewarm");
+    await setRawSetting("prewarm.enabled", false);
+    const later = await simpleMail("later");
+    await prewarmLater();
+    expect((await indexedIds()).includes(later)).toBe(false);
+    expect(await getLastRun(env.APP_DB, "prewarm")).toEqual(run);
+  });
+
+  it.each([30, 60] as const)("间隔 %i 分钟：没到点跳过，到点（扣掉容差）运行", async (minutes) => {
+    await enablePrewarm(minutes);
+    await addMailbox();
+    await simpleMail("seed");
+    await runScheduled(CRON_PREWARM, env);
+    const startedAt = (await getLastRun(env.APP_DB, "prewarm"))?.started_at ?? 0;
+    const fresh = await simpleMail("fresh");
+
+    const dueAt = startedAt + minutes * MINUTE - PREWARM_DUE_TOLERANCE_SEC;
+    await runScheduled(CRON_PREWARM, env, dueAt - 1);
+    expect((await indexedIds()).includes(fresh)).toBe(false);
+    await runScheduled(CRON_PREWARM, env, dueAt);
+    expect((await indexedIds()).includes(fresh)).toBe(true);
+  });
+
+  it("间隔 60 分钟时，30 分钟后的那次触发会跳过", async () => {
+    await enablePrewarm(60);
+    await addMailbox();
+    await simpleMail("seed");
+    await runScheduled(CRON_PREWARM, env);
+    const startedAt = (await getLastRun(env.APP_DB, "prewarm"))?.started_at ?? 0;
+    const fresh = await simpleMail("fresh");
+    await runScheduled(CRON_PREWARM, env, startedAt + PREWARM_CRON_TICK_MIN * MINUTE);
+    expect((await indexedIds()).includes(fresh)).toBe(false);
+  });
+});
+
+describe("预热 mail_index", () => {
+  beforeEach(async () => {
+    await resetApp();
+    await enablePrewarm();
+  });
+
+  const rawCount = async () => (await env.MAIL_DB.prepare("SELECT COUNT(*) AS n FROM raw_mails").first<{ n: number }>())?.n;
 
   it("没有启用的收件地址：什么都不做，不建游标", async () => {
     await addMailbox(ADDRESS, "disabled");
@@ -83,44 +165,80 @@ describe("预热 mail_index", () => {
     await runScheduled(CRON_PREWARM, env);
     expect(await indexedIds()).toEqual([]);
     expect(await getPrewarmCursor(env.APP_DB)).toBeNull();
-    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ addresses: 0, candidates: 0 });
+    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ addresses: 0, rounds: 0, candidates: 0 });
   });
 
-  it("首次运行只取最近一批，游标推进到最大 id；之后只处理游标之后的新邮件", async () => {
+  it("首次运行只取最近一轮，游标推进到最大 id；之后只处理游标之后的新邮件", async () => {
     await addMailbox();
     const old: number[] = [];
-    for (let i = 0; i < PREWARM_BATCH_SIZE + 3; i += 1) old.push(await simpleMail(`old ${i}`));
+    for (let i = 0; i < PREWARM_ROUND_SIZE + 3; i += 1) old.push(await simpleMail(`old ${i}`));
     await runScheduled(CRON_PREWARM, env);
 
     const newest = old[old.length - 1] ?? 0;
     expect(await getPrewarmCursor(env.APP_DB)).toBe(newest);
     const first = await indexedIds();
-    expect(first).toHaveLength(PREWARM_BATCH_SIZE);
+    expect(first).toHaveLength(PREWARM_ROUND_SIZE);
     expect(first[first.length - 1]).toBe(newest);
 
     const fresh = await simpleMail("fresh");
     await simpleMail("other box", "someone@else.org");
-    await runScheduled(CRON_PREWARM, env);
+    await prewarmLater();
     expect(await getPrewarmCursor(env.APP_DB)).toBe(fresh);
     expect((await indexedIds()).includes(fresh)).toBe(true);
-    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ candidates: 1, ok: 1 });
+    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ rounds: 1, candidates: 1, ok: 1, remaining: 0 });
   });
 
-  it("积压超过一批：每次推进一批，不跳过邮件；不改 MAIL_DB", async () => {
+  it("积压超过一轮：一次运行循环多轮直到追上，不跳过邮件；不改 MAIL_DB", async () => {
     await addMailbox();
     await simpleMail("seed");
     await runScheduled(CRON_PREWARM, env);
 
     const ids: number[] = [];
-    for (let i = 0; i < PREWARM_BATCH_SIZE + 5; i += 1) ids.push(await simpleMail(`m${i}`));
-    const rawCount = (await env.MAIL_DB.prepare("SELECT COUNT(*) AS n FROM raw_mails").first<{ n: number }>())?.n;
+    for (let i = 0; i < PREWARM_ROUND_SIZE * 2 + 5; i += 1) ids.push(await simpleMail(`m${i}`));
+    const before = await rawCount();
 
-    await runScheduled(CRON_PREWARM, env);
-    expect(await getPrewarmCursor(env.APP_DB)).toBe(ids[PREWARM_BATCH_SIZE - 1]);
-    await runScheduled(CRON_PREWARM, env);
+    await prewarmLater();
     expect(await getPrewarmCursor(env.APP_DB)).toBe(ids[ids.length - 1]);
     expect(await indexedIds()).toEqual(expect.arrayContaining(ids));
-    expect((await env.MAIL_DB.prepare("SELECT COUNT(*) AS n FROM raw_mails").first<{ n: number }>())?.n).toBe(rawCount);
+    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ rounds: 3, candidates: ids.length, ok: ids.length, remaining: 0 });
+    expect(await rawCount()).toBe(before);
+  });
+
+  it("积压正好是整轮：多跑一轮确认没有新邮件，remaining 为 0", async () => {
+    await addMailbox();
+    await simpleMail("seed");
+    await runScheduled(CRON_PREWARM, env);
+    const ids: number[] = [];
+    for (let i = 0; i < PREWARM_ROUND_SIZE * 2; i += 1) ids.push(await simpleMail(`m${i}`));
+
+    await prewarmLater();
+    expect(await getPrewarmCursor(env.APP_DB)).toBe(ids[ids.length - 1]);
+    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ rounds: 2, candidates: ids.length, remaining: 0 });
+  });
+
+  it("积压超过单次轮数上限：停在上限、报告剩余封数（只数本地址的），下次运行接着处理", async () => {
+    await addMailbox();
+    await simpleMail("seed");
+    await runScheduled(CRON_PREWARM, env);
+
+    const perRun = PREWARM_ROUND_SIZE * PREWARM_MAX_ROUNDS_PER_RUN;
+    const extra = 3;
+    const ids: number[] = [];
+    for (let i = 0; i < perRun + extra; i += 1) ids.push(await simpleMail(`m${i}`));
+    await simpleMail("other box", "someone@else.org");
+
+    await prewarmLater();
+    expect(await getPrewarmCursor(env.APP_DB)).toBe(ids[perRun - 1]);
+    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({
+      rounds: PREWARM_MAX_ROUNDS_PER_RUN,
+      candidates: perRun,
+      remaining: extra,
+    });
+
+    await prewarmLater();
+    expect(await getPrewarmCursor(env.APP_DB)).toBe(ids[ids.length - 1]);
+    expect(await indexedIds()).toEqual(expect.arrayContaining(ids));
+    expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ rounds: 1, candidates: extra, remaining: 0 });
   });
 
   it("解析失败的邮件记为 failed 但游标照常推进（不会卡死）", async () => {
@@ -128,7 +246,7 @@ describe("预热 mail_index", () => {
     await simpleMail("seed");
     await runScheduled(CRON_PREWARM, env);
     const broken = await insertMail({ address: ADDRESS, raw: null, raw_blob: null });
-    await runScheduled(CRON_PREWARM, env);
+    await prewarmLater();
     expect(await getPrewarmCursor(env.APP_DB)).toBe(broken);
     expect((await getLastRun(env.APP_DB, "prewarm"))?.processed).toMatchObject({ failed: 1 });
   });
@@ -241,6 +359,7 @@ describe("每日清理：mail_index 孤儿", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("删除 MAIL_DB 里已不存在的行，保留仍存在的；不改 MAIL_DB", async () => {
+    await enablePrewarm();
     await addMailbox();
     const keep = await simpleMail("keep");
     const gone = await simpleMail("gone");
@@ -310,6 +429,7 @@ describe("health 的 cron 状态", () => {
     expect(afterCleanup.prewarm).toBeNull();
     expect(afterCleanup.cleanup).toMatchObject({ ok: true, error: null });
 
+    await enablePrewarm();
     await addMailbox();
     await setupMailDb({ rawMails: false });
     await expect(runScheduled(CRON_PREWARM, env)).rejects.toThrow();

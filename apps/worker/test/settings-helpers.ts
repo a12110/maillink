@@ -12,6 +12,7 @@ export const DEFAULTS = {
   security: { admin_require_2fa: false, session_idle_sec: 604_800, session_absolute_sec: 2_592_000, password_min_length: 10 },
   links: { default_expires_in_days: null, default_poll_interval_sec: 30, show_brand: true },
   logs: { access_retention_days: 90, audit_retention_days: 365 },
+  prewarm: { enabled: false, interval_minutes: 60 },
 } as const;
 
 export type ApiErrorBody = { error: { code: string; message: string } };

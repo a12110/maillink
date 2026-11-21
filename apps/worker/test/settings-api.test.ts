@@ -61,6 +61,7 @@ describe("设置分组 API：默认值与整组替换", () => {
     security: { admin_require_2fa: false, session_idle_sec: 7200, session_absolute_sec: 86_400, password_min_length: 14 },
     links: { default_expires_in_days: 30, default_poll_interval_sec: 60, show_brand: false },
     logs: { access_retention_days: 30, audit_retention_days: 180 },
+    prewarm: { enabled: true, interval_minutes: 30 },
   };
 
   it.each(Object.keys(VALID) as Array<keyof typeof VALID>)("PUT %s：保存后 GET 一致，并写审计（含旧值）", async (group) => {
@@ -116,6 +117,8 @@ describe("设置分组 API：字段校验", () => {
     ["轮询间隔低于下限", "links", { default_poll_interval_sec: LINK_POLL_INTERVAL_MIN_SEC - 1 }],
     ["默认过期天数为 0", "links", { default_expires_in_days: 0 }],
     ["日志保留 0 天", "logs", { audit_retention_days: 0 }],
+    ["预热间隔不在档位里", "prewarm", { interval_minutes: 45 }],
+    ["预热开关不是布尔值", "prewarm", { enabled: "yes" }],
     ["Turnstile 作用范围未知", "turnstile", { scopes: ["admin"] }],
   ];
 

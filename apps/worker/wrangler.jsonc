@@ -46,8 +46,9 @@
       "simple": { "limit": 120, "period": 60 }
     }
   ],
+  // 预热：每 30 分钟触发一次，是否运行、隔多久运行由系统设置"后台预热"决定（默认关闭）；须与 src/constants.ts 的 CRON_PREWARM 一致
   "triggers": {
-    "crons": ["*/5 * * * *", "17 3 * * *"]
+    "crons": ["*/30 * * * *", "17 3 * * *"]
   },
   "vars": {
     "PUBLIC_ORIGIN": "http://localhost:8787"

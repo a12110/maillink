@@ -4,6 +4,7 @@ import {
   authSettingsSchema,
   linksSettingsSchema,
   logsSettingsSchema,
+  prewarmSettingsSchema,
   securitySettingsSchema,
   siteSettingsSchema,
   turnstileSettingsInputSchema,
@@ -14,6 +15,8 @@ import {
   AUDIT_LOG_RETENTION_DAYS_DEFAULT,
   LINK_DEFAULT_POLL_INTERVAL_SEC,
   PASSWORD_MIN_LENGTH,
+  PREWARM_ENABLED_DEFAULT,
+  PREWARM_INTERVAL_MIN_DEFAULT,
   SESSION_ABSOLUTE_SEC,
   SESSION_IDLE_SEC,
 } from "../constants";
@@ -31,6 +34,7 @@ const turnstile = turnstileSettingsInputSchema.shape;
 const security = securitySettingsSchema.shape;
 const links = linksSettingsSchema.shape;
 const logs = logsSettingsSchema.shape;
+const prewarm = prewarmSettingsSchema.shape;
 
 export const SETTING_DEFINITIONS = {
   "site.name": { schema: site.name, default: "MailLink" },
@@ -62,6 +66,8 @@ export const SETTING_DEFINITIONS = {
   "links.show_brand": { schema: links.show_brand, default: true },
   "logs.access_retention_days": { schema: logs.access_retention_days, default: ACCESS_LOG_RETENTION_DAYS_DEFAULT },
   "logs.audit_retention_days": { schema: logs.audit_retention_days, default: AUDIT_LOG_RETENTION_DAYS_DEFAULT },
+  "prewarm.enabled": { schema: prewarm.enabled, default: PREWARM_ENABLED_DEFAULT },
+  "prewarm.interval_minutes": { schema: prewarm.interval_minutes, default: PREWARM_INTERVAL_MIN_DEFAULT },
 } satisfies Record<string, { schema: z.ZodType; default: unknown }>;
 
 type Definitions = typeof SETTING_DEFINITIONS;

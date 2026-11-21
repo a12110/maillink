@@ -156,6 +156,19 @@ export const logsSettingsSchema = z.strictObject({
 });
 export type LogsSettings = z.infer<typeof logsSettingsSchema>;
 
+// ---- 后台预热 ----
+
+/** 预热间隔的可选档位（分钟），必须是 worker 里 cron 触发周期 PREWARM_CRON_TICK_MIN 的整数倍（有测试守着） */
+export const PREWARM_INTERVAL_OPTIONS_MIN = [30, 60] as const;
+export type PrewarmIntervalMin = (typeof PREWARM_INTERVAL_OPTIONS_MIN)[number];
+
+export const prewarmSettingsSchema = z.strictObject({
+  /** 关闭时不在后台预解析，新邮件只在被访问时现场解析 */
+  enabled: z.boolean(),
+  interval_minutes: z.literal(PREWARM_INTERVAL_OPTIONS_MIN),
+});
+export type PrewarmSettings = z.infer<typeof prewarmSettingsSchema>;
+
 // ---- 系统状态（只读） ----
 
 /** 健康检查结果再加上 db_version 与 mail_index 行数；不健康时也是 200，由 ok 字段表达 */
@@ -167,7 +180,7 @@ export type SystemSettings = z.infer<typeof systemSettingsSchema>;
 
 // ---- 分组 ----
 
-export const WRITABLE_SETTING_GROUPS = ["site", "appearance", "auth", "turnstile", "security", "links", "logs"] as const;
+export const WRITABLE_SETTING_GROUPS = ["site", "appearance", "auth", "turnstile", "security", "links", "logs", "prewarm"] as const;
 export const writableSettingGroupSchema = z.enum(WRITABLE_SETTING_GROUPS);
 export type WritableSettingGroup = z.infer<typeof writableSettingGroupSchema>;
 
@@ -183,6 +196,7 @@ export type SettingsByGroup = {
   security: SecuritySettings;
   links: LinksSettings;
   logs: LogsSettings;
+  prewarm: PrewarmSettings;
   system: SystemSettings;
 };
 

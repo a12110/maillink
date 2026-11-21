@@ -5,14 +5,16 @@ import {
   LOG_RETENTION_DAYS_MAX,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
+  PREWARM_INTERVAL_OPTIONS_MIN,
 } from "@maillink/shared";
-import { TextField } from "../../ui";
+import type { PrewarmIntervalMin } from "@maillink/shared";
+import { Segmented, TextField } from "../../ui";
 import { bindText, CheckField } from "./fields";
 import { SESSION_DURATION_MAX_TEXT, SESSION_DURATION_MIN_TEXT } from "./form-model";
 import { SettingsGroupForm } from "./SettingsGroupForm";
 import type { FormContext } from "./SettingsGroupForm";
 
-// 安全、取件链接默认值、日志：字段少、结构简单，放在一个文件里。
+// 安全、取件链接默认值、日志、后台预热：字段少、结构简单，放在一个文件里。
 
 function SecurityFields(context: FormContext<"security">) {
   const { draft, update, disabled } = context;
@@ -63,4 +65,31 @@ function LogsFields(context: FormContext<"logs">) {
 
 export function LogsForm() {
   return <SettingsGroupForm group="logs">{(context) => <LogsFields {...context} />}</SettingsGroupForm>;
+}
+
+const PREWARM_INTERVAL_LABELS: Record<PrewarmIntervalMin, string> = { 30: "每 30 分钟", 60: "每 1 小时" };
+const PREWARM_INTERVAL_CHOICES = PREWARM_INTERVAL_OPTIONS_MIN.map((minutes) => ({ value: String(minutes), label: PREWARM_INTERVAL_LABELS[minutes] }));
+
+function toPrewarmInterval(value: string): PrewarmIntervalMin {
+  const minutes = PREWARM_INTERVAL_OPTIONS_MIN.find((option) => String(option) === value);
+  if (minutes === undefined) throw new Error(`未知的预热间隔：${value}`);
+  return minutes;
+}
+
+function PrewarmFields(context: FormContext<"prewarm">) {
+  const { draft, update, disabled } = context;
+  return (
+    <>
+      <CheckField label="启用后台预热" checked={draft.enabled} disabled={disabled}
+        onChange={(event) => update({ enabled: event.target.checked })}
+        hint="开启后，定时任务在后台把已启用收件地址的新邮件提前解析进缓存，取件页打开更快；每次分轮处理，处理不完的下次继续。关闭时新邮件在被访问时现场解析，功能不受影响。" />
+      <Segmented legend="预热间隔" name="interval_minutes" value={String(draft.interval_minutes)} options={PREWARM_INTERVAL_CHOICES}
+        disabled={disabled || !draft.enabled} onChange={(value) => update({ interval_minutes: toPrewarmInterval(value) })}
+        hint="从上次运行算起，到点后的下一个整点或半点运行。" />
+    </>
+  );
+}
+
+export function PrewarmForm() {
+  return <SettingsGroupForm group="prewarm">{(context) => <PrewarmFields {...context} />}</SettingsGroupForm>;
 }

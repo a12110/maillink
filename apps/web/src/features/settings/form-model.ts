@@ -3,6 +3,7 @@ import {
   authSettingsSchema,
   linksSettingsSchema,
   logsSettingsSchema,
+  prewarmSettingsSchema,
   securitySettingsSchema,
   SESSION_DURATION_MAX_SEC,
   SESSION_DURATION_MIN_SEC,
@@ -14,6 +15,7 @@ import type {
   AuthSettings,
   LinksSettings,
   LogsSettings,
+  PrewarmSettings,
   SecuritySettings,
   SettingsByGroup,
   SiteSettings,
@@ -68,6 +70,7 @@ export type DraftByGroup = {
   security: SecurityDraft;
   links: LinksDraft;
   logs: LogsDraft;
+  prewarm: PrewarmSettings;
 };
 
 export type ParseResult<I> =
@@ -205,7 +208,12 @@ const logs: GroupSpec<"logs"> = {
   },
 };
 
-export const GROUP_SPECS = { site, appearance, auth, turnstile, security, links, logs } as const satisfies {
+const prewarm: GroupSpec<"prewarm"> = {
+  toDraft: (data) => ({ ...data }),
+  toInput: (draft) => validate(prewarmSettingsSchema, draft, Object.keys(draft)),
+};
+
+export const GROUP_SPECS = { site, appearance, auth, turnstile, security, links, logs, prewarm } as const satisfies {
   [G in WritableSettingGroup]: GroupSpec<G>;
 };
 

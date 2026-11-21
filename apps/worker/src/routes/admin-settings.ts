@@ -5,6 +5,7 @@ import {
   authSettingsSchema,
   linksSettingsSchema,
   logsSettingsSchema,
+  prewarmSettingsSchema,
   securitySettingsSchema,
   settingGroupSchema,
   siteSettingsSchema,
@@ -40,6 +41,7 @@ const INPUT_SCHEMAS: Record<WritableSettingGroup, z.ZodType<Record<string, unkno
   security: securitySettingsSchema,
   links: linksSettingsSchema,
   logs: logsSettingsSchema,
+  prewarm: prewarmSettingsSchema,
 };
 
 function parseGroup(c: Context<AppEnv>): SettingGroup {

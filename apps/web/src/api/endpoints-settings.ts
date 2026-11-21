@@ -7,6 +7,7 @@ import {
   logsSettingsSchema,
   oauthDiscoverResponseSchema,
   oauthProviderChangeResponseSchema,
+  prewarmSettingsSchema,
   securitySettingsSchema,
   siteSettingsSchema,
   systemSettingsSchema,
@@ -32,6 +33,7 @@ const SETTINGS_RESPONSE_SCHEMAS = {
   security: securitySettingsSchema,
   links: linksSettingsSchema,
   logs: logsSettingsSchema,
+  prewarm: prewarmSettingsSchema,
   system: systemSettingsSchema,
 } as const satisfies { [G in SettingGroup]: z.ZodType<SettingsByGroup[G]> };
 

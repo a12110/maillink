@@ -43,7 +43,7 @@
 | 设置 → 变量和密钥 | 文本 | `PUBLIC_ORIGIN` | 对外访问地址，例如 `https://mail.example.com` |
 | 设置 → 变量和密钥 | 密钥 | `APP_SECRET` | 至少 32 个字符的随机串，**部署后不能更换** |
 | 设置 → 变量和密钥 | 密钥 | `SETUP_TOKEN` | 随机串，初始化完成后删除 |
-| 设置 → 触发事件 | Cron 触发器 | — | `*/5 * * * *` 与 `17 3 * * *` 两条 |
+| 设置 → 触发事件 | Cron 触发器 | — | `*/30 * * * *` 与 `17 3 * * *` 两条 |
 | 域 | 自定义域 | — | 与 `PUBLIC_ORIGIN` 相同的主机名，例如 `mail.example.com` |
 | 域 | Worker URL | — | 生产与预览两项都关闭 |
 
@@ -207,7 +207,7 @@ openssl rand -hex 24      # SETUP_TOKEN
 
 在"设置 → 触发事件 → Cron 触发器"里点"添加"，切到"Cron 表达式"标签页：
 
-1. 填 `*/5 * * * *`（每 5 分钟预热一次邮件索引），点"添加"；
+1. 填 `*/30 * * * *`（每 30 分钟触发一次后台预热；是否运行、隔多久运行在管理端"系统设置 → 后台预热"里设置，默认关闭），点"添加"；
 2. 再添加一条 `17 3 * * *`（每天 UTC 03:17 清理过期数据）。
 
 ![Cron 触发器](images/deploy-gui/08-cron.png)
@@ -257,7 +257,7 @@ openssl rand -hex 24      # SETUP_TOKEN
 
 - 看日志（代替 `wrangler tail`）：Worker → Observability；
 - 健康检查：登录管理员后，在浏览器里打开 `https://<你的域名>/api/admin/system/health`，`mail_db.probe.healthy` 应为 `true`，`rate_limit.configured` 与 `rate_limit.link_configured` 都应为 `true`；
-- cron：过 5 分钟后再看同一个健康检查接口，`cron.prewarm` 里应有上次运行时间且没有错误；
+- cron：后台预热默认关闭，此时 `cron.prewarm` 为 `null` 是正常的。要验证的话，先在"系统设置 → 后台预热"里打开，过了下一个整点或半点再看同一个健康检查接口，`cron.prewarm` 里应有上次运行时间且没有错误；
 - 初始化入口已关闭：打开 `https://<你的域名>/api/setup/status` 应返回 `"needs_setup":false`，`POST /api/setup` 返回 404。这只说明初始化已经完成（该接口只看 `users` 表），**不能**证明 `SETUP_TOKEN` 已删除；确认删除要在"设置 → 变量和密钥"里看列表，其中不应再有 `SETUP_TOKEN`。
 
 ## 14. 升级
